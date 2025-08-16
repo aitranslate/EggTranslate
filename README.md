@@ -15,9 +15,9 @@
 
 在使用本工具之前，您需要配置一个 OpenAI 兼容的 API 密钥：
 
-1. 准备一个支持 OpenAI API 格式的翻译服务（如 OpenAI、Azure OpenAI、DeepSeek、零一万物等）
-2. 获取该服务的 API 密钥和接口地址
-3. 在 SrtTranslate 界面的设置中填入您的 API 密钥和接口地址
+1. 准备一个支持 OpenAI API 格式的翻译服务（如 豆包、DeepSeek、千问、智普等）
+2. 获取该服务的 API 密钥、接口地址、模型名称
+3. 在 SrtTranslate 界面的设置中填入您的 API 密钥、接口地址、模型名称
 
 ## 🚀 如何使用
 
