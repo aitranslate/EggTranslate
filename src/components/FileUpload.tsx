@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useRef } from 'react';
 import { Upload, FileText, AlertCircle } from 'lucide-react';
 import { useSubtitle } from '@/contexts/SubtitleContext';
 import { motion } from 'framer-motion';
@@ -11,6 +11,7 @@ interface FileUploadProps {
 export const FileUpload: React.FC<FileUploadProps> = ({ className }) => {
   const { loadFromFile, isLoading, error } = useSubtitle();
   const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(async (file: File) => {
     if (!file.name.toLowerCase().endsWith('.srt')) {
@@ -47,6 +48,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({ className }) => {
   const onFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length > 0) handleFile(files[0]);
+    
+    // 重置文件输入框的值，确保可以再次选择同一个文件
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   }, [handleFile]);
 
   return (
@@ -71,6 +77,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ className }) => {
           onDragLeave={onDragLeave}
         >
           <input
+            ref={fileInputRef}
             type="file"
             accept=".srt"
             onChange={onFileSelect}
