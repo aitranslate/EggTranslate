@@ -44,7 +44,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
     );
   }, [history, searchTerm]);
   
-  const handleDeleteHistory = useCallback(async (taskId: string) => {
+  const onDelete = useCallback(async (taskId: string) => {
     const entry = history.find(e => e.taskId === taskId);
     if (!entry) return;
     
@@ -58,7 +58,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
     }
   }, [deleteHistoryEntry, history]);
   
-  const handleClearHistory = useCallback(async () => {
+  const onClear = useCallback(async () => {
     if (history.length === 0) return;
     
     if (window.confirm('确定要清空所有历史记录吗？这操作不可恢复。')) {
@@ -72,12 +72,11 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
   }, [clearHistory, history.length]);
   
   const formatDate = useCallback((timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleString('zh-CN');
+    return new Date(timestamp).toLocaleString('zh-CN');
   }, []);
 
   // 加载历史任务
-  const handleLoadTask = useCallback(async (taskId: string, filename: string) => {
+  const onLoadTask = useCallback(async (taskId: string, filename: string) => {
     try {
       if (window.confirm(`确定要加载历史任务 "${filename}" 吗？这将更换当前工作区的内容。`)) {
         await loadTaskFromHistory(taskId);
@@ -90,7 +89,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
   }, [loadTaskFromHistory, onClose]);
 
   // 导出历史任务
-  const handleExportHistory = useCallback(async (entry: any, format: 'srt' | 'txt' | 'bilingual') => {
+  const onExport = useCallback(async (entry: any, format: 'srt' | 'txt' | 'bilingual') => {
     try {
       setExportingTaskId(entry.taskId);
       
@@ -202,7 +201,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
           </div>
           
           <button
-            onClick={handleClearHistory}
+            onClick={onClear}
             disabled={history.length === 0}
             className="flex items-center space-x-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -258,7 +257,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
                     <div className="flex items-center space-x-2">
                       {/* 加载按钮 */}
                       <button
-                        onClick={() => handleLoadTask(entry.taskId, entry.filename)}
+                        onClick={() => onLoadTask(entry.taskId, entry.filename)}
                         className="flex items-center space-x-1 px-3 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 rounded-lg transition-colors text-sm"
                       >
                         <RefreshCw className="h-3 w-3" />
@@ -283,7 +282,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
                               <div className="bg-black/90 backdrop-blur-sm rounded-lg p-1 space-y-1 min-w-[140px] shadow-2xl border border-white/20">
                                 <button
                                   onClick={() => {
-                                    handleExportHistory(entry, 'srt');
+                                    onExport(entry, 'srt');
                                     setExportingTaskId(null);
                                   }}
                                   className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/20 rounded-md transition-colors duration-150 flex items-center space-x-2"
@@ -293,7 +292,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
                                 </button>
                                 <button
                                   onClick={() => {
-                                    handleExportHistory(entry, 'txt');
+                                    onExport(entry, 'txt');
                                     setExportingTaskId(null);
                                   }}
                                   className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/20 rounded-md transition-colors duration-150 flex items-center space-x-2"
@@ -303,7 +302,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
                                 </button>
                                 <button
                                   onClick={() => {
-                                    handleExportHistory(entry, 'bilingual');
+                                    onExport(entry, 'bilingual');
                                     setExportingTaskId(null);
                                   }}
                                   className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/20 rounded-md transition-colors duration-150 flex items-center space-x-2"
@@ -325,7 +324,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
                       
                       {/* 删除按钮 */}
                       <button
-                        onClick={() => handleDeleteHistory(entry.taskId)}
+                        onClick={() => onDelete(entry.taskId)}
                         className="flex items-center space-x-1 px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 rounded-lg transition-colors text-sm"
                       >
                         <Trash2 className="h-3 w-3" />

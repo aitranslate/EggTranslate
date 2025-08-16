@@ -67,30 +67,22 @@ export const TermsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const addTerm = useCallback(async (original: string, translation: string) => {
     const newTerm = { original, translation };
     dispatch({ type: 'ADD_TERM', payload: newTerm });
-    
-    // 使用数据管理器添加术语并持久化
     await dataManager.addTerm(newTerm);
   }, []);
 
   const removeTerm = useCallback(async (index: number) => {
     dispatch({ type: 'REMOVE_TERM', payload: index });
-    
-    // 使用数据管理器删除术语并持久化
     await dataManager.removeTerm(index);
   }, []);
 
   const updateTerm = useCallback(async (index: number, original: string, translation: string) => {
     const updatedTerm = { original, translation };
     dispatch({ type: 'UPDATE_TERM', payload: { index, term: updatedTerm } });
-    
-    // 使用数据管理器更新术语并持久化
     await dataManager.updateTerm(index, original, translation);
   }, []);
 
   const clearTerms = useCallback(async () => {
     dispatch({ type: 'CLEAR_TERMS' });
-    
-    // 使用数据管理器清空术语并持久化
     await dataManager.clearTerms();
   }, []);
 
@@ -100,9 +92,7 @@ export const TermsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const newTerms: Term[] = [];
 
       for (const line of lines) {
-        // 只使用冒号分割
         const parts = line.split(':').map(part => part.trim());
-        
         if (parts.length >= 2) {
           newTerms.push({
             original: parts[0],
@@ -112,8 +102,6 @@ export const TermsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
 
       dispatch({ type: 'SET_TERMS', payload: newTerms });
-      
-      // 使用数据管理器保存术语并持久化
       await dataManager.saveTerms(newTerms);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '导入术语失败';
@@ -127,18 +115,15 @@ export const TermsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const getRelevantTerms = useCallback((text: string): Term[] => {
     if (!text || state.terms.length === 0) return [];
-    
     const lowerText = text.toLowerCase();
     return state.terms.filter(term => 
       lowerText.includes(term.original.toLowerCase())
     );
   }, [state.terms]);
 
-  // 加载保存的数据
   React.useEffect(() => {
     const loadSavedData = async () => {
       try {
-        // 从内存中加载术语
         const savedTerms = dataManager.getTerms();
         if (savedTerms && savedTerms.length > 0) {
           dispatch({ type: 'SET_TERMS', payload: savedTerms });

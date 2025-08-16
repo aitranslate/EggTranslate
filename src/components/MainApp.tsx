@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Settings, 
@@ -17,7 +17,6 @@ import { useSubtitle } from '@/contexts/SubtitleContext';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { useHistory } from '@/contexts/HistoryContext';
 import { useTerms } from '@/contexts/TermsContext';
-import toast from 'react-hot-toast';
 
 export const MainApp: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);

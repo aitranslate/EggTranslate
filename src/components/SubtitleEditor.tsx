@@ -42,13 +42,13 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({ className }) => 
     return filtered;
   }, [entries, filterType, searchTerm]);
 
-  const startEdit = useCallback((entry: any) => {
+  const onStartEdit = useCallback((entry: any) => {
     setEditingId(entry.id);
     setEditText(entry.text);
     setEditTranslation(entry.translatedText || '');
   }, []);
 
-  const saveEdit = useCallback(async () => {
+  const onSaveEdit = useCallback(async () => {
     if (editingId === null) return;
     
     try {
@@ -62,13 +62,13 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({ className }) => 
     }
   }, [editingId, editText, editTranslation, updateEntry]);
 
-  const cancelEdit = useCallback(() => {
+  const onCancelEdit = useCallback(() => {
     setEditingId(null);
     setEditText('');
     setEditTranslation('');
   }, []);
 
-  const handleClearEntries = useCallback(async () => {
+  const onClearEntries = useCallback(async () => {
     try {
       // 使用增强的清空功能：清空所有相关数据
       await clearAllData();
@@ -170,7 +170,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({ className }) => 
                         </div>
                         <div className="flex items-center space-x-2 pt-1">
                           <button
-                            onClick={handleClearEntries}
+                            onClick={onClearEntries}
                             className="flex-1 px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 rounded-md transition-colors text-sm"
                           >
                             确认清空
@@ -233,7 +233,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({ className }) => 
                     #{entry.id} | {entry.startTime} {'-->'} {entry.endTime}
                   </div>
                   <button
-                    onClick={() => startEdit(entry)}
+                    onClick={() => onStartEdit(entry)}
                     className="p-1 hover:bg-white/20 rounded transition-colors"
                   >
                     <Edit3 className="h-4 w-4 text-white/60" />
@@ -268,14 +268,14 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({ className }) => 
                     {/* 操作按钮 */}
                     <div className="flex items-center space-x-2">
                       <button
-                        onClick={saveEdit}
+                        onClick={onSaveEdit}
                         className="flex items-center space-x-1 px-3 py-1 bg-green-500/20 hover:bg-green-500/30 text-green-200 border border-green-500/30 rounded transition-colors"
                       >
                         <Save className="h-3 w-3" />
                         <span>保存</span>
                       </button>
                       <button
-                        onClick={cancelEdit}
+                        onClick={onCancelEdit}
                         className="flex items-center space-x-1 px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 rounded transition-colors"
                       >
                         <X className="h-3 w-3" />

@@ -27,31 +27,26 @@ export const FileUpload: React.FC<FileUploadProps> = ({ className }) => {
     }
   }, [loadFromFile]);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    
     const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      handleFile(files[0]);
-    }
+    if (files.length > 0) handleFile(files[0]);
   }, [handleFile]);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
   }, []);
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
+  const onDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
   }, []);
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const onFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    if (files.length > 0) {
-      handleFile(files[0]);
-    }
+    if (files.length > 0) handleFile(files[0]);
   }, [handleFile]);
 
   return (
@@ -61,7 +56,6 @@ export const FileUpload: React.FC<FileUploadProps> = ({ className }) => {
         animate={{ opacity: 1, y: 0 }}
         className="w-full"
       >
-        {/* 文件上传区域 */}
         <div
           className={`
             relative w-full p-8 border-2 border-dashed rounded-xl transition-all duration-300
@@ -72,14 +66,14 @@ export const FileUpload: React.FC<FileUploadProps> = ({ className }) => {
             }
             ${isLoading ? 'pointer-events-none opacity-50' : ''}
           `}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
+          onDrop={onDrop}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
         >
           <input
             type="file"
             accept=".srt"
-            onChange={handleFileSelect}
+            onChange={onFileSelect}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             disabled={isLoading}
           />

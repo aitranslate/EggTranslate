@@ -28,7 +28,7 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
   const [importText, setImportText] = useState('');
   const [showImport, setShowImport] = useState(false);
 
-  const handleAddTerm = useCallback(async () => {
+  const onAddTerm = useCallback(async () => {
     if (!newOriginal.trim() || !newTranslation.trim()) {
       toast.error('请输入原文和译文');
       return;
@@ -44,7 +44,7 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
     }
   }, [newOriginal, newTranslation, addTerm]);
 
-  const handleRemoveTerm = useCallback(async (index: number) => {
+  const onRemoveTerm = useCallback(async (index: number) => {
     try {
       await removeTerm(index);
       toast.success('术语已删除');
@@ -53,13 +53,13 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
     }
   }, [removeTerm]);
 
-  const startEdit = useCallback((index: number) => {
+  const onStartEdit = useCallback((index: number) => {
     setEditingIndex(index);
     setEditOriginal(terms[index].original);
     setEditTranslation(terms[index].translation);
   }, [terms]);
 
-  const saveEdit = useCallback(async () => {
+  const onSaveEdit = useCallback(async () => {
     if (editingIndex === null) return;
     
     if (!editOriginal.trim() || !editTranslation.trim()) {
@@ -78,13 +78,13 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
     }
   }, [editingIndex, editOriginal, editTranslation, updateTerm]);
 
-  const cancelEdit = useCallback(() => {
+  const onCancelEdit = useCallback(() => {
     setEditingIndex(null);
     setEditOriginal('');
     setEditTranslation('');
   }, []);
 
-  const handleImport = useCallback(async () => {
+  const onImport = useCallback(async () => {
     if (!importText.trim()) {
       toast.error('请输入要导入的术语');
       return;
@@ -100,7 +100,7 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
     }
   }, [importText, importTerms]);
 
-  const handleExport = useCallback(() => {
+  const onExport = useCallback(() => {
     const content = exportTerms();
     if (!content) {
       toast.error('没有可导出的术语');
@@ -117,7 +117,7 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
     toast.success('术语导出成功');
   }, [exportTerms]);
 
-  const handleClearAll = useCallback(async () => {
+  const onClearAll = useCallback(async () => {
     if (terms.length === 0) return;
     
     if (window.confirm('确定要清空所有术语吗？这操作不可恢复。')) {
@@ -169,7 +169,7 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
                 value={newOriginal}
                 onChange={(e) => setNewOriginal(e.target.value)}
                 className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-purple-400 transition-colors"
-                onKeyPress={(e) => e.key === 'Enter' && handleAddTerm()}
+                onKeyPress={(e) => e.key === 'Enter' && onAddTerm()}
               />
               <input
                 type="text"
@@ -177,11 +177,11 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
                 value={newTranslation}
                 onChange={(e) => setNewTranslation(e.target.value)}
                 className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-purple-400 transition-colors"
-                onKeyPress={(e) => e.key === 'Enter' && handleAddTerm()}
+                onKeyPress={(e) => e.key === 'Enter' && onAddTerm()}
               />
             </div>
             <button
-              onClick={handleAddTerm}
+              onClick={onAddTerm}
               className="flex items-center space-x-2 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-200 border border-green-500/30 rounded-lg transition-colors"
             >
               <Plus className="h-4 w-4" />
@@ -203,7 +203,7 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
                 <span>导入术语</span>
               </button>
               <button
-                onClick={handleExport}
+                onClick={onExport}
                 disabled={terms.length === 0}
                 className="flex items-center space-x-2 px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -211,7 +211,7 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
                 <span>导出术语</span>
               </button>
               <button
-                onClick={handleClearAll}
+                onClick={onClearAll}
                 disabled={terms.length === 0}
                 className="flex items-center space-x-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -238,7 +238,7 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
                   />
                   <div className="flex space-x-3">
                     <button
-                      onClick={handleImport}
+                      onClick={onImport}
                       className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 rounded-lg transition-colors"
                     >
                       确认导入
@@ -296,14 +296,14 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
                           </div>
                           <div className="flex items-center space-x-2">
                             <button
-                              onClick={saveEdit}
+                              onClick={onSaveEdit}
                               className="flex items-center space-x-1 px-3 py-1 bg-green-500/20 hover:bg-green-500/30 text-green-200 border border-green-500/30 rounded transition-colors"
                             >
                               <Save className="h-3 w-3" />
                               <span>保存</span>
                             </button>
                             <button
-                              onClick={cancelEdit}
+                              onClick={onCancelEdit}
                               className="flex items-center space-x-1 px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 rounded transition-colors"
                             >
                               <X className="h-3 w-3" />
@@ -325,13 +325,13 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
                           </div>
                           <div className="flex items-center space-x-1 ml-4">
                             <button
-                              onClick={() => startEdit(index)}
+                              onClick={() => onStartEdit(index)}
                               className="p-2 hover:bg-white/20 rounded transition-colors"
                             >
                               <Edit3 className="h-4 w-4 text-white/60" />
                             </button>
                             <button
-                              onClick={() => handleRemoveTerm(index)}
+                              onClick={() => onRemoveTerm(index)}
                               className="p-2 hover:bg-red-500/20 rounded transition-colors"
                             >
                               <Trash2 className="h-4 w-4 text-red-400" />

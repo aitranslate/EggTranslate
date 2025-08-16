@@ -10,7 +10,7 @@ interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-  const { config, updateConfig, testConnection, isConfigured } = useTranslation();
+  const { config, updateConfig, testConnection } = useTranslation();
   const [formData, setFormData] = useState(config);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -24,7 +24,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     }
   }, [isOpen, config]);
 
-  const handleSave = useCallback(async () => {
+  const onSave = useCallback(async () => {
     try {
       await updateConfig(formData);
       toast.success('设置已保存');
@@ -45,7 +45,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     return apiKeys[0];
   }, []);
 
-  const handleTest = useCallback(async () => {
+  const onTest = useCallback(async () => {
     // 使用当前的 formData 状态
     const currentApiKey = formData.apiKey?.trim();
     
@@ -92,7 +92,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     }
   }, [formData]);
 
-  const handleInputChange = useCallback((field: keyof typeof config, value: any) => {
+  const onInputChange = useCallback((field: keyof typeof config, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setTestResult(null); // 清空测试结果
   }, []);
@@ -133,7 +133,7 @@ API 配置
                   <input
                     type={showApiKey ? 'text' : 'password'}
                     value={formData.apiKey}
-                    onChange={(e) => handleInputChange('apiKey', e.target.value)}
+                    onChange={(e) => onInputChange('apiKey', e.target.value)}
                     placeholder="sk-..."
                     className="w-full p-3 pr-12 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-purple-400 transition-colors"
                   />
@@ -154,7 +154,7 @@ API 配置
                 <input
                   type="text"
                   value={formData.baseURL}
-                  onChange={(e) => handleInputChange('baseURL', e.target.value)}
+                  onChange={(e) => onInputChange('baseURL', e.target.value)}
                   className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 transition-colors"
                 />
               </div>
@@ -166,7 +166,7 @@ API 配置
                 <input
                   type="text"
                   value={formData.model}
-                  onChange={(e) => handleInputChange('model', e.target.value)}
+                  onChange={(e) => onInputChange('model', e.target.value)}
                   placeholder="例如: gpt-3.5-turbo, gpt-4, claude-3-sonnet"
                   className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-purple-400 transition-colors"
                 />
@@ -187,7 +187,7 @@ API 配置
                 </label>
                 <select
                   value={formData.sourceLanguage}
-                  onChange={(e) => handleInputChange('sourceLanguage', e.target.value)}
+                  onChange={(e) => onInputChange('sourceLanguage', e.target.value)}
                   className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 transition-colors"
                 >
                   <option value="English" className="bg-gray-800">英语 (English)</option>
@@ -218,7 +218,7 @@ API 配置
                 </label>
                 <select
                   value={formData.targetLanguage}
-                  onChange={(e) => handleInputChange('targetLanguage', e.target.value)}
+                  onChange={(e) => onInputChange('targetLanguage', e.target.value)}
                   className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 transition-colors"
                 >
                   <option value="English" className="bg-gray-800">英语 (English)</option>
@@ -261,7 +261,7 @@ API 配置
                   min="0"
                   max="10"
                   value={formData.contextBefore}
-                  onChange={(e) => handleInputChange('contextBefore', parseInt(e.target.value))}
+                  onChange={(e) => onInputChange('contextBefore', parseInt(e.target.value))}
                   className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 transition-colors"
                 />
               </div>
@@ -275,7 +275,7 @@ API 配置
                   min="0"
                   max="10"
                   value={formData.contextAfter}
-                  onChange={(e) => handleInputChange('contextAfter', parseInt(e.target.value))}
+                  onChange={(e) => onInputChange('contextAfter', parseInt(e.target.value))}
                   className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 transition-colors"
                 />
               </div>
@@ -289,7 +289,7 @@ API 配置
                   min="1"
                   max="50"
                   value={formData.batchSize}
-                  onChange={(e) => handleInputChange('batchSize', parseInt(e.target.value))}
+                  onChange={(e) => onInputChange('batchSize', parseInt(e.target.value))}
                   className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 transition-colors"
                 />
               </div>
@@ -303,7 +303,7 @@ API 配置
                   min="1"
                   max="10"
                   value={formData.threadCount}
-                  onChange={(e) => handleInputChange('threadCount', parseInt(e.target.value))}
+                  onChange={(e) => onInputChange('threadCount', parseInt(e.target.value))}
                   className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 transition-colors"
                 />
               </div>
@@ -318,7 +318,7 @@ API 配置
                 min="1"
                 max="1000"
                 value={formData.rpm}
-                onChange={(e) => handleInputChange('rpm', parseInt(e.target.value))}
+                onChange={(e) => onInputChange('rpm', parseInt(e.target.value))}
                 className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 transition-colors"
               />
             </div>
@@ -347,7 +347,7 @@ API 配置
           {/* 操作按钮 */}
           <div className="flex flex-col sm:flex-row justify-between space-y-3 sm:space-y-0 sm:space-x-3 pt-4 border-t border-white/20">
             <button
-              onClick={handleTest}
+              onClick={onTest}
               disabled={isTesting || !formData.apiKey}
               className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -363,7 +363,7 @@ API 配置
                 取消
               </button>
               <button
-                onClick={handleSave}
+                onClick={onSave}
                 className="flex items-center space-x-2 px-6 py-3 bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 rounded-lg transition-colors"
               >
                 <Save className="h-4 w-4" />

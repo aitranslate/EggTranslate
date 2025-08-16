@@ -9,7 +9,7 @@ interface ProgressDisplayProps {
 }
 
 export const ProgressDisplay: React.FC<ProgressDisplayProps> = ({ className }) => {
-  const { isTranslating, progress, tokensUsed, config } = useTranslation();
+  const { isTranslating, progress, tokensUsed } = useTranslation();
   const { entries } = useSubtitle();
 
   // 计算字幕条目进度

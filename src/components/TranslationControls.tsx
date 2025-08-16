@@ -43,7 +43,7 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
   
   const [isExporting, setIsExporting] = useState(false);
 
-  const startTranslation = useCallback(async () => {
+  const onStartTranslation = useCallback(async () => {
     if (!entries.length) {
       toast.error('请先上传SRT文件');
       return;
@@ -226,7 +226,7 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
     addHistoryEntry
   ]);
 
-  const handleExport = useCallback(async (format: 'srt' | 'txt' | 'bilingual') => {
+  const onExport = useCallback(async (format: 'srt' | 'txt' | 'bilingual') => {
     if (!entries.length) {
       toast.error('没有可导出的字幕');
       return;
@@ -298,7 +298,7 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
           ) : (
             // 默认状态：显示开始按钮
             <button
-              onClick={startTranslation}
+              onClick={onStartTranslation}
               disabled={!isConfigured || isExporting}
               className={`
                 flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all duration-200
@@ -341,7 +341,7 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
                 <div className="bg-black/90 backdrop-blur-sm rounded-lg p-1 space-y-1 min-w-[140px] shadow-2xl border border-white/20">
                   <button
                     onClick={() => {
-                      handleExport('srt');
+                      onExport('srt');
                       setIsExporting(false);
                     }}
                     className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/20 rounded-md transition-colors duration-150 flex items-center space-x-2"
@@ -351,7 +351,7 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
                   </button>
                   <button
                     onClick={() => {
-                      handleExport('txt');
+                      onExport('txt');
                       setIsExporting(false);
                     }}
                     className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/20 rounded-md transition-colors duration-150 flex items-center space-x-2"
@@ -361,7 +361,7 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
                   </button>
                   <button
                     onClick={() => {
-                      handleExport('bilingual');
+                      onExport('bilingual');
                       setIsExporting(false);
                     }}
                     className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/20 rounded-md transition-colors duration-150 flex items-center space-x-2"

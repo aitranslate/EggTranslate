@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useReducer, useCallback, useRef } from 'react';
-import { TranslationConfig, TranslationProgress, SubtitleEntry } from '@/types';
+import { TranslationConfig, TranslationProgress } from '@/types';
 import { rateLimiter } from '@/utils/rateLimiter';
 import { jsonrepair } from 'jsonrepair';
 import dataManager from '@/services/dataManager';
-import OpenAI from 'openai';
 
 interface TranslationState {
   config: TranslationConfig;
@@ -11,8 +10,8 @@ interface TranslationState {
   progress: TranslationProgress;
   tokensUsed: number;
   isConfigured: boolean;
-  abortController: AbortController | null; // AbortController 实例
-  currentTaskId: string; // 当前任务ID
+  abortController: AbortController | null;
+  currentTaskId: string;
 }
 
 interface TranslationContextValue extends TranslationState {
@@ -21,10 +20,10 @@ interface TranslationContextValue extends TranslationState {
   translateBatch: (texts: string[], signal?: AbortSignal, contextBefore?: string, contextAfter?: string, terms?: string) => Promise<Record<string, any>>;
   updateProgress: (current: number, total: number, phase: 'direct' | 'completed', status: string) => Promise<void>;
   resetProgress: () => Promise<void>;
-  clearTask: () => Promise<void>; // 新增清空任务函数
-  startTranslation: () => Promise<AbortController>; // 开始翻译
-  stopTranslation: () => Promise<void>; // 停止翻译
-  completeTranslation: () => Promise<void>; // 完成翻译
+  clearTask: () => Promise<void>;
+  startTranslation: () => Promise<AbortController>;
+  stopTranslation: () => Promise<void>;
+  completeTranslation: () => Promise<void>;
 }
 
 type TranslationAction =
@@ -62,7 +61,7 @@ const initialState: TranslationState = {
   tokensUsed: 0,
   isConfigured: false,
   abortController: null,
-  currentTaskId: '' // 初始为空，会在加载时设置
+  currentTaskId: ''
 };
 
 const translationReducer = (state: TranslationState, action: TranslationAction): TranslationState => {
@@ -110,17 +109,14 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const stateRef = useRef(state);
   stateRef.current = state;
 
-  // API密钥轮询索引（使用useRef保证在多线程下安全）
   const apiKeyIndexRef = useRef(0);
 
-  // 获取下一个API Key的函数
   const getNextApiKey = useCallback((apiKeyStr: string): string => {
     const apiKeys = apiKeyStr.split('|').map(key => key.trim()).filter(key => key.length > 0);
     if (apiKeys.length === 0) {
       throw new Error('未配置有效的API密钥');
     }
     
-    // 线程安全的轮询索引更新
     const currentIndex = apiKeyIndexRef.current;
     const nextIndex = (currentIndex + 1) % apiKeys.length;
     apiKeyIndexRef.current = nextIndex;
@@ -130,8 +126,6 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const updateConfig = useCallback(async (newConfig: Partial<TranslationConfig>) => {
     dispatch({ type: 'SET_CONFIG', payload: newConfig });
-    
-    // 保存配置到内存并持久化
     const configToSave = { ...state.config, ...newConfig };
     try {
       await dataManager.saveConfig(configToSave);
@@ -145,7 +139,6 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
       throw new Error('请先配置API密钥');
     }
     
-    // 获取当前API Key（轮询）
     const apiKey = getNextApiKey(state.config.apiKey);
     
     try {
@@ -201,7 +194,7 @@ ${terms}`;
     lineArray.forEach((line, index) => {
       jsonDict[`${index + 1}`] = {
         origin: line,
-        direct: "" // 将此处的占位符改为真实的翻译内容
+        direct: ""
       };
     });
     
@@ -251,31 +244,25 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
       throw new Error('请先配置API密钥');
     }
     
-    // 更新限速器的RPM设置
     rateLimiter.setRPM(state.config.rpm);
     
     const textToTranslate = texts.join('\n');
     const sharedPrompt = generateSharedPrompt(contextBefore, contextAfter, terms);
     const directPrompt = generateDirectPrompt(textToTranslate, sharedPrompt);
     
-    // 重试逻辑
     let lastError: any = null;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      // 检查是否已被取消
       if (signal?.aborted) {
         throw new Error('翻译被取消');
       }
       
       try {
-        // 等待直到可以发送请求
         await rateLimiter.waitForAvailability();
         
-        // 再次检查取消状态
         if (signal?.aborted) {
           throw new Error('翻译被取消');
         }
         
-        // 获取当前API Key（轮询）
         const apiKey = getNextApiKey(state.config.apiKey);
         
         const directResponse = await fetch(`${state.config.baseURL}/chat/completions`, {
@@ -289,7 +276,7 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
             messages: [{ role: 'user', content: directPrompt }],
             temperature: 0.3
           }),
-          signal // 传入AbortSignal
+          signal
         });
         
         if (!directResponse.ok) {
@@ -305,27 +292,23 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
         
         const directContent = directData.choices[0]?.message?.content || '';
         
-        // 使用jsonrepair修复JSON
         const repairedDirectJson = jsonrepair(directContent);
         const directResult = JSON.parse(repairedDirectJson);
         
         return directResult;
       } catch (error) {
-        // 如果是取消错误，直接抛出
         if (error.name === 'AbortError' || error.message?.includes('取消')) {
           throw error;
         }
         
         lastError = error;
         console.error(`翻译批次第${attempt}次尝试失败:`, error);
-        // 如果不是最后一次尝试，等待一段时间后重试
         if (attempt < maxRetries) {
           await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
         }
       }
     }
     
-    // 如果所有重试都失败了，抛出异常
     console.error('翻译批次失败，已达到最大重试次数:', lastError);
     throw lastError;
   }, [state.config, generateSharedPrompt, generateDirectPrompt]);
@@ -355,7 +338,6 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
   const resetProgress = useCallback(async () => {
     dispatch({ type: 'RESET_PROGRESS' });
     
-    // 清空当前翻译任务（仅重置进度，不清空任务）
     try {
       const currentTask = dataManager.getCurrentTask();
       if (currentTask) {
@@ -371,7 +353,6 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
   }, []);
 
   const startTranslation = useCallback(async () => {
-    // 创建新的AbortController
     const controller = new AbortController();
     dispatch({ type: 'SET_ABORT_CONTROLLER', payload: controller });
     dispatch({ type: 'SET_TRANSLATING', payload: true });
@@ -380,26 +361,21 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
   }, []);
 
   const stopTranslation = useCallback(async () => {
-    // 取消所有请求
     if (state.abortController) {
       state.abortController.abort();
     }
     
-    // 重置状态（只重置控制状态，不清空数据）
     dispatch({ type: 'SET_TRANSLATING', payload: false });
     dispatch({ type: 'SET_ABORT_CONTROLLER', payload: null });
     
   }, [state.abortController]);
 
-  // 清空任务的专用函数
   const clearTask = useCallback(async () => {
-    // 完全重置所有状态（包括Token）
     dispatch({ type: 'RESET_PROGRESS' });
     dispatch({ type: 'SET_TASK_ID', payload: '' });
     dispatch({ type: 'SET_TRANSLATING', payload: false });
     dispatch({ type: 'SET_TOKENS_USED', payload: 0 });
     
-    // 清空内存中的当前任务并持久化
     try {
       await dataManager.clearCurrentTask();
     } catch (error) {
@@ -422,35 +398,28 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
     }
   }, []);
 
-  // 加载保存的数据
   React.useEffect(() => {
     const loadSavedData = async () => {
       try {
-        // 从内存中加载配置
         const savedConfig = dataManager.getConfig();
         if (savedConfig) {
           dispatch({ type: 'SET_CONFIG', payload: savedConfig });
         }
         
-        // 从内存中加载当前翻译任务信息
         const currentTask = dataManager.getCurrentTask();
         if (currentTask) {
-          // 设置任务ID
           if (currentTask.taskId) {
             dispatch({ type: 'SET_TASK_ID', payload: currentTask.taskId });
           }
           
-          // 加载翻译进度信息
           if (currentTask.translation_progress) {
             const progress = currentTask.translation_progress;
             const isTranslating = progress.status === 'translating';
             
             dispatch({ type: 'SET_TRANSLATING', payload: isTranslating });
-            // 确保正确设置Token值，即使为0也要设置
             const tokensToSet = progress.tokens ?? 0;
             dispatch({ type: 'SET_TOKENS_USED', payload: tokensToSet });
             
-            // 构建进度对象
             const progressObj = {
               current: progress.completed || 0,
               total: progress.total || 0,
@@ -470,19 +439,15 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
     loadSavedData();
   }, []);
 
-  // 监听任务创建事件，同步状态
   React.useEffect(() => {
     const handleTaskCreated = (event: CustomEvent) => {
       const { taskId } = event.detail;
       
-      // 更新任务ID
       dispatch({ type: 'SET_TASK_ID', payload: taskId });
       
-      // 初始化新任务的翻译状态
       dispatch({ type: 'SET_TRANSLATING', payload: false });
       dispatch({ type: 'SET_ABORT_CONTROLLER', payload: null });
       
-      // 初始化进度信息
       const initialProgress = {
         current: 0,
         total: 0,
@@ -492,9 +457,6 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
       };
       dispatch({ type: 'SET_PROGRESS', payload: initialProgress });
       
-      // ✅ 注意：不重置Token数据，因为重新上传时已经被taskCleared事件清空了
-      
-      // 重新加载保存的数据以保持同步
       setTimeout(async () => {
         try {
           const currentTask = dataManager.getCurrentTask();
@@ -508,18 +470,15 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
     };
 
     const handleTaskCleared = () => {
-      // 完全重置所有状态（包括Token）
       dispatch({ type: 'RESET_PROGRESS' });
       dispatch({ type: 'SET_TASK_ID', payload: '' });
       dispatch({ type: 'SET_TRANSLATING', payload: false });
       dispatch({ type: 'SET_TOKENS_USED', payload: 0 });
     };
 
-    // 添加事件监听器
     window.addEventListener('taskCreated', handleTaskCreated as EventListener);
     window.addEventListener('taskCleared', handleTaskCleared as EventListener);
 
-    // 清理函数
     return () => {
       window.removeEventListener('taskCreated', handleTaskCreated as EventListener);
       window.removeEventListener('taskCleared', handleTaskCleared as EventListener);

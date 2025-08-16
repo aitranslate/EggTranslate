@@ -3,11 +3,8 @@ import { SubtitleEntry } from '@/types';
 import dataManager from '@/services/dataManager';
 import { parseSRT, toSRT, toTXT, toBilingual } from '@/utils/srtParser';
 
-// 任务ID生成器
 const generateTaskId = (): string => {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substr(2, 9);
-  return `task_${timestamp}_${random}`;
+  return `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 };
 
 interface SubtitleState {
@@ -15,20 +12,20 @@ interface SubtitleState {
   filename: string;
   isLoading: boolean;
   error: string | null;
-  currentTaskId: string; // 当前任务ID
+  currentTaskId: string;
 }
 
 interface SubtitleContextValue extends SubtitleState {
   loadFromFile: (file: File) => Promise<void>;
   updateEntry: (id: number, text: string, translatedText?: string) => Promise<void>;
   clearEntries: () => Promise<void>;
-  clearAllData: () => Promise<void>; // 增强的清空功能
+  clearAllData: () => Promise<void>;
   exportSRT: (useTranslation?: boolean) => string;
   exportTXT: (useTranslation?: boolean) => string;
   exportBilingual: () => string;
   getTranslationProgress: () => { completed: number; total: number };
-  generateNewTaskId: () => string; // 生成新任务ID
-  getCurrentTaskId: () => string; // 获取当前任务ID
+  generateNewTaskId: () => string;
+  getCurrentTaskId: () => string;
 }
 
 type SubtitleAction =
@@ -46,7 +43,7 @@ const initialState: SubtitleState = {
   filename: '',
   isLoading: false,
   error: null,
-  currentTaskId: generateTaskId() // 初始化时生成一个任务ID
+  currentTaskId: generateTaskId()
 };
 
 const subtitleReducer = (state: SubtitleState, action: SubtitleAction): SubtitleState => {
@@ -93,24 +90,20 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      // 先完全清空旧任务（和清除按钮行为一致）
       await dataManager.clearAllData();
       window.dispatchEvent(new CustomEvent('taskCleared'));
       
-      // 等待一小段时间确保清空操作完成
       await new Promise(resolve => setTimeout(resolve, 100));
       
       const content = await file.text();
       const entries = parseSRT(content);
       
-      // 再创建新任务（仅在内存中）
       const taskId = await dataManager.createNewTask(file.name, entries);
       
       dispatch({ type: 'SET_ENTRIES', payload: entries });
       dispatch({ type: 'SET_FILENAME', payload: file.name });
       dispatch({ type: 'SET_TASK_ID', payload: taskId });
       
-      // 通知页面新任务已创建（在清空后）
       window.dispatchEvent(new CustomEvent('taskCreated', { 
         detail: { taskId, filename: file.name, entriesCount: entries.length } 
       }));
@@ -124,36 +117,26 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const updateEntry = useCallback(async (id: number, text: string, translatedText?: string) => {
     dispatch({ type: 'UPDATE_ENTRY', payload: { id, text, translatedText } });
-    
-    // 使用数据管理器更新字幕条目（仅在内存中）
     await dataManager.updateSubtitleEntry(id, text, translatedText);
   }, []);
 
   const clearEntries = useCallback(async () => {
     dispatch({ type: 'CLEAR_ENTRIES' });
-    // 使用数据管理器清空当前任务
     await dataManager.clearCurrentTask();
   }, []);
 
-  // 增强的清空功能：清空所有相关数据
   const clearAllData = useCallback(async () => {
     dispatch({ type: 'CLEAR_ALL_DATA' });
-    
-    // 使用数据管理器清空所有数据
     await dataManager.clearAllData();
-    
-    // 通知其他Context清空状态
     window.dispatchEvent(new CustomEvent('taskCleared'));
   }, []);
 
-  // 生成新任务ID
   const generateNewTaskId = useCallback((): string => {
     const newTaskId = generateTaskId();
     dispatch({ type: 'SET_TASK_ID', payload: newTaskId });
     return newTaskId;
   }, []);
 
-  // 获取当前任务ID
   const getCurrentTaskId = useCallback((): string => {
     return state.currentTaskId;
   }, [state.currentTaskId]);
@@ -175,13 +158,10 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return { completed, total: state.entries.length };
   }, [state.entries]);
 
-  // 加载保存的数据
   React.useEffect(() => {
     const loadSavedData = async () => {
       try {
-        // 从内存中加载当前任务
         const currentTask = dataManager.getCurrentTask();
-        
         if (currentTask) {
           dispatch({ type: 'SET_ENTRIES', payload: currentTask.subtitle_entries });
           dispatch({ type: 'SET_FILENAME', payload: currentTask.subtitle_filename });
