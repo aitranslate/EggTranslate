@@ -158,14 +158,7 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error?.message || `HTTP ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.usage) {
-        dispatch({ type: 'ADD_TOKENS_USED', payload: data.usage.total_tokens });
-      }
-      
+      }          
       return true;
     } catch (error) {
       console.error('连接测试失败:', error);
