@@ -172,6 +172,8 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
         const statusText = finalProgress.completed === entries.length ? '翻译完成' : '部分翻译';
         
         await updateProgress(finalProgress.completed, entries.length, 'completed', statusText);
+        // 添加短暂延迟，确保所有tokens更新都已完成
+        await new Promise(resolve => setTimeout(resolve, 100));
         await completeTranslation();
         
         toast.success('翻译完成！');
