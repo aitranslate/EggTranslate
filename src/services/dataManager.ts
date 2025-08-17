@@ -143,7 +143,7 @@ class DataManager {
   }
 
   /**
-   * 更新指定任务的字幕条目
+   * 更新指定任务的字幕条目（包含持久化）
    */
   async updateTaskSubtitleEntry(taskId: string, entryId: number, text: string, translatedText?: string): Promise<void> {
     try {
@@ -176,9 +176,51 @@ class DataManager {
       if (taskIndex !== -1) {
         this.memoryStore.batch_tasks.tasks[taskIndex] = updatedTask;
       }
+      
+      // 持久化到 localforage
+      await localforage.setItem(this.KEYS.BATCH_TASKS, this.memoryStore.batch_tasks);
     } catch (error) {
       console.error('更新字幕条目失败:', error);
       throw error;
+    }
+  }
+  
+  /**
+   * 更新指定任务的字幕条目（仅在内存中更新，不持久化）
+   */
+  updateTaskSubtitleEntryInMemory(taskId: string, entryId: number, text: string, translatedText?: string): void {
+    try {
+      const task = this.memoryStore.batch_tasks.tasks.find(t => t.taskId === taskId);
+      if (!task) return;
+      
+      // 更新内存中的数据
+      const updatedEntries = task.subtitle_entries.map(entry =>
+        entry.id === entryId
+          ? { ...entry, text, translatedText: translatedText ?? entry.translatedText }
+          : entry
+      );
+      
+      // 重新计算完成数量（字幕条目数）
+      const completed = updatedEntries.filter(entry => entry.translatedText && entry.translatedText.trim() !== '').length;
+      
+      // 更新内存中的任务数据
+      const updatedTask = {
+        ...task,
+        subtitle_entries: updatedEntries,
+        translation_progress: {
+          ...task.translation_progress,
+          completed,
+          total: task.translation_progress.total || updatedEntries.length
+        }
+      };
+      
+      // 替换任务列表中的任务
+      const taskIndex = this.memoryStore.batch_tasks.tasks.findIndex(t => t.taskId === taskId);
+      if (taskIndex !== -1) {
+        this.memoryStore.batch_tasks.tasks[taskIndex] = updatedTask;
+      }
+    } catch (error) {
+      console.error('更新内存中的字幕条目失败:', error);
     }
   }
 
@@ -226,7 +268,7 @@ class DataManager {
   }
 
   /**
-   * 更新指定任务的翻译进度
+   * 更新指定任务的翻译进度（包含持久化）
    */
   async updateTaskTranslationProgress(
     taskId: string,
@@ -256,6 +298,36 @@ class DataManager {
     } catch (error) {
       console.error('更新翻译进度失败:', error);
       throw error;
+    }
+  }
+  
+  /**
+   * 更新指定任务的翻译进度（仅在内存中更新，不持久化）
+   */
+  updateTaskTranslationProgressInMemory(
+    taskId: string,
+    updates: Partial<SingleTask['translation_progress']>
+  ): void {
+    try {
+      const task = this.memoryStore.batch_tasks.tasks.find(t => t.taskId === taskId);
+      if (!task) return;
+      
+      // 更新内存中的任务数据
+      const updatedTask = {
+        ...task,
+        translation_progress: {
+          ...task.translation_progress,
+          ...updates
+        }
+      };
+      
+      // 替换任务列表中的任务
+      const taskIndex = this.memoryStore.batch_tasks.tasks.findIndex(t => t.taskId === taskId);
+      if (taskIndex !== -1) {
+        this.memoryStore.batch_tasks.tasks[taskIndex] = updatedTask;
+      }
+    } catch (error) {
+      console.error('更新内存中的翻译进度失败:', error);
     }
   }
 

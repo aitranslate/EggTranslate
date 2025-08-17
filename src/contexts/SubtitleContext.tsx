@@ -150,10 +150,15 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [state.files.length]);
 
   const updateEntry = useCallback(async (fileId: string, id: number, text: string, translatedText?: string) => {
+    // 更新UI状态
     dispatch({ type: 'UPDATE_ENTRY', payload: { fileId, id, text, translatedText } });
+    
+    // 获取文件信息
     const file = state.files.find(f => f.id === fileId);
     if (file) {
-      await dataManager.updateTaskSubtitleEntry(file.currentTaskId, id, text, translatedText);
+      // 只在内存中更新，不进行持久化
+      // 我们需要在dataManager中添加一个新的方法
+      dataManager.updateTaskSubtitleEntryInMemory(file.currentTaskId, id, text, translatedText);
     }
   }, [state.files]);
 

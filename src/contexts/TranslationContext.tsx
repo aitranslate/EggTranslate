@@ -17,8 +17,8 @@ interface TranslationState {
 interface TranslationContextValue extends TranslationState {
   updateConfig: (config: Partial<TranslationConfig>) => Promise<void>;
   testConnection: () => Promise<boolean>;
-  translateBatch: (texts: string[], signal?: AbortSignal, contextBefore?: string, contextAfter?: string, terms?: string) => Promise<Record<string, any>>;
-  updateProgress: (current: number, total: number, phase: 'direct' | 'completed', status: string, taskId?: string) => Promise<void>;
+  translateBatch: (texts: string[], signal?: AbortSignal, contextBefore?: string, contextAfter?: string, terms?: string) => Promise<{translations: Record<string, any>, tokensUsed: number}>;
+  updateProgress: (current: number, total: number, phase: 'direct' | 'completed', status: string, taskId?: string, newTokens?: number) => Promise<void>;
   resetProgress: () => Promise<void>;
   clearTask: () => Promise<void>;
   startTranslation: () => Promise<AbortController>;
@@ -233,7 +233,7 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
     contextAfter = '', 
     terms = '', 
     maxRetries = 5
-  ): Promise<Record<string, any>> => {
+  ): Promise<{translations: Record<string, any>, tokensUsed: number}> => {
     if (!state.config.apiKey) {
       throw new Error('请先配置API密钥');
     }
@@ -280,32 +280,17 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
         
         const directData = await directResponse.json();
         
-        if (directData.usage) {
-          dispatch({ type: 'ADD_TOKENS_USED', payload: directData.usage.total_tokens });
-          
-          // 实时更新任务进度中的tokens
-          const { currentTaskId, progress } = stateRef.current;
-          if (currentTaskId) {
-            try {
-              const currentTask = dataManager.getCurrentTask();
-              if (currentTask) {
-                const newTokens = stateRef.current.tokensUsed + directData.usage.total_tokens;
-                await dataManager.updateTranslationProgress({
-                  tokens: newTokens,
-                });
-              }
-            } catch (error) {
-              console.error('实时更新tokens失败:', error);
-            }
-          }
-        }
+        const tokensUsed = directData.usage?.total_tokens || 0;
         
         const directContent = directData.choices[0]?.message?.content || '';
         
         const repairedDirectJson = jsonrepair(directContent);
         const directResult = JSON.parse(repairedDirectJson);
         
-        return directResult;
+        return {
+          translations: directResult,
+          tokensUsed: tokensUsed
+        };
       } catch (error) {
         if (error.name === 'AbortError' || error.message?.includes('取消')) {
           throw error;
@@ -323,21 +308,36 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
     throw lastError;
   }, [state.config, generateSharedPrompt, generateDirectPrompt]);
 
-  const updateProgress = useCallback(async (current: number, total: number, phase: 'direct' | 'completed', status: string, taskId?: string) => {
+  const updateProgress = useCallback(async (
+    current: number, 
+    total: number, 
+    phase: 'direct' | 'completed', 
+    status: string, 
+    taskId?: string,
+    newTokens?: number  // 可选参数，用于更新tokens
+  ) => {
     const { currentTaskId } = stateRef.current;
     const actualTaskId = taskId || currentTaskId;
-    const currentState = stateRef.current;
     const newProgress = { current, total, phase, status, taskId: actualTaskId };
     dispatch({ type: 'SET_PROGRESS', payload: newProgress });
 
     try {
       if (actualTaskId) {
-        await dataManager.updateTaskTranslationProgress(actualTaskId, {
+        // 准备更新对象
+        const updateObj: Partial<SingleTask['translation_progress']> = {
           completed: current,
           total: total,
-          tokens: currentState.tokensUsed,
           status: phase === 'completed' ? 'completed' : 'translating',
-        });
+        };
+        
+        // 如果提供了新的tokens值，则更新tokens
+        if (newTokens !== undefined) {
+          updateObj.tokens = newTokens;
+        }
+        
+        // 只在内存中更新，不进行持久化
+        // 使用不带持久化的方法
+        dataManager.updateTaskTranslationProgressInMemory(actualTaskId, updateObj);
       }
     } catch (error) {
       console.error('更新翻译进度失败:', error);
@@ -403,8 +403,31 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
     // 不要清空 abortController，让其他任务继续运行
     
     try {
-      const { tokensUsed } = stateRef.current;
-      await dataManager.completeTask(taskId, tokensUsed);
+      // 获取当前任务
+      const task = dataManager.getTaskById(taskId);
+      if (task) {
+        // 获取任务特定的tokens
+        const taskTokens = task.translation_progress?.tokens || 0;
+        
+        // 先在内存中更新状态
+        dataManager.updateTaskTranslationProgressInMemory(taskId, {
+          status: 'completed',
+          tokens: taskTokens
+        });
+        
+        // 延迟200ms后进行持久化
+        setTimeout(async () => {
+          try {
+            await dataManager.updateTaskTranslationProgress(taskId, {
+              status: 'completed',
+              tokens: taskTokens
+            });
+            console.log('翻译任务持久化完成:', taskId);
+          } catch (error) {
+            console.error('延迟持久化失败:', error);
+          }
+        }, 200);
+      }
     } catch (error) {
       console.error('保存完成状态失败:', error);
     }

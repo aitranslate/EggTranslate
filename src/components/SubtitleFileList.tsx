@@ -308,16 +308,21 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
         // 更新这个批次的翻译结果
         for (let j = 0; j < batch.length; j++) {
           const entry = batch[j];
-          const translatedText = result[`${j + 1}`]?.direct || '';
+          const translatedText = result.translations[`${j + 1}`]?.direct || '';
           
           if (translatedText) {
             await updateEntry(file.id, entry.id, entry.text, translatedText);
           }
         }
         
-        // 更新进度
+        // 获取当前任务
+        const task = dataManager.getTaskById(file.currentTaskId);
+        const currentTokens = task?.translation_progress?.tokens || 0;
+        const newTokens = currentTokens + result.tokensUsed;
+        
+        // 更新进度，包括tokens
         const completed = Math.min(i + batch.length, file.entries.length);
-        await updateProgress(completed, file.entries.length, 'direct', 'translating', file.currentTaskId);
+        await updateProgress(completed, file.entries.length, 'direct', 'translating', file.currentTaskId, newTokens);
         
         // 进度更新已经通过 updateProgress 完成，无需额外更新历史记录
       }
@@ -356,6 +361,16 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
             });
           }
         }
+        
+        // 翻译完成后，延迟200ms进行一次完整的持久化
+        setTimeout(async () => {
+          try {
+            await dataManager.forcePersistAllData();
+            console.log('翻译完成后持久化数据成功');
+          } catch (error) {
+            console.error('翻译完成后持久化数据失败:', error);
+          }
+        }, 200);
       } catch (historyError) {
         console.error('保存历史记录失败:', historyError);
       }
