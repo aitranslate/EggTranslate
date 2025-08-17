@@ -20,6 +20,7 @@ import { useSubtitle, useSingleSubtitle } from '@/contexts/SubtitleContext';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { useHistory } from '@/contexts/HistoryContext';
 import { useTerms } from '@/contexts/TermsContext';
+import dataManager from '@/services/dataManager';
 
 export const MainApp: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -39,9 +40,17 @@ export const MainApp: React.FC = () => {
     setIsEditingModalOpen(true);
   }, []);
 
-  const handleCloseEditModal = useCallback(() => {
-    setIsEditingModalOpen(false);
-    setEditingFile(null);
+  const handleCloseEditModal = useCallback(async () => {
+    try {
+      // 在关闭前强制持久化所有数据
+      await dataManager.forcePersistAllData();
+      console.log('数据已持久化到localforage');
+    } catch (error) {
+      console.error('数据持久化失败:', error);
+    } finally {
+      setIsEditingModalOpen(false);
+      setEditingFile(null);
+    }
   }, []);
 
   return (

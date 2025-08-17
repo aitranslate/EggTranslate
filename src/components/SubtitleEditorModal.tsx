@@ -25,10 +25,10 @@ export const SubtitleEditorModal: React.FC<SubtitleEditorModalProps> = ({
   const [filterType, setFilterType] = useState<'all' | 'translated' | 'untranslated'>('all');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   
-  // 获取当前文件的字幕条目
+  // 直接使用 context 中的 entries，确保获取最新数据
   const fileEntries = useMemo(() => {
-    return (file?.entries || entries) || [];
-  }, [file, entries]);
+    return entries || [];
+  }, [entries]);
 
   // 筛选和搜索
   const filteredEntries = useMemo(() => {

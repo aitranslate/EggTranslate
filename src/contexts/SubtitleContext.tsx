@@ -157,7 +157,6 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const file = state.files.find(f => f.id === fileId);
     if (file) {
       // 只在内存中更新，不进行持久化
-      // 我们需要在dataManager中添加一个新的方法
       dataManager.updateTaskSubtitleEntryInMemory(file.currentTaskId, id, text, translatedText);
     }
   }, [state.files]);
