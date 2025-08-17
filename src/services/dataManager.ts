@@ -4,7 +4,9 @@ import {
   SubtitleEntry, 
   Term, 
   TranslationHistoryEntry, 
-  CurrentTranslationTask 
+  CurrentTranslationTask,
+  SingleTask,
+  BatchTasks
 } from '@/types';
 
 /**
@@ -14,7 +16,7 @@ import {
  * 1. 所有数据操作优先在内存中进行，提高性能
  * 2. 在特定时机异步同步到 localforage 进行持久化
  * 3. 持久化时机：
- *    - current_translation_task：翻译结束后
+ *    - batch_tasks：导入文件时
  *    - terms_list：术语列表改动时
  *    - translation_config：保存设置时
  *    - translation_history：添加历史记录时
@@ -22,7 +24,7 @@ import {
 class DataManager {
   // 内存中的数据存储
   private memoryStore: {
-    current_translation_task: CurrentTranslationTask | null;
+    batch_tasks: BatchTasks;
     terms_list: Term[];
     translation_config: TranslationConfig;
     translation_history: TranslationHistoryEntry[];
@@ -30,7 +32,7 @@ class DataManager {
 
   // localStorage key 常量
   private readonly KEYS = {
-    CURRENT_TASK: 'current_translation_task',
+    BATCH_TASKS: 'batch_tasks',
     TERMS: 'terms_list', 
     CONFIG: 'translation_config',
     HISTORY: 'translation_history'
@@ -53,7 +55,7 @@ class DataManager {
   constructor() {
     // 初始化内存存储
     this.memoryStore = {
-      current_translation_task: null,
+      batch_tasks: { tasks: [] },
       terms_list: [],
       translation_config: this.DEFAULT_CONFIG,
       translation_history: []
@@ -67,15 +69,15 @@ class DataManager {
   async initialize(): Promise<void> {
     try {
       // 并行加载所有数据
-      const [currentTask, terms, config, history] = await Promise.all([
-        localforage.getItem<CurrentTranslationTask | null>(this.KEYS.CURRENT_TASK),
+      const [batchTasks, terms, config, history] = await Promise.all([
+        localforage.getItem<BatchTasks>(this.KEYS.BATCH_TASKS),
         localforage.getItem<Term[]>(this.KEYS.TERMS),
         localforage.getItem<TranslationConfig>(this.KEYS.CONFIG),
         localforage.getItem<TranslationHistoryEntry[]>(this.KEYS.HISTORY)
       ]);
 
       // 更新内存存储
-      this.memoryStore.current_translation_task = currentTask || null;
+      this.memoryStore.batch_tasks = batchTasks || { tasks: [] };
       this.memoryStore.terms_list = terms || [];
       this.memoryStore.translation_config = config || this.DEFAULT_CONFIG;
       this.memoryStore.translation_history = history || [];
@@ -95,12 +97,12 @@ class DataManager {
   }
 
   /**
-   * 创建新的翻译任务
+   * 创建新的翻译任务并添加到批处理任务列表中
    */
-  async createNewTask(filename: string, entries: SubtitleEntry[]): Promise<string> {
+  async createNewTask(filename: string, entries: SubtitleEntry[], index: number): Promise<string> {
     try {
       const taskId = this.generateTaskId();
-      const newTask: CurrentTranslationTask = {
+      const newTask: SingleTask = {
         taskId,
         subtitle_entries: entries,
         subtitle_filename: filename,
@@ -109,11 +111,15 @@ class DataManager {
           total: entries.length,
           tokens: 0,
           status: 'idle'
-        }
+        },
+        index
       };
       
       // 更新内存中的数据
-      this.memoryStore.current_translation_task = newTask;
+      this.memoryStore.batch_tasks.tasks.push(newTask);
+      
+      // 持久化到 localforage
+      await localforage.setItem(this.KEYS.BATCH_TASKS, this.memoryStore.batch_tasks);
       
       return taskId;
     } catch (error) {
@@ -123,15 +129,29 @@ class DataManager {
   }
 
   /**
-   * 更新当前任务的字幕条目
+   * 获取批处理任务列表（从内存中）
    */
-  async updateSubtitleEntry(entryId: number, text: string, translatedText?: string): Promise<void> {
+  getBatchTasks(): BatchTasks {
+    return this.memoryStore.batch_tasks;
+  }
+
+  /**
+   * 根据任务ID获取单个任务
+   */
+  getTaskById(taskId: string): SingleTask | undefined {
+    return this.memoryStore.batch_tasks.tasks.find(task => task.taskId === taskId);
+  }
+
+  /**
+   * 更新指定任务的字幕条目
+   */
+  async updateTaskSubtitleEntry(taskId: string, entryId: number, text: string, translatedText?: string): Promise<void> {
     try {
-      const currentTask = this.getCurrentTask();
-      if (!currentTask) return;
+      const task = this.memoryStore.batch_tasks.tasks.find(t => t.taskId === taskId);
+      if (!task) return;
       
       // 更新内存中的数据
-      const updatedEntries = currentTask.subtitle_entries.map(entry =>
+      const updatedEntries = task.subtitle_entries.map(entry =>
         entry.id === entryId
           ? { ...entry, text, translatedText: translatedText ?? entry.translatedText }
           : entry
@@ -141,15 +161,21 @@ class DataManager {
       const completed = updatedEntries.filter(entry => entry.translatedText && entry.translatedText.trim() !== '').length;
       
       // 更新内存中的任务数据
-      this.memoryStore.current_translation_task = {
-        ...currentTask,
+      const updatedTask = {
+        ...task,
         subtitle_entries: updatedEntries,
         translation_progress: {
-          ...currentTask.translation_progress,
+          ...task.translation_progress,
           completed,
-          total: currentTask.translation_progress.total || updatedEntries.length
+          total: task.translation_progress.total || updatedEntries.length
         }
       };
+      
+      // 替换任务列表中的任务
+      const taskIndex = this.memoryStore.batch_tasks.tasks.findIndex(t => t.taskId === taskId);
+      if (taskIndex !== -1) {
+        this.memoryStore.batch_tasks.tasks[taskIndex] = updatedTask;
+      }
     } catch (error) {
       console.error('更新字幕条目失败:', error);
       throw error;
@@ -157,15 +183,15 @@ class DataManager {
   }
 
   /**
-   * 批量更新字幕条目
+   * 批量更新指定任务的字幕条目
    */
-  async batchUpdateSubtitleEntries(updates: {id: number, text: string, translatedText?: string}[]): Promise<void> {
+  async batchUpdateTaskSubtitleEntries(taskId: string, updates: {id: number, text: string, translatedText?: string}[]): Promise<void> {
     try {
-      const currentTask = this.getCurrentTask();
-      if (!currentTask) return;
+      const task = this.memoryStore.batch_tasks.tasks.find(t => t.taskId === taskId);
+      if (!task) return;
       
       // 一次性处理所有更新
-      const updatedEntries = currentTask.subtitle_entries.map(entry => {
+      const updatedEntries = task.subtitle_entries.map(entry => {
         const update = updates.find(u => u.id === entry.id);
         return update ? {
           ...entry,
@@ -178,15 +204,21 @@ class DataManager {
       const completed = updatedEntries.filter(entry => entry.translatedText && entry.translatedText.trim() !== '').length;
       
       // 更新内存中的任务数据
-      this.memoryStore.current_translation_task = {
-        ...currentTask,
+      const updatedTask = {
+        ...task,
         subtitle_entries: updatedEntries,
         translation_progress: {
-          ...currentTask.translation_progress,
+          ...task.translation_progress,
           completed,
-          total: currentTask.translation_progress.total || updatedEntries.length
+          total: task.translation_progress.total || updatedEntries.length
         }
       };
+      
+      // 替换任务列表中的任务
+      const taskIndex = this.memoryStore.batch_tasks.tasks.findIndex(t => t.taskId === taskId);
+      if (taskIndex !== -1) {
+        this.memoryStore.batch_tasks.tasks[taskIndex] = updatedTask;
+      }
     } catch (error) {
       console.error('批量更新字幕条目失败:', error);
       throw error;
@@ -194,23 +226,33 @@ class DataManager {
   }
 
   /**
-   * 更新翻译进度
+   * 更新指定任务的翻译进度
    */
-  async updateTranslationProgress(
-    updates: Partial<CurrentTranslationTask['translation_progress']>
+  async updateTaskTranslationProgress(
+    taskId: string,
+    updates: Partial<SingleTask['translation_progress']>
   ): Promise<void> {
     try {
-      const currentTask = this.getCurrentTask();
-      if (!currentTask) return;
+      const task = this.memoryStore.batch_tasks.tasks.find(t => t.taskId === taskId);
+      if (!task) return;
       
       // 更新内存中的任务数据
-      this.memoryStore.current_translation_task = {
-        ...currentTask,
+      const updatedTask = {
+        ...task,
         translation_progress: {
-          ...currentTask.translation_progress,
+          ...task.translation_progress,
           ...updates
         }
       };
+      
+      // 替换任务列表中的任务
+      const taskIndex = this.memoryStore.batch_tasks.tasks.findIndex(t => t.taskId === taskId);
+      if (taskIndex !== -1) {
+        this.memoryStore.batch_tasks.tasks[taskIndex] = updatedTask;
+      }
+      
+      // 持久化到 localforage
+      await localforage.setItem(this.KEYS.BATCH_TASKS, this.memoryStore.batch_tasks);
     } catch (error) {
       console.error('更新翻译进度失败:', error);
       throw error;
@@ -218,32 +260,31 @@ class DataManager {
   }
 
   /**
-   * 完成翻译任务并持久化
-   * 这是持久化 current_translation_task 的主要时机
+   * 完成指定任务并持久化
    */
-  async completeTranslationTask(finalTokens: number): Promise<void> {
+  async completeTask(taskId: string, finalTokens: number): Promise<void> {
     try {
-      const currentTask = this.getCurrentTask();
-      if (!currentTask) return;
+      const task = this.memoryStore.batch_tasks.tasks.find(t => t.taskId === taskId);
+      if (!task) return;
       
       // 获取实际完成的字幕数量
       let completedCount = 0;
-      if (currentTask.subtitle_entries && Array.isArray(currentTask.subtitle_entries)) {
-        completedCount = currentTask.subtitle_entries.filter((entry: any) => 
+      if (task.subtitle_entries && Array.isArray(task.subtitle_entries)) {
+        completedCount = task.subtitle_entries.filter((entry: any) => 
           entry.translatedText && entry.translatedText.trim() !== ''
         ).length;
       }
       
       // 确保使用较大的Token值和正确的完成数量
-      const oldTokens = currentTask.translation_progress?.tokens || 0;
+      const oldTokens = task.translation_progress?.tokens || 0;
       const tokensToSave = Math.max(finalTokens, oldTokens);
-      const totalEntries = currentTask.translation_progress?.total || 0;
+      const totalEntries = task.translation_progress?.total || 0;
       
       // 更新内存中的任务数据
       const updatedTask = {
-        ...currentTask,
+        ...task,
         translation_progress: {
-          ...currentTask.translation_progress,
+          ...task.translation_progress,
           completed: completedCount,
           total: totalEntries,
           tokens: tokensToSave,
@@ -251,10 +292,14 @@ class DataManager {
         }
       };
       
-      this.memoryStore.current_translation_task = updatedTask;
+      // 替换任务列表中的任务
+      const taskIndex = this.memoryStore.batch_tasks.tasks.findIndex(t => t.taskId === taskId);
+      if (taskIndex !== -1) {
+        this.memoryStore.batch_tasks.tasks[taskIndex] = updatedTask;
+      }
       
       // 持久化到 localforage
-      await localforage.setItem(this.KEYS.CURRENT_TASK, updatedTask);
+      await localforage.setItem(this.KEYS.BATCH_TASKS, this.memoryStore.batch_tasks);
     } catch (error) {
       console.error('完成翻译任务失败:', error);
       throw error;
@@ -262,17 +307,33 @@ class DataManager {
   }
 
   /**
-   * 清空当前翻译任务
+   * 清空所有批处理任务
    */
-  async clearCurrentTask(): Promise<void> {
+  async clearBatchTasks(): Promise<void> {
     try {
       // 清空内存中的数据
-      this.memoryStore.current_translation_task = null;
+      this.memoryStore.batch_tasks = { tasks: [] };
       
       // 清空持久化存储
-      await localforage.removeItem(this.KEYS.CURRENT_TASK);
+      await localforage.setItem(this.KEYS.BATCH_TASKS, { tasks: [] });
     } catch (error) {
-      console.error('清空当前任务失败:', error);
+      console.error('清空批处理任务失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 移除指定任务
+   */
+  async removeTask(taskId: string): Promise<void> {
+    try {
+      // 更新内存中的数据
+      this.memoryStore.batch_tasks.tasks = this.memoryStore.batch_tasks.tasks.filter(t => t.taskId !== taskId);
+      
+      // 持久化到 localforage
+      await localforage.setItem(this.KEYS.BATCH_TASKS, this.memoryStore.batch_tasks);
+    } catch (error) {
+      console.error('移除任务失败:', error);
       throw error;
     }
   }
@@ -511,30 +572,6 @@ class DataManager {
     }
   }
 
-  /**
-   * 从历史记录加载任务
-   */
-  async loadTaskFromHistory(taskId: string): Promise<boolean> {
-    try {
-      const historyEntry = this.memoryStore.translation_history.find(entry => entry.taskId === taskId);
-      
-      if (!historyEntry) {
-        throw new Error('未找到指定的历史记录');
-      }
-      
-      // 更新内存中的数据
-      this.memoryStore.current_translation_task = historyEntry.current_translation_task;
-      
-      // 持久化到 localforage
-      await localforage.setItem(this.KEYS.CURRENT_TASK, historyEntry.current_translation_task);
-      
-      return true;
-    } catch (error) {
-      console.error('从历史记录加载任务失败:', error);
-      throw error;
-    }
-  }
-
   // ===== 全局操作 =====
   
   /**
@@ -542,11 +579,11 @@ class DataManager {
    */
   async clearAllData(): Promise<void> {
     try {
-      // 清空内存中的数据（保留配置、术语列表和历史记录）
-      this.memoryStore.current_translation_task = null;
+      // 只清空批处理任务的内存数据和持久化
+      this.memoryStore.batch_tasks = { tasks: [] };
       
-      // 清空持久化存储
-      await localforage.removeItem(this.KEYS.CURRENT_TASK);
+      // 只清空批处理任务的持久化存储
+      await localforage.setItem(this.KEYS.BATCH_TASKS, { tasks: [] });
     } catch (error) {
       console.error('清空数据失败:', error);
       throw error;
@@ -557,13 +594,13 @@ class DataManager {
    * 获取数据统计信息
    */
   getDataStats(): {
-    hasCurrentTask: boolean;
+    hasBatchTasks: boolean;
     termsCount: number;
     historyCount: number;
     isConfigured: boolean;
   } {
     return {
-      hasCurrentTask: this.memoryStore.current_translation_task !== null,
+      hasBatchTasks: this.memoryStore.batch_tasks.tasks.length > 0,
       termsCount: this.memoryStore.terms_list.length,
       historyCount: this.memoryStore.translation_history.length,
       isConfigured: (this.memoryStore.translation_config.apiKey?.length || 0) > 0
@@ -577,7 +614,7 @@ class DataManager {
   async forcePersistAllData(): Promise<void> {
     try {
       await Promise.all([
-        localforage.setItem(this.KEYS.CURRENT_TASK, this.memoryStore.current_translation_task),
+        localforage.setItem(this.KEYS.BATCH_TASKS, this.memoryStore.batch_tasks),
         localforage.setItem(this.KEYS.TERMS, this.memoryStore.terms_list),
         localforage.setItem(this.KEYS.CONFIG, this.memoryStore.translation_config),
         localforage.setItem(this.KEYS.HISTORY, this.memoryStore.translation_history)

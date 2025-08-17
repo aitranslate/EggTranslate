@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from '@/contexts/TranslationContext';
-import { useSubtitle } from '@/contexts/SubtitleContext';
+import { useSingleSubtitle } from '@/contexts/SubtitleContext';
 import { motion } from 'framer-motion';
 import { Clock, Zap } from 'lucide-react';
 
@@ -10,7 +10,7 @@ interface ProgressDisplayProps {
 
 export const ProgressDisplay: React.FC<ProgressDisplayProps> = ({ className }) => {
   const { isTranslating, progress, tokensUsed } = useTranslation();
-  const { entries } = useSubtitle();
+  const { entries } = useSingleSubtitle();
 
   // 计算字幕条目进度
   const [subtitleProgress, setSubtitleProgress] = useState({ current: 0, total: 0 });

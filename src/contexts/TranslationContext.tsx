@@ -18,12 +18,12 @@ interface TranslationContextValue extends TranslationState {
   updateConfig: (config: Partial<TranslationConfig>) => Promise<void>;
   testConnection: () => Promise<boolean>;
   translateBatch: (texts: string[], signal?: AbortSignal, contextBefore?: string, contextAfter?: string, terms?: string) => Promise<Record<string, any>>;
-  updateProgress: (current: number, total: number, phase: 'direct' | 'completed', status: string) => Promise<void>;
+  updateProgress: (current: number, total: number, phase: 'direct' | 'completed', status: string, taskId?: string) => Promise<void>;
   resetProgress: () => Promise<void>;
   clearTask: () => Promise<void>;
   startTranslation: () => Promise<AbortController>;
   stopTranslation: () => Promise<void>;
-  completeTranslation: () => Promise<void>;
+  completeTranslation: (taskId: string) => Promise<void>;
 }
 
 type TranslationAction =
@@ -66,13 +66,14 @@ const initialState: TranslationState = {
 
 const translationReducer = (state: TranslationState, action: TranslationAction): TranslationState => {
   switch (action.type) {
-    case 'SET_CONFIG':
+    case 'SET_CONFIG': {
       const newConfig = { ...state.config, ...action.payload };
       return {
         ...state,
         config: newConfig,
         isConfigured: newConfig.apiKey.length > 0
       };
+    }
     case 'SET_TRANSLATING':
       return { ...state, isTranslating: action.payload };
     case 'SET_PROGRESS':
@@ -281,6 +282,22 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
         
         if (directData.usage) {
           dispatch({ type: 'ADD_TOKENS_USED', payload: directData.usage.total_tokens });
+          
+          // 实时更新任务进度中的tokens
+          const { currentTaskId, progress } = stateRef.current;
+          if (currentTaskId) {
+            try {
+              const currentTask = dataManager.getCurrentTask();
+              if (currentTask) {
+                const newTokens = stateRef.current.tokensUsed + directData.usage.total_tokens;
+                await dataManager.updateTranslationProgress({
+                  tokens: newTokens,
+                });
+              }
+            } catch (error) {
+              console.error('实时更新tokens失败:', error);
+            }
+          }
         }
         
         const directContent = directData.choices[0]?.message?.content || '';
@@ -306,21 +323,20 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
     throw lastError;
   }, [state.config, generateSharedPrompt, generateDirectPrompt]);
 
-  const updateProgress = useCallback(async (current: number, total: number, phase: 'direct' | 'completed', status: string) => {
-    const { currentTaskId, tokensUsed } = stateRef.current;
-    const newProgress = { current, total, phase, status, taskId: currentTaskId };
+  const updateProgress = useCallback(async (current: number, total: number, phase: 'direct' | 'completed', status: string, taskId?: string) => {
+    const { currentTaskId } = stateRef.current;
+    const actualTaskId = taskId || currentTaskId;
+    const currentState = stateRef.current;
+    const newProgress = { current, total, phase, status, taskId: actualTaskId };
     dispatch({ type: 'SET_PROGRESS', payload: newProgress });
 
     try {
-      const currentTask = dataManager.getCurrentTask();
-      if (currentTask) {
-        const progressStatus = phase === 'completed' ? 'completed' as const : 'translating' as const;
-        
-        await dataManager.updateTranslationProgress({
+      if (actualTaskId) {
+        await dataManager.updateTaskTranslationProgress(actualTaskId, {
           completed: current,
           total: total,
-          tokens: tokensUsed,
-          status: progressStatus,
+          tokens: currentState.tokensUsed,
+          status: phase === 'completed' ? 'completed' : 'translating',
         });
       }
     } catch (error) {
@@ -353,14 +369,18 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
     return controller;
   }, []);
 
-  const stopTranslation = useCallback(async () => {
-    if (state.abortController) {
-      state.abortController.abort();
+  const stopTranslation = useCallback(async (controller?: AbortController) => {
+    // 如果传入了特定的控制器，使用它；否则使用全局的
+    const ctrl = controller || state.abortController;
+    if (ctrl) {
+      ctrl.abort();
     }
     
-    dispatch({ type: 'SET_TRANSLATING', payload: false });
-    dispatch({ type: 'SET_ABORT_CONTROLLER', payload: null });
-    
+    // 只有在没有特定控制器时才更新全局状态
+    if (!controller) {
+      dispatch({ type: 'SET_TRANSLATING', payload: false });
+      dispatch({ type: 'SET_ABORT_CONTROLLER', payload: null });
+    }
   }, [state.abortController]);
 
   const clearTask = useCallback(async () => {
@@ -375,17 +395,16 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
       console.error('清空任务失败:', error);
     }
   }, []);
-  const completeTranslation = useCallback(async () => {
-    const { abortController, tokensUsed, currentTaskId } = stateRef.current;
-    if (abortController) {
-      abortController.abort();
-    }
+  const completeTranslation = useCallback(async (taskId: string) => {
+    // 不要中止全局的 abortController，因为可能有其他任务在运行
+    // 只更新状态和完成任务
     
     dispatch({ type: 'SET_TRANSLATING', payload: false });
-    dispatch({ type: 'SET_ABORT_CONTROLLER', payload: null });
+    // 不要清空 abortController，让其他任务继续运行
     
     try {
-      await dataManager.completeTranslationTask(tokensUsed);
+      const { tokensUsed } = stateRef.current;
+      await dataManager.completeTask(taskId, tokensUsed);
     } catch (error) {
       console.error('保存完成状态失败:', error);
     }

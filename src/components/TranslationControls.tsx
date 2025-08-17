@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Play, Download, Settings } from 'lucide-react';
-import { useSubtitle } from '@/contexts/SubtitleContext';
+import { useSingleSubtitle } from '@/contexts/SubtitleContext';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { useTerms } from '@/contexts/TermsContext';
 import { useHistory } from '@/contexts/HistoryContext';
@@ -25,7 +25,7 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
     exportTXT, 
     exportBilingual,
     getCurrentTaskId
-  } = useSubtitle();
+  } = useSingleSubtitle();
   const {
     config,
     isTranslating,
@@ -58,7 +58,9 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
     try {
       // 初始化翻译状态
       const controller = await initTranslation();
-      const currentTaskId = getCurrentTaskId();
+      
+      // 在开始翻译时才创建任务
+      const currentTaskId = await dataManager.createNewTask(filename, entries);
       
       const { batchSize, contextBefore, contextAfter, threadCount } = config;
       const totalBatches = Math.ceil(entries.length / batchSize);
@@ -78,7 +80,7 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
       
       let currentCompletedCount = initialProgress.completed;
       
-      await updateProgress(currentCompletedCount, entries.length, 'direct', `准备翻译... (已完成: ${currentCompletedCount}/${entries.length})`);
+      await updateProgress(currentCompletedCount, entries.length, 'direct', `准备翻译... (已完成: ${currentCompletedCount}/${entries.length})`, currentTaskId);
 
       try {
         const allBatches = [];
@@ -115,7 +117,7 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
         const updateRealTimeProgress = async (completedEntries: number) => {
           const percentage = Math.round((completedEntries / entries.length) * 100);
           const statusText = `翻译中... (${completedEntries}/${entries.length}) ${percentage}%`;
-          await updateProgress(completedEntries, entries.length, 'direct', statusText);
+          await updateProgress(completedEntries, entries.length, 'direct', statusText, currentTaskId);
         };
 
         for (let i = 0; i < allBatches.length; i += threadCount) {
@@ -171,19 +173,23 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
         const finalProgress = getActualProgress();
         const statusText = finalProgress.completed === entries.length ? '翻译完成' : '部分翻译';
         
-        await updateProgress(finalProgress.completed, entries.length, 'completed', statusText);
+        await updateProgress(finalProgress.completed, entries.length, 'completed', statusText, currentTaskId);
         // 添加短暂延迟，确保所有tokens更新都已完成
         await new Promise(resolve => setTimeout(resolve, 100));
-        await completeTranslation();
+        await completeTranslation(currentTaskId);
         
         toast.success('翻译完成！');
 
         try {
           await new Promise(resolve => setTimeout(resolve, 500));
           
-          const currentTask = dataManager.getCurrentTask();
+          // 使用新的 batch_tasks 结构获取当前任务
+          const batchTasks = dataManager.getBatchTasks();
+          const currentTask = batchTasks.tasks.find(t => t.taskId === currentTaskId);
+          
           if (currentTask) {
-            const finalTokens = currentTask.translation_progress?.tokens || 0;
+            // 获取最新的tokens值
+            const finalTokens = currentTask.translation_progress?.tokens || tokensUsed || 0;
             const actualCompleted = currentTask.subtitle_entries?.filter((entry: any) => 
               entry.translatedText && entry.translatedText.trim() !== ''
             ).length || 0;
@@ -194,7 +200,12 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
                 filename: filename,
                 completedCount: actualCompleted,
                 totalTokens: finalTokens,
-                current_translation_task: currentTask
+                current_translation_task: {
+                  taskId: currentTask.taskId,
+                  subtitle_entries: currentTask.subtitle_entries,
+                  subtitle_filename: currentTask.subtitle_filename,
+                  translation_progress: currentTask.translation_progress
+                }
               });
             }
           }
@@ -203,8 +214,12 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
         }
         
       } catch (error) {
-        console.error('翻译失败:', error);
-        toast.error(`翻译失败: ${error.message}`);
+        if (error.name === 'AbortError' || error.message?.includes('翻译被取消')) {
+          toast.success('翻译已取消');
+        } else {
+          console.error('翻译失败:', error);
+          toast.error(`翻译失败: ${error.message}`);
+        }
         await stopTranslation();
       }
     } catch (error) {

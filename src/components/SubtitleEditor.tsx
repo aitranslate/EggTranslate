@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { useSubtitle } from '@/contexts/SubtitleContext';
+import { useSingleSubtitle } from '@/contexts/SubtitleContext';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Edit3, Save, X, Search, Filter, Trash2, AlertTriangle } from 'lucide-react';
@@ -10,7 +10,7 @@ interface SubtitleEditorProps {
 }
 
 export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({ className }) => {
-  const { entries, updateEntry, clearAllData } = useSubtitle();
+  const { entries, updateEntry, clearAllData } = useSingleSubtitle();
   const { resetProgress } = useTranslation();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');

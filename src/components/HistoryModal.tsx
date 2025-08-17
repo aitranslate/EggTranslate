@@ -75,19 +75,6 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
     return new Date(timestamp).toLocaleString('zh-CN');
   }, []);
 
-  // 加载历史任务
-  const onLoadTask = useCallback(async (taskId: string, filename: string) => {
-    try {
-      if (window.confirm(`确定要加载历史任务 "${filename}" 吗？这将更换当前工作区的内容。`)) {
-        await loadTaskFromHistory(taskId);
-        toast.success('任务加载成功，正在刷新页面...');
-        onClose(); // 关闭模态框
-      }
-    } catch (error) {
-      toast.error('加载任务失败');
-    }
-  }, [loadTaskFromHistory, onClose]);
-
   // 导出历史任务
   const onExport = useCallback(async (entry: any, format: 'srt' | 'txt' | 'bilingual') => {
     try {
@@ -255,15 +242,6 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
                     
                     {/* 操作按钮 */}
                     <div className="flex items-center space-x-2">
-                      {/* 加载按钮 */}
-                      <button
-                        onClick={() => onLoadTask(entry.taskId, entry.filename)}
-                        className="flex items-center space-x-1 px-3 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 rounded-lg transition-colors text-sm"
-                      >
-                        <RefreshCw className="h-3 w-3" />
-                        <span>加载</span>
-                      </button>
-                      
                       {/* 导出按钮 */}
                       <div className="relative">
                         <button

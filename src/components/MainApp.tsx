@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Settings, 
@@ -7,13 +7,16 @@ import {
   Zap
 } from 'lucide-react';
 import { FileUpload } from './FileUpload';
+import { BatchFileUpload } from './BatchFileUpload';
+import { SubtitleFileList } from './SubtitleFileList';
 import { TranslationControls } from './TranslationControls';
 import { SubtitleEditor } from './SubtitleEditor';
+import { SubtitleEditorModal } from './SubtitleEditorModal';
 import { ProgressDisplay } from './ProgressDisplay';
 import { SettingsModal } from './SettingsModal';
 import { TermsManager } from './TermsManager';
 import { HistoryModal } from './HistoryModal';
-import { useSubtitle } from '@/contexts/SubtitleContext';
+import { useSubtitle, useSingleSubtitle } from '@/contexts/SubtitleContext';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { useHistory } from '@/contexts/HistoryContext';
 import { useTerms } from '@/contexts/TermsContext';
@@ -22,10 +25,24 @@ export const MainApp: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const { entries } = useSubtitle();
+  const [editingFile, setEditingFile] = useState<any>(null);
+  const [isEditingModalOpen, setIsEditingModalOpen] = useState(false);
+  const { files, getAllFiles } = useSubtitle();
+  const singleSubtitle = useSingleSubtitle();
+  const { entries, filename } = singleSubtitle;
   const { isTranslating, isConfigured } = useTranslation();
   const { history } = useHistory();
   const { terms } = useTerms();
+
+  const handleEditFile = useCallback((file: any) => {
+    setEditingFile(file);
+    setIsEditingModalOpen(true);
+  }, []);
+
+  const handleCloseEditModal = useCallback(() => {
+    setIsEditingModalOpen(false);
+    setEditingFile(null);
+  }, []);
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 overflow-x-hidden">
@@ -42,7 +59,7 @@ export const MainApp: React.FC = () => {
           <div className="max-w-6xl mx-auto px-4 py-4">
             <div className="flex justify-between items-center">
               <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                翻译Agent
+                AI字幕翻译
               </h1>
               
               {/* Navigation buttons - evenly spaced */}
@@ -91,37 +108,18 @@ export const MainApp: React.FC = () => {
         {/* 主内容区域 */}
         <div className="w-full px-4 pb-8">
           <div className="max-w-6xl mx-auto space-y-6 py-6">
-            {/* 欢迎信息或文件上传 */}
-            {entries.length === 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-center py-16 space-y-6"
-              >
-                <div className="space-y-4">
-                  <div className="mx-auto w-16 h-16 bg-gradient-to-r from-purple-500 to-blue-500 rounded-2xl flex items-center justify-center">
-                    <Zap className="h-8 w-8 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-3xl font-bold text-white mb-2">欢迎使用字幕翻译器</h2>
-                    <p className="text-white/70 text-lg">上传SRT文件开始翻译之旅</p>
-                  </div>
-                </div>
-              </motion.div>
+            {/* 批量文件上传 */}
+            <BatchFileUpload />
+
+            {/* 字幕文件列表 */}
+            {files.length > 0 && (
+              <SubtitleFileList 
+                onEditFile={handleEditFile}
+                onCloseEditModal={handleCloseEditModal}
+              />
             )}
 
-            {/* 文件上传 */}
-            <FileUpload />
-
-            {/* 翻译控制 */}
-            <TranslationControls onOpenSettings={() => setIsSettingsOpen(true)} />
-
-            {/* 进度显示 */}
-            <ProgressDisplay />
-
-            {/* 字幕编辑器 */}
-            <SubtitleEditor />
-          </div>
+            </div>
         </div>
 
         {/* 底部信息 */}
@@ -145,6 +143,11 @@ export const MainApp: React.FC = () => {
       <HistoryModal
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
+      />
+      <SubtitleEditorModal
+        isOpen={isEditingModalOpen}
+        onClose={handleCloseEditModal}
+        file={editingFile}
       />
     </div>
   );

@@ -13,7 +13,6 @@ interface HistoryContextValue extends HistoryState {
   deleteHistoryEntry: (taskId: string) => Promise<void>;
   clearHistory: () => Promise<void>;
   loadHistoryEntry: (taskId: string) => TranslationHistoryEntry | null;
-  loadTaskFromHistory: (taskId: string) => Promise<void>;
   getHistoryStats: () => { total: number; totalTokens: number };
   refreshHistory: () => Promise<void>;
 }
@@ -84,20 +83,6 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return state.history.find(entry => entry.taskId === taskId) || null;
   }, [state.history]);
 
-  const loadTaskFromHistory = useCallback(async (taskId: string): Promise<void> => {
-    try {
-      dispatch({ type: 'SET_LOADING', payload: true });
-      await dataManager.loadTaskFromHistory(taskId);
-      window.location.reload();
-    } catch (error) {
-      console.error('从历史记录加载任务失败:', error);
-      dispatch({ type: 'SET_ERROR', payload: '加载任务失败' });
-      throw error;
-    } finally {
-      dispatch({ type: 'SET_LOADING', payload: false });
-    }
-  }, []);
-
   const getHistoryStats = useCallback(() => {
     const total = state.history.length;
     const totalTokens = state.history.reduce((sum, entry) => sum + entry.totalTokens, 0);
@@ -140,7 +125,6 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     deleteHistoryEntry,
     clearHistory,
     loadHistoryEntry,
-    loadTaskFromHistory,
     getHistoryStats,
     refreshHistory
   };

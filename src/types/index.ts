@@ -46,6 +46,26 @@ export interface TranslationTask {
   lastUpdated: string;
 }
 
+// 单个翻译任务状态类型 (用于批处理任务列表)
+export interface SingleTask {
+  taskId: string;
+  subtitle_entries: SubtitleEntry[];
+  subtitle_filename: string;
+  translation_progress: {
+    completed: number;
+    total: number;
+    tokens: number;
+    status: 'idle' | 'translating' | 'completed';
+    current_index?: number;
+  };
+  index: number; // 在列表中的位置
+}
+
+// 批量任务列表类型
+export interface BatchTasks {
+  tasks: SingleTask[];
+}
+
 // 当前翻译任务状态类型
 export interface CurrentTranslationTask {
   taskId: string;
