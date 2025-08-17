@@ -294,13 +294,17 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 };
 
 // 兼容性Hook，为单个文件提供旧的接口
-export const useSingleSubtitle = () => {
+// 注意：这个hook现在接受一个可选的fileId参数，以支持多文件场景
+export const useSingleSubtitle = (fileId?: string) => {
   const context = useContext(SubtitleContext);
   if (!context) {
     throw new Error('useSubtitle must be used within a SubtitleProvider');
   }
 
-  const currentFile = context.files.length > 0 ? context.files[0] : null;
+  // 如果提供了fileId，则使用对应的文件，否则使用第一个文件（向后兼容）
+  const currentFile = fileId 
+    ? context.files.find(file => file.id === fileId) || null
+    : context.files.length > 0 ? context.files[0] : null;
 
   return {
     entries: currentFile?.entries || [],

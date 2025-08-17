@@ -16,7 +16,7 @@ export const SubtitleEditorModal: React.FC<SubtitleEditorModalProps> = ({
   onClose,
   file
 }) => {
-  const { entries, updateEntry, clearAllData } = useSingleSubtitle();
+  const { entries, updateEntry, clearAllData } = useSingleSubtitle(file?.id);
   const { resetProgress } = useTranslation();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');

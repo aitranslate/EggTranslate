@@ -10,6 +10,7 @@ interface SubtitleEditorProps {
 }
 
 export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({ className }) => {
+  // 对于主编辑器，我们仍然使用第一个文件（向后兼容）
   const { entries, updateEntry, clearAllData } = useSingleSubtitle();
   const { resetProgress } = useTranslation();
   const [editingId, setEditingId] = useState<number | null>(null);
