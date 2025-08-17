@@ -11,7 +11,6 @@ import { BatchFileUpload } from './BatchFileUpload';
 import { SubtitleFileList } from './SubtitleFileList';
 import { TranslationControls } from './TranslationControls';
 import { SubtitleEditor } from './SubtitleEditor';
-import { SubtitleEditorModal } from './SubtitleEditorModal';
 import { ProgressDisplay } from './ProgressDisplay';
 import { SettingsModal } from './SettingsModal';
 import { TermsManager } from './TermsManager';
@@ -153,7 +152,7 @@ export const MainApp: React.FC = () => {
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
       />
-      <SubtitleEditorModal
+      <SubtitleEditor
         isOpen={isEditingModalOpen}
         onClose={handleCloseEditModal}
         file={editingFile}
