@@ -31,6 +31,9 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
   
   const [searchTerm, setSearchTerm] = useState('');
   const [exportingTaskId, setExportingTaskId] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   
   const stats = getHistoryStats();
   
@@ -48,28 +51,42 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
     const entry = history.find(e => e.taskId === taskId);
     if (!entry) return;
     
-    if (window.confirm(`确定要删除历史记录 "${entry.filename}" 吗？`)) {
-      try {
-        await deleteHistoryEntry(taskId);
-        toast.success('历史记录已删除');
-      } catch (error) {
-        toast.error('删除失败');
-      }
+    // 显示自定义确认对话框
+    setDeletingTaskId(taskId);
+    setShowDeleteConfirm(true);
+  }, [history]);
+  
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deletingTaskId) return;
+    
+    try {
+      await deleteHistoryEntry(deletingTaskId);
+      toast.success('历史记录已删除');
+    } catch (error) {
+      toast.error('删除失败');
+    } finally {
+      setShowDeleteConfirm(false);
+      setDeletingTaskId(null);
     }
-  }, [deleteHistoryEntry, history]);
+  }, [deleteHistoryEntry, deletingTaskId]);
   
   const onClear = useCallback(async () => {
     if (history.length === 0) return;
     
-    if (window.confirm('确定要清空所有历史记录吗？这操作不可恢复。')) {
-      try {
-        await clearHistory();
-        toast.success('已清空所有历史记录');
-      } catch (error) {
-        toast.error('清空失败');
-      }
+    // 显示自定义确认对话框
+    setShowClearConfirm(true);
+  }, [history.length]);
+  
+  const handleConfirmClear = useCallback(async () => {
+    try {
+      await clearHistory();
+      toast.success('已清空所有历史记录');
+    } catch (error) {
+      toast.error('清空失败');
+    } finally {
+      setShowClearConfirm(false);
     }
-  }, [clearHistory, history.length]);
+  }, [clearHistory]);
   
   const formatDate = useCallback((timestamp: number) => {
     return new Date(timestamp).toLocaleString('zh-CN');
@@ -125,6 +142,11 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
   }, []);
   
   if (!isOpen) return null;
+  
+  // 获取当前要删除的历史记录条目
+  const deletingEntry = deletingTaskId 
+    ? history.find(e => e.taskId === deletingTaskId) 
+    : null;
   
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -316,6 +338,136 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
           </AnimatePresence>
         </div>
       </motion.div>
+
+      {/* 清空历史确认对话框 */}
+      <AnimatePresence>
+        {showClearConfirm && (
+          <>
+            {/* 背景遮罩 */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm"
+              onClick={() => setShowClearConfirm(false)}
+            />
+            
+            {/* 对话框 */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            >
+              <div 
+                className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 w-full max-w-md border border-white/20 shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="space-y-6">
+                  {/* 标题和关闭按钮 */}
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-bold text-white">确认清空</h3>
+                    <button
+                      onClick={() => setShowClearConfirm(false)}
+                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                    >
+                      <X className="h-5 w-5 text-white/60" />
+                    </button>
+                  </div>
+                  
+                  {/* 内容 */}
+                  <div>
+                    <p className="text-white/80">
+                      确定要清空所有 {history.length} 条历史记录吗？此操作不可恢复。
+                    </p>
+                  </div>
+                  
+                  {/* 按钮 */}
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={() => setShowClearConfirm(false)}
+                      className="flex-1 px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all duration-200"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={handleConfirmClear}
+                      className="flex-1 px-4 py-3 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 transition-all duration-200 hover:scale-105"
+                    >
+                      确认清空
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* 删除历史记录确认对话框 */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <>
+            {/* 背景遮罩 */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm"
+              onClick={() => setShowDeleteConfirm(false)}
+            />
+            
+            {/* 对话框 */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            >
+              <div 
+                className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 w-full max-w-md border border-white/20 shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="space-y-6">
+                  {/* 标题和关闭按钮 */}
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-bold text-white">确认删除</h3>
+                    <button
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                    >
+                      <X className="h-5 w-5 text-white/60" />
+                    </button>
+                  </div>
+                  
+                  {/* 内容 */}
+                  <div>
+                    <p className="text-white/80">
+                      确定要删除历史记录 "{deletingEntry?.filename}" 吗？此操作不可恢复。
+                    </p>
+                  </div>
+                  
+                  {/* 按钮 */}
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="flex-1 px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all duration-200"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={handleConfirmDelete}
+                      className="flex-1 px-4 py-3 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 transition-all duration-200 hover:scale-105"
+                    >
+                      确认删除
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

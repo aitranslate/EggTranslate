@@ -15,7 +15,8 @@ import {
   CheckCircle,
   Clock,
   Zap,
-  AlertTriangle
+  AlertTriangle,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -267,6 +268,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
   const [editingFile, setEditingFile] = useState<any>(null);
   const [isTranslatingGloballyState, setIsTranslatingGlobally] = useState(false);
   const [currentTranslatingFileId, setCurrentTranslatingFileId] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const handleEdit = useCallback((file: any) => {
     setEditingFile(file);
@@ -443,10 +445,11 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
   const handleClearAll = useCallback(async () => {
     if (files.length === 0) return;
     
-    // 确认对话框
-    const confirmed = window.confirm(`确定要清空所有 ${files.length} 个文件吗？此操作不可恢复，但不会影响历史记录、术语列表和配置。`);
-    if (!confirmed) return;
-    
+    // 显示自定义确认对话框
+    setShowClearConfirm(true);
+  }, [files]);
+
+  const handleConfirmClear = useCallback(async () => {
     try {
       // 清空所有文件数据
       await clearAllData();
@@ -454,8 +457,10 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
     } catch (error) {
       console.error('清空所有数据失败:', error);
       toast.error(`清空失败: ${error.message}`);
+    } finally {
+      setShowClearConfirm(false);
     }
-  }, [files, clearAllData]);
+  }, [clearAllData]);
 
   const handleExport = useCallback((file: any, format: 'srt' | 'txt' | 'bilingual') => {
     let content = '';
@@ -547,6 +552,71 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
           </div>
         </div>
       </motion.div>
+
+      {/* 清空确认对话框 */}
+      <AnimatePresence>
+        {showClearConfirm && (
+          <>
+            {/* 背景遮罩 */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm"
+              onClick={() => setShowClearConfirm(false)}
+            />
+            
+            {/* 对话框 */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            >
+              <div 
+                className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 w-full max-w-md border border-white/20 shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="space-y-6">
+                  {/* 标题和关闭按钮 */}
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-bold text-white">确认清空</h3>
+                    <button
+                      onClick={() => setShowClearConfirm(false)}
+                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                    >
+                      <X className="h-5 w-5 text-white/60" />
+                    </button>
+                  </div>
+                  
+                  {/* 内容 */}
+                  <div>
+                    <p className="text-white/80">
+                      确定要清空所有 {files.length} 个文件吗？此操作不可恢复。
+                    </p>
+                  </div>
+                  
+                  {/* 按钮 */}
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={() => setShowClearConfirm(false)}
+                      className="flex-1 px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all duration-200"
+                    >
+                      取消
+                    </button>
+                    <button
+                      onClick={handleConfirmClear}
+                      className="flex-1 px-4 py-3 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 transition-all duration-200 hover:scale-105"
+                    >
+                      确认清空
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
