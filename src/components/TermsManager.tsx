@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useTerms } from '@/contexts/TermsContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, Edit3, Save, X, Upload, Download, BookOpen } from 'lucide-react';
+import { Plus, Trash2, Edit3, Save, X, Upload, Download, BookOpen, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ConfirmDialog } from './ConfirmDialog';
 
@@ -29,6 +29,7 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
   const [importText, setImportText] = useState('');
   const [showImport, setShowImport] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const onAddTerm = useCallback(async () => {
     if (!newOriginal.trim() || !newTranslation.trim()) {
@@ -119,6 +120,17 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
     toast.success('术语导出成功');
   }, [exportTerms]);
 
+  // 搜索和筛选术语
+  const filteredTerms = useMemo(() => {
+    if (!searchTerm.trim()) return terms;
+    
+    const searchLower = searchTerm.toLowerCase();
+    return terms.filter((term) => 
+      term.original.toLowerCase().includes(searchLower) ||
+      term.translation.toLowerCase().includes(searchLower)
+    );
+  }, [terms, searchTerm]);
+
   const onClearAll = useCallback(async () => {
     if (terms.length === 0) return;
     
@@ -145,7 +157,7 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.9 }}
-        className="bg-white/10 backdrop-blur-md rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+        className="bg-white/10 backdrop-blur-md rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
       >
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-2">
@@ -169,13 +181,13 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
             <h3 className="text-lg font-semibold text-white border-b border-white/20 pb-2">
               添加新术语
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col sm:flex-row gap-3">
               <input
                 type="text"
                 placeholder="原文"
                 value={newOriginal}
                 onChange={(e) => setNewOriginal(e.target.value)}
-                className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-purple-400 transition-colors"
+                className="flex-1 p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-purple-400 transition-colors"
                 onKeyPress={(e) => e.key === 'Enter' && onAddTerm()}
               />
               <input
@@ -183,17 +195,17 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
                 placeholder="译文"
                 value={newTranslation}
                 onChange={(e) => setNewTranslation(e.target.value)}
-                className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-purple-400 transition-colors"
+                className="flex-1 p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-purple-400 transition-colors"
                 onKeyPress={(e) => e.key === 'Enter' && onAddTerm()}
               />
+              <button
+                onClick={onAddTerm}
+                className="flex items-center space-x-2 px-4 py-3 bg-green-500/20 hover:bg-green-500/30 text-green-200 border border-green-500/30 rounded-lg transition-colors whitespace-nowrap"
+              >
+                <Plus className="h-4 w-4" />
+                <span>添加</span>
+              </button>
             </div>
-            <button
-              onClick={onAddTerm}
-              className="flex items-center space-x-2 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-200 border border-green-500/30 rounded-lg transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              <span>添加术语</span>
-            </button>
           </div>
 
           {/* 导入/导出 */}
@@ -264,18 +276,33 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
 
           {/* 术语列表 */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-white border-b border-white/20 pb-2">
-              术语列表
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white border-b border-white/20 pb-2">
+                术语列表
+              </h3>
+              <div className="flex items-center space-x-3">
+                {/* 搜索框 */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/60" />
+                  <input
+                    type="text"
+                    placeholder="搜索..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 pr-3 py-1.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/60 focus:outline-none focus:border-purple-400 transition-colors w-32"
+                  />
+                </div>
+              </div>
+            </div>
             
-            <div className="space-y-2 max-h-96 overflow-y-auto">
+            <div className="space-y-2 h-96 overflow-y-auto">
               <AnimatePresence>
-                {terms.length === 0 ? (
+                {filteredTerms.length === 0 ? (
                   <div className="text-center py-8 text-white/60">
-                    暂无术语，请添加术语或导入术语列表
+                    {searchTerm ? '没有找到匹配的术语' : '暂无术语，请添加术语或导入术语列表'}
                   </div>
                 ) : (
-                  terms.map((term, index) => (
+                  filteredTerms.map((term, index) => (
                     <motion.div
                       key={index}
                       initial={{ opacity: 0, y: 10 }}
