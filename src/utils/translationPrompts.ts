@@ -105,38 +105,52 @@ export const generateReflectionPrompt = (
     jsonDict[key] = {
       origin: directTranslations[key].origin,
       direct: directTranslations[key].direct,
-      reflect: "",
-      free: ""
+      reflect: "your reflection on direct translation",
+      free: "your free translation"
     };
   });
   
   const jsonFormat = JSON.stringify(jsonDict, null, 2);
   
   return `## Role
-You are a professional subtitle editor for ${targetLanguage}.
+You are a professional Netflix subtitle translator and language consultant.
+Your expertise lies not only in accurately understanding the original ${sourceLanguage} but also in optimizing the ${targetLanguage} translation to better suit the target language's expression habits and cultural background.
 
-## Your Task
-Critically review and refine the provided translation. Your revision must achieve three key goals:
+## Task
+We already have a direct translation version of the original ${sourceLanguage} subtitles.
+Your task is to reflect on and improve these direct translations to create more natural and fluent ${targetLanguage} subtitles.
 
-1.  **Natural Word Order**: Adjust the sentence structure to be fluent and natural for a ${targetLanguage} speaker.
-2.  **Strict Terminology**: You MUST use the exact translations provided in the \`### Terminology\` list. This is a mandatory rule.
-3.  **Contextual Accuracy**: Use the surrounding subtitles (\`<previous_content>\` and \`<subsequent_content>\`) to correct any logical errors or mistranslations.
-
-## Process
-Directly provide the improved translation in the specified JSON format. Do not explain your thought process or add comments in the output. Your focus is the final, clean subtitle.
+1. Analyze the direct translation results line by line, pointing out existing issues
+2. Provide detailed modification suggestions
+3. Perform free translation based on your analysis
+4. Do not add comments or explanations in the translation, as the subtitles are for the audience to read
+5. Do not leave empty lines in the free translation, as the subtitles are for the audience to read
 
 ${sharedPrompt}
 
+<Translation Analysis Steps>
+Please use a two-step thinking process to handle the text line by line:
+
+1. Direct Translation Reflection:
+   - Evaluate language fluency
+   - Check if the language style is consistent with the original text
+   - Check the conciseness of the subtitles, point out where the translation is too wordy
+
+2. ${targetLanguage} Free Translation:
+   - Aim for contextual smoothness and naturalness, conforming to ${targetLanguage} expression habits
+   - Ensure it's easy for ${targetLanguage} audience to understand and accept
+   - Adapt the language style to match the theme (e.g., use casual language for tutorials, professional terminology for technical content, formal language for documentaries)
+</Translation Analysis Steps>
+   
 ## INPUT
 <subtitles>
 ${lines}
 </subtitles>
 
-## Output Format
-Provide your response strictly in the following JSON format. Do not include any other text.
+## Output in only JSON format and no other text
 \`\`\`json
 ${jsonFormat}
 \`\`\`
 
-Note: Start your answer with \`\`\`json and end with \`\`\`.`;
+Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other text.`;
 };
