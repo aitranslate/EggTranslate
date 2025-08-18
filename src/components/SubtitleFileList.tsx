@@ -275,7 +275,6 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
   }, []);
 
   const handleStartTranslation = useCallback(async (file: any) => {
-    const relevantTerms = getRelevantTerms(file.name);
     const controller = await startTranslation();
     
     // 设置当前正在翻译的文件ID
@@ -285,9 +284,6 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
     const batchTasks = dataManager.getBatchTasks();
     const task = batchTasks.tasks.find(t => t.taskId === file.currentTaskId);
     const taskIndex = task?.index ?? 0;
-    
-    const termsString = relevantTerms.map(term => `${term.original} -> ${term.translation}`).join(`
-`);
 
     try {
       // 使用配置的批处理大小
@@ -298,12 +294,22 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
         const batch = file.entries.slice(i, i + batchSize);
         const texts = batch.map(entry => entry.text);
         
+        // 获取上下文
+        const contextBeforeTexts = getPreviousEntries(file.entries, i);
+        const contextAfterTexts = getNextEntries(file.entries, i + batch.length);
+        
+        // 获取相关术语
+        const batchText = texts.join(' ');
+        const relevantTerms = getRelevantTerms(batchText, contextBeforeTexts, contextAfterTexts);
+        const termsString = relevantTerms.map(term => `${term.original} -> ${term.translation}`).join(`
+`);
+        
         // 使用真实的翻译API
         const result = await translateBatch(
           texts, 
           controller.signal, 
-          getPreviousEntries(file.entries, i),
-          getNextEntries(file.entries, i + batch.length),
+          contextBeforeTexts,
+          contextAfterTexts,
           termsString
         );
         
