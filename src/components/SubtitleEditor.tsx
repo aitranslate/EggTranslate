@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { useSingleSubtitle } from '@/contexts/SubtitleContext';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Edit3, Save, X, Search, Filter, Trash2, AlertTriangle, FileText } from 'lucide-react';
+import { Edit3, Save, X, Search, Filter, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface SubtitleEditorProps {
@@ -23,7 +23,6 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   const [editTranslation, setEditTranslation] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'translated' | 'untranslated'>('all');
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
   
   // 直接使用 context 中的 entries，确保获取最新数据
   const fileEntries = useMemo(() => {
@@ -79,30 +78,6 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
     setEditTranslation('');
   }, []);
 
-  const onClearEntries = useCallback(async () => {
-    try {
-      // 使用增强的清空功能：清空所有相关数据
-      await clearAllData();
-      
-      // 重置翻译进度和相关状态
-      await resetProgress();
-      
-      // 重置编辑器状态
-      setEditingId(null);
-      setEditText('');
-      setEditTranslation('');
-      setSearchTerm('');
-      setFilterType('all');
-      
-      // 等待一小段时间确保所有状态都已重置
-      setTimeout(() => {
-        toast.success('所有数据已清空，可以开始新任务');
-      }, 100);
-    } catch (error) {
-      console.error('清空失败:', error);
-      toast.error('清空失败');
-    }
-  }, [clearAllData, resetProgress]);
 
   const translationStats = useMemo(() => {
     const entriesArray = fileEntries || [];
@@ -181,56 +156,6 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
                   <option value="translated" className="bg-gray-800">已翻译</option>
                   <option value="untranslated" className="bg-gray-800">未翻译</option>
                 </select>
-                
-                {/* 清空按钮 */}
-                {fileEntries.length > 0 && (
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowClearConfirm(true)}
-                      className="flex items-center space-x-2 px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 rounded-lg transition-colors duration-200"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      <span>清空</span>
-                    </button>
-                    
-                    {/* 确认对话框 */}
-                    {showClearConfirm && (
-                      <>
-                        <div className="absolute bottom-full mb-2 right-0 z-50">
-                          <div className="bg-black/90 backdrop-blur-sm rounded-lg p-4 space-y-3 min-w-[240px] shadow-2xl border border-white/20">
-                            <div className="flex items-start space-x-2">
-                              <AlertTriangle className="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" />
-                              <div className="text-sm text-white">
-                                <div className="font-medium mb-1">确认清空字幕？</div>
-                                <div className="text-white/70">此操作不可恢复，将清除所有字幕内容</div>
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-2 pt-1">
-                              <button
-                                onClick={onClearEntries}
-                                className="flex-1 px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 rounded-md transition-colors text-sm"
-                              >
-                                确认清空
-                              </button>
-                              <button
-                                onClick={() => setShowClearConfirm(false)}
-                                className="flex-1 px-3 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-md transition-colors text-sm"
-                              >
-                                取消
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {/* 点击外部区域关闭对话框的遮罩层 */}
-                        <div
-                          className="fixed inset-0 z-40"
-                          onClick={() => setShowClearConfirm(false)}
-                        />
-                      </>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
             

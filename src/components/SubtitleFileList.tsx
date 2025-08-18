@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface SubtitleFileItemProps {
   file: any;
@@ -27,6 +28,7 @@ interface SubtitleFileItemProps {
   onEdit: (file: any) => void;
   onStartTranslation: (file: any) => Promise<void>;
   onExport: (file: any, format: 'srt' | 'txt' | 'bilingual') => void;
+  onDelete: (file: any) => Promise<void>;
   isTranslatingGlobally: boolean;
   currentTranslatingFileId: string | null;
 }
@@ -37,6 +39,7 @@ const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
   onEdit,
   onStartTranslation,
   onExport,
+  onDelete,
   isTranslatingGlobally,
   currentTranslatingFileId
 }) => {
@@ -82,159 +85,177 @@ const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
     setIsExporting(false);
   }, [file, onExport]);
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="border border-white/20 rounded-xl p-6 bg-white/5 hover:bg-white/10 transition-colors"
-    >
-      {/* 文件头部信息 */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center space-x-3">
-          <div className="flex-shrink-0">
-            <FileText className="h-5 w-5 text-blue-400" />
-          </div>
-          <div>
-            <h4 className="font-medium text-white truncate max-w-xs">{file.name}</h4>
-            <div className="text-xs text-white/60 mt-1">
-              {file.entries.length} 条字幕
-            </div>
-          </div>
-        </div>
-        
-        <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-          translationStats.percentage === 100
-            ? 'bg-green-500/30 text-green-200'
-            : translationStats.percentage > 0
-            ? 'bg-blue-500/30 text-blue-200'
-            : 'bg-gray-500/30 text-gray-200'
-        }`}>
-          {translationStats.percentage === 100 ? '已完成' : 
-           translationStats.percentage > 0 ? '翻译中' : '未开始'}
-        </div>
-      </div>
+  const handleDeleteClick = useCallback(() => {
+    onDelete(file);
+  }, [file, onDelete]);
 
-      {/* 进度条和操作按钮 */}
-      <div className="mb-4">
-        {/* 翻译进度标题 */}
-        <div className="text-sm text-white/70 mb-2">翻译进度</div>
-        
-        <div className="flex items-center space-x-3">
-          {/* 进度条 */}
-          <div className="flex-grow relative">
-            <div className="absolute right-0 -top-6 text-sm text-white/70">{translationStats.percentage}%</div>
-            <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
-              <motion.div
-                className={`h-full rounded-full ${
-                  translationStats.percentage === 100
-                    ? 'bg-gradient-to-r from-green-400 to-emerald-400'
-                    : 'bg-gradient-to-r from-purple-400 to-blue-400'
-                }`}
-                initial={{ width: '0%' }}
-                animate={{ width: `${translationStats.percentage}%` }}
-                transition={{ duration: 0.5, ease: 'easeInOut' }}
-              />
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="border border-white/20 rounded-xl p-6 bg-white/5 hover:bg-white/10 transition-colors"
+      >
+        {/* 文件头部信息 */}
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <div className="flex-shrink-0">
+              <FileText className="h-5 w-5 text-blue-400" />
             </div>
-            <div className="flex justify-between text-xs text-white/60 mt-1">
-              <span>{translationStats.translated} / {translationStats.total} 已翻译</span>
-              <span className="flex items-center space-x-1">
-                <Zap className="h-3 w-3" />
-                <span>{translationStats.tokens.toLocaleString()} tokens</span>
-              </span>
+            <div>
+              <h4 className="font-medium text-white truncate max-w-xs">{file.name}</h4>
+              <div className="text-xs text-white/60 mt-1">
+                {file.entries.length} 条字幕
+              </div>
             </div>
           </div>
           
-          {/* 操作按钮 */}
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleStartTranslationLocal();
-              }}
-              disabled={isTranslating || translationStats.percentage === 100 || (isTranslatingGlobally && !isTranslating)}
-              className={`
-                flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200
-                ${translationStats.percentage === 100
-                  ? 'bg-green-500/20 text-green-200 border border-green-500/30'
-                  : isTranslating || currentTranslatingFileId === file.id
-                  ? 'bg-orange-500/20 text-orange-200 border border-orange-500/30 cursor-not-allowed'
-                  : (isTranslatingGlobally && !isTranslating)
-                  ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30 cursor-not-allowed'
-                  : 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 hover:scale-110'
-                }
-              `}
-              title={translationStats.percentage === 100 ? '已完成' : 
-                    isTranslating || currentTranslatingFileId === file.id ? '翻译中...' : 
-                    (isTranslatingGlobally && !isTranslating) ? '待处理' : '开始翻译'}
-            >
-              {isTranslating || currentTranslatingFileId === file.id ? (
-                <div className="animate-spin h-4 w-4 border-2 border-orange-300 border-t-transparent rounded-full" />
-              ) : (
-                <Play className="h-4 w-4" />
-              )}
-            </button>
+          <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+            translationStats.percentage === 100
+              ? 'bg-green-500/30 text-green-200'
+              : translationStats.percentage > 0
+              ? 'bg-blue-500/30 text-blue-200'
+              : 'bg-gray-500/30 text-gray-200'
+          }`}>
+            {translationStats.percentage === 100 ? '已完成' : 
+             translationStats.percentage > 0 ? '翻译中' : '未开始'}
+          </div>
+        </div>
+
+        {/* 进度条和操作按钮 */}
+        <div className="mb-4">
+          {/* 翻译进度标题 */}
+          <div className="text-sm text-white/70 mb-2">翻译进度</div>
+          
+          <div className="flex items-center space-x-3">
+            {/* 进度条 */}
+            <div className="flex-grow relative">
+              <div className="absolute right-0 -top-6 text-sm text-white/70">{translationStats.percentage}%</div>
+              <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+                <motion.div
+                  className={`h-full rounded-full ${
+                    translationStats.percentage === 100
+                      ? 'bg-gradient-to-r from-green-400 to-emerald-400'
+                      : 'bg-gradient-to-r from-purple-400 to-blue-400'
+                  }`}
+                  initial={{ width: '0%' }}
+                  animate={{ width: `${translationStats.percentage}%` }}
+                  transition={{ duration: 0.5, ease: 'easeInOut' }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-white/60 mt-1">
+                <span>{translationStats.translated} / {translationStats.total} 已翻译</span>
+                <span className="flex items-center space-x-1">
+                  <Zap className="h-3 w-3" />
+                  <span>{translationStats.tokens.toLocaleString()} tokens</span>
+                </span>
+              </div>
+            </div>
             
-            <button
-              onClick={() => onEdit(file)}
-              className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 transition-all duration-200 hover:scale-110"
-              title="编辑"
-            >
-              <Edit3 className="h-4 w-4" />
-            </button>
-            
-            <div className="relative">
+            {/* 操作按钮 */}
+            <div className="flex items-center space-x-2">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setIsExporting(!isExporting);
+                  handleStartTranslationLocal();
                 }}
-                disabled={file.entries.length === 0 || isTranslating}
-                className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 transition-all duration-200 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="导出"
+                disabled={isTranslating || translationStats.percentage === 100 || (isTranslatingGlobally && !isTranslating)}
+                className={`
+                  flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200
+                  ${translationStats.percentage === 100
+                    ? 'bg-green-500/20 text-green-200 border border-green-500/30'
+                    : isTranslating || currentTranslatingFileId === file.id
+                    ? 'bg-orange-500/20 text-orange-200 border border-orange-500/30 cursor-not-allowed'
+                    : (isTranslatingGlobally && !isTranslating)
+                    ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30 cursor-not-allowed'
+                    : 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 hover:scale-110'
+                  }
+                `}
+                title={translationStats.percentage === 100 ? '已完成' : 
+                      isTranslating || currentTranslatingFileId === file.id ? '翻译中...' : 
+                      (isTranslatingGlobally && !isTranslating) ? '待处理' : '开始翻译'}
               >
-                <Download className="h-4 w-4" />
+                {isTranslating || currentTranslatingFileId === file.id ? (
+                  <div className="animate-spin h-4 w-4 border-2 border-orange-300 border-t-transparent rounded-full" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
               </button>
-            
-              {isExporting && (
-                <div className="absolute bottom-full mb-2 right-0 z-50">
-                  <div className="bg-black/90 backdrop-blur-sm rounded-lg p-1 space-y-1 min-w-[140px] shadow-2xl border border-white/20">
-                    <button
-                      onClick={() => handleExport('srt')}
-                      className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/20 rounded-md transition-colors duration-150 flex items-center space-x-2"
-                    >
-                      <span>📄</span>
-                      <span>SRT 格式</span>
-                    </button>
-                    <button
-                      onClick={() => handleExport('txt')}
-                      className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/20 rounded-md transition-colors duration-150 flex items-center space-x-2"
-                    >
-                      <span>📝</span>
-                      <span>TXT 格式</span>
-                    </button>
-                    <button
-                      onClick={() => handleExport('bilingual')}
-                      className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/20 rounded-md transition-colors duration-150 flex items-center space-x-2"
-                    >
-                      <span>🔄</span>
-                      <span>双语对照</span>
-                    </button>
-                  </div>
-                </div>
-              )}
               
-              {/* 点击外部区域关闭菜单的遮罩层 */}
-              {isExporting && (
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setIsExporting(false)}
-                />
-              )}
+              <button
+                onClick={() => onEdit(file)}
+                className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 transition-all duration-200 hover:scale-110"
+                title="编辑"
+              >
+                <Edit3 className="h-4 w-4" />
+              </button>
+              
+              <div className="relative">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsExporting(!isExporting);
+                  }}
+                  disabled={file.entries.length === 0 || isTranslating}
+                  className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 transition-all duration-200 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="导出"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
+              
+                {isExporting && (
+                  <div className="absolute bottom-full mb-2 right-0 z-50">
+                    <div className="bg-black/90 backdrop-blur-sm rounded-lg p-1 space-y-1 min-w-[140px] shadow-2xl border border-white/20">
+                      <button
+                        onClick={() => handleExport('srt')}
+                        className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/20 rounded-md transition-colors duration-150 flex items-center space-x-2"
+                      >
+                        <span>📄</span>
+                        <span>SRT 格式</span>
+                      </button>
+                      <button
+                        onClick={() => handleExport('txt')}
+                        className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/20 rounded-md transition-colors duration-150 flex items-center space-x-2"
+                      >
+                        <span>📝</span>
+                        <span>TXT 格式</span>
+                      </button>
+                      <button
+                        onClick={() => handleExport('bilingual')}
+                        className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/20 rounded-md transition-colors duration-150 flex items-center space-x-2"
+                      >
+                        <span>🔄</span>
+                        <span>双语对照</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* 点击外部区域关闭菜单的遮罩层 */}
+                {isExporting && (
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setIsExporting(false)}
+                  />
+                )}
+              </div>
+              
+              {/* 删除按钮 */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteClick();
+                }}
+                className="flex items-center justify-center w-8 h-8 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 transition-all duration-200 hover:scale-110"
+                title="删除"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
             </div>
           </div>
         </div>
-      </div>
-    </motion.div>
+      </motion.div>
+    </>
   );
 };
 
@@ -269,6 +290,8 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
   const [isTranslatingGloballyState, setIsTranslatingGlobally] = useState(false);
   const [currentTranslatingFileId, setCurrentTranslatingFileId] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<any>(null);
 
   const handleEdit = useCallback((file: any) => {
     setEditingFile(file);
@@ -468,6 +491,25 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
     }
   }, [clearAllData]);
 
+  const handleDeleteFile = useCallback(async (file: any) => {
+    setFileToDelete(file);
+    setShowDeleteConfirm(true);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!fileToDelete) return;
+    
+    try {
+      // 删除文件
+      await removeFile(fileToDelete.id);
+    } catch (error) {
+      console.error('删除文件失败:', error);
+      toast.error(`删除失败: ${error.message}`);
+    } finally {
+      setFileToDelete(null);
+    }
+  }, [fileToDelete, removeFile]);
+
   const handleExport = useCallback((file: any, format: 'srt' | 'txt' | 'bilingual') => {
     let content = '';
     let extension = '';
@@ -550,6 +592,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
                   onEdit={onEditFile}
                   onStartTranslation={handleStartTranslation}
                   onExport={handleExport}
+                  onDelete={handleDeleteFile}
                   isTranslatingGlobally={isTranslatingGloballyState}
                   currentTranslatingFileId={currentTranslatingFileId}
                 />
@@ -560,69 +603,29 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
       </motion.div>
 
       {/* 清空确认对话框 */}
-      <AnimatePresence>
-        {showClearConfirm && (
-          <>
-            {/* 背景遮罩 */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm"
-              onClick={() => setShowClearConfirm(false)}
-            />
-            
-            {/* 对话框 */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            >
-              <div 
-                className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 w-full max-w-md border border-white/20 shadow-2xl"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="space-y-6">
-                  {/* 标题和关闭按钮 */}
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-bold text-white">确认清空</h3>
-                    <button
-                      onClick={() => setShowClearConfirm(false)}
-                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                    >
-                      <X className="h-5 w-5 text-white/60" />
-                    </button>
-                  </div>
-                  
-                  {/* 内容 */}
-                  <div>
-                    <p className="text-white/80">
-                      确定要清空所有 {files.length} 个文件吗？此操作不可恢复。
-                    </p>
-                  </div>
-                  
-                  {/* 按钮 */}
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={() => setShowClearConfirm(false)}
-                      className="flex-1 px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all duration-200"
-                    >
-                      取消
-                    </button>
-                    <button
-                      onClick={handleConfirmClear}
-                      className="flex-1 px-4 py-3 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 transition-all duration-200 hover:scale-105"
-                    >
-                      确认清空
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      <ConfirmDialog
+        isOpen={showClearConfirm}
+        onClose={() => setShowClearConfirm(false)}
+        onConfirm={handleConfirmClear}
+        title="确认清空"
+        message={`确定要清空所有 ${files.length} 个文件吗？此操作不可恢复。`}
+        confirmText="确认清空"
+        confirmButtonClass="bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30"
+      />
+
+      {/* 删除文件确认对话框 */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setFileToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="确认删除"
+        message={fileToDelete ? `确定要删除文件 "${fileToDelete.name}" 吗？此操作不可恢复。` : ''}
+        confirmText="确认删除"
+        confirmButtonClass="bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30"
+      />
     </div>
   );
 };

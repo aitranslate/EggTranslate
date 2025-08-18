@@ -3,6 +3,7 @@ import { useTerms } from '@/contexts/TermsContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, Edit3, Save, X, Upload, Download, BookOpen } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface TermsManagerProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
   const [newTranslation, setNewTranslation] = useState('');
   const [importText, setImportText] = useState('');
   const [showImport, setShowImport] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const onAddTerm = useCallback(async () => {
     if (!newOriginal.trim() || !newTranslation.trim()) {
@@ -120,15 +122,20 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
   const onClearAll = useCallback(async () => {
     if (terms.length === 0) return;
     
-    if (window.confirm('确定要清空所有术语吗？这操作不可恢复。')) {
-      try {
-        await clearTerms();
-        toast.success('已清空所有术语');
-      } catch (error) {
-        toast.error('清空术语失败');
-      }
+    // 显示自定义确认对话框
+    setShowClearConfirm(true);
+  }, [terms.length]);
+
+  const handleConfirmClear = useCallback(async () => {
+    try {
+      await clearTerms();
+      toast.success('已清空所有术语');
+    } catch (error) {
+      toast.error('清空术语失败');
+    } finally {
+      setShowClearConfirm(false);
     }
-  }, [terms.length, clearTerms]);
+  }, [clearTerms]);
 
   if (!isOpen) return null;
 
@@ -347,6 +354,17 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
           </div>
         </div>
       </motion.div>
+
+      {/* 清空术语确认对话框 */}
+      <ConfirmDialog
+        isOpen={showClearConfirm}
+        onClose={() => setShowClearConfirm(false)}
+        onConfirm={handleConfirmClear}
+        title="确认清空"
+        message={`确定要清空所有 ${terms.length} 个术语吗？此操作不可恢复。`}
+        confirmText="确认清空"
+        confirmButtonClass="bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30"
+      />
     </div>
   );
 };
