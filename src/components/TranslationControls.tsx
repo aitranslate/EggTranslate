@@ -100,7 +100,7 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
           const contextBeforeTexts = entries.slice(Math.max(0, startIdx - contextBefore), startIdx).map(e => e.text).join('\n');
           const contextAfterTexts = entries.slice(endIdx, Math.min(entries.length, endIdx + contextAfter)).map(e => e.text).join('\n');
           const batchText = untranslatedEntries.map(e => e.text).join(' ');
-          const relevantTerms = getRelevantTerms(batchText);
+          const relevantTerms = getRelevantTerms(batchText, contextBeforeTexts, contextAfterTexts);
           const termsText = relevantTerms.map(term => `${term.original} -> ${term.translation}`).join('\n');
           const textsToTranslate = untranslatedEntries.map(e => e.text);
           
@@ -134,11 +134,11 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
               );
               
               const batchUpdates = [];
-              for (const [key, value] of Object.entries(translationResult)) {
+              for (const [key, value] of Object.entries(translationResult.translations)) {
                 const resultIndex = parseInt(key) - 1;
                 const untranslatedEntry = batch.untranslatedEntries[resultIndex];
                 
-                if (untranslatedEntry && value.direct) {
+                if (untranslatedEntry && typeof value === 'object' && value.direct) {
                   batchUpdates.push({
                     id: untranslatedEntry.id,
                     text: untranslatedEntry.text,
@@ -150,7 +150,7 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
               currentCompletedCount += batchUpdates.length;
               
               if (batchUpdates.length > 0) {
-                await dataManager.batchUpdateSubtitleEntries(batchUpdates);
+                await dataManager.batchUpdateTaskSubtitleEntries(batchUpdates);
                 for (const update of batchUpdates) {
                   await updateEntry(update.id, update.text, update.translatedText);
                 }

@@ -113,12 +113,34 @@ export const TermsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return state.terms.map(term => `${term.original}: ${term.translation}`).join('\n');
   }, [state.terms]);
 
-  const getRelevantTerms = useCallback((text: string): Term[] => {
-    if (!text || state.terms.length === 0) return [];
-    const lowerText = text.toLowerCase();
-    return state.terms.filter(term => 
-      lowerText.includes(term.original.toLowerCase())
-    );
+  /**
+   * 清洗文本，移除所有空格和符号，转为小写
+   * @param text 需要清洗的文本
+   * @returns 清洗后的文本
+   */
+  const cleanText = (text: string): string => {
+    return text.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+  };
+
+  const getRelevantTerms = useCallback((text: string, contextBefore: string = '', contextAfter: string = ''): Term[] => {
+    if (state.terms.length === 0) return [];
+    
+    // 合并所有文本（主文本、前文上下文、后文上下文）
+    const fullText = `${contextBefore} ${text} ${contextAfter}`;
+    
+    // 清洗合并后的文本
+    const cleanedFullText = cleanText(fullText);
+    
+    // 预处理术语，为每个术语创建一个清洗后的版本
+    const processedTerms = state.terms.map(term => ({
+      ...term,
+      cleanedOriginal: cleanText(term.original)
+    }));
+    
+    // 筛选出在清洗后文本中出现的术语
+    return processedTerms
+      .filter(term => term.cleanedOriginal && cleanedFullText.includes(term.cleanedOriginal))
+      .map(({ original, translation }) => ({ original, translation })); // 返回原始术语格式
   }, [state.terms]);
 
   React.useEffect(() => {

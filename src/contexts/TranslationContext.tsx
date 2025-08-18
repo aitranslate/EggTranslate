@@ -3,6 +3,7 @@ import { TranslationConfig, TranslationProgress } from '@/types';
 import { rateLimiter } from '@/utils/rateLimiter';
 import { jsonrepair } from 'jsonrepair';
 import dataManager from '@/services/dataManager';
+import { generateSharedPrompt, generateDirectPrompt, generateReflectionPrompt } from '@/utils/translationPrompts';
 
 interface TranslationState {
   config: TranslationConfig;
@@ -46,7 +47,8 @@ const initialConfig: TranslationConfig = {
   contextAfter: 2,
   batchSize: 10,
   threadCount: 4,
-  rpm: 0
+  rpm: 0,
+  enableReflection: false
 };
 
 const initialState: TranslationState = {
@@ -167,64 +169,7 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, [state.config]);
 
-  const generateSharedPrompt = useCallback((contextBefore: string, contextAfter: string, terms: string) => {
-    return `### Context Information
-<previous_content>
-${contextBefore}
-</previous_content>
-
-<subsequent_content>
-${contextAfter}
-</subsequent_content>
-
-### Points to Note
-${terms}`;
-  }, []);
-
-  const generateDirectPrompt = useCallback((lines: string, sharedPrompt: string) => {
-    const lineArray = lines.split('\n');
-    const jsonDict: Record<string, any> = {};
-    
-    lineArray.forEach((line, index) => {
-      jsonDict[`${index + 1}`] = {
-        origin: line,
-        direct: ""
-      };
-    });
-    
-    const jsonFormat = JSON.stringify(jsonDict, null, 2);
-    
-    return `## Role
-You are a professional Netflix subtitle translator, fluent in both ${state.config.sourceLanguage} and ${state.config.targetLanguage}, as well as their respective cultures. 
-Your expertise lies in accurately understanding the semantics and structure of the original ${state.config.sourceLanguage} text and faithfully translating it into ${state.config.targetLanguage} while preserving the original meaning.
-
-## Task
-We have a segment of original ${state.config.sourceLanguage} subtitles that need to be directly translated into ${state.config.targetLanguage}. These subtitles come from a specific context and may contain specific themes and terminology.
-
-1. Translate the original ${state.config.sourceLanguage} subtitles into ${state.config.targetLanguage} line by line
-2. Ensure the translation is faithful to the original, accurately conveying the original meaning
-3. Consider the context and professional terminology
-
-${sharedPrompt}
-
-<translation_principles>
-1. Faithful to the original: Accurately convey the content and meaning of the original text, without arbitrarily changing, adding, or omitting content.
-2. Accurate terminology: Use professional terms correctly and maintain consistency in terminology.
-3. Understand the context: Fully comprehend and reflect the background and contextual relationships of the text.
-</translation_principles>
-
-## INPUT
-<subtitles>
-${lines}
-</subtitles>
-
-## Output in only JSON format and no other text
-\`\`\`json
-${jsonFormat}
-\`\`\`
-
-Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other text.`;
-  }, [state.config.sourceLanguage, state.config.targetLanguage]);
+  // 使用导入的提示词生成函数
 
   const translateBatch = useCallback(async (
     texts: string[], 
@@ -242,9 +187,18 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
     
     const textToTranslate = texts.join('\n');
     const sharedPrompt = generateSharedPrompt(contextBefore, contextAfter, terms);
-    const directPrompt = generateDirectPrompt(textToTranslate, sharedPrompt);
+    const directPrompt = generateDirectPrompt(
+      textToTranslate, 
+      sharedPrompt, 
+      state.config.sourceLanguage, 
+      state.config.targetLanguage
+    );
     
     let lastError: any = null;
+    let totalTokensUsed = 0;
+    let directResult: Record<string, any> = {};
+    
+    // 第一步：直译
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       if (signal?.aborted) {
         throw new Error('翻译被取消');
@@ -280,33 +234,136 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
         
         const directData = await directResponse.json();
         
-        const tokensUsed = directData.usage?.total_tokens || 0;
+        const directTokensUsed = directData.usage?.total_tokens || 0;
+        totalTokensUsed += directTokensUsed;
         
         const directContent = directData.choices[0]?.message?.content || '';
         
         const repairedDirectJson = jsonrepair(directContent);
-        const directResult = JSON.parse(repairedDirectJson);
+        directResult = JSON.parse(repairedDirectJson);
         
-        return {
-          translations: directResult,
-          tokensUsed: tokensUsed
-        };
+        // 成功获取直译结果后，继续进行反思翻译
+        break;
       } catch (error) {
         if (error.name === 'AbortError' || error.message?.includes('取消')) {
           throw error;
         }
         
         lastError = error;
-        console.error(`翻译批次第${attempt}次尝试失败:`, error);
+        console.error(`直译批次第${attempt}次尝试失败:`, error);
         if (attempt < maxRetries) {
           await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
         }
       }
     }
     
-    console.error('翻译批次失败，已达到最大重试次数:', lastError);
-    throw lastError;
-  }, [state.config, generateSharedPrompt, generateDirectPrompt]);
+    if (!directResult || Object.keys(directResult).length === 0) {
+      console.error('直译批次失败，已达到最大重试次数:', lastError);
+      throw lastError || new Error('直译失败');
+    }
+    
+    // 第二步：如果启用了反思翻译，则执行反思翻译
+    if (state.config.enableReflection) {
+      try {
+        if (signal?.aborted) {
+          throw new Error('翻译被取消');
+        }
+        
+        // 生成反思提示词
+        const reflectionPrompt = generateReflectionPrompt(
+          directResult,
+          textToTranslate,
+          sharedPrompt,
+          state.config.sourceLanguage,
+          state.config.targetLanguage
+        );
+        
+        await rateLimiter.waitForAvailability();
+        
+        if (signal?.aborted) {
+          throw new Error('翻译被取消');
+        }
+        
+        const apiKey = getNextApiKey(state.config.apiKey);
+        
+        const reflectionResponse = await fetch(`${state.config.baseURL}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: state.config.model,
+            messages: [{ role: 'user', content: reflectionPrompt }],
+            temperature: 0.3
+          }),
+          signal
+        });
+        
+        if (!reflectionResponse.ok) {
+          const errorData = await reflectionResponse.json();
+          console.error('反思翻译请求失败:', errorData);
+          // 如果反思失败，仍然返回直译结果
+          return {
+            translations: directResult,
+            tokensUsed: totalTokensUsed
+          };
+        }
+        
+        const reflectionData = await reflectionResponse.json();
+        
+        const reflectionTokensUsed = reflectionData.usage?.total_tokens || 0;
+        totalTokensUsed += reflectionTokensUsed;
+        
+        const reflectionContent = reflectionData.choices[0]?.message?.content || '';
+        
+        try {
+          const repairedReflectionJson = jsonrepair(reflectionContent);
+          const reflectionResult = JSON.parse(repairedReflectionJson);
+          
+          // 将反思结果转换为直译格式
+          const formattedResult: Record<string, any> = {};
+          
+          // 遍历反思结果，提取需要的字段并保持直译格式
+          Object.keys(reflectionResult).forEach(key => {
+            formattedResult[key] = {
+              origin: reflectionResult[key].origin,
+              direct: reflectionResult[key].free || reflectionResult[key].direct // 优先使用自由翻译，如果没有则使用直译
+            };
+          });
+          
+          return {
+            translations: formattedResult,
+            tokensUsed: totalTokensUsed
+          };
+        } catch (jsonError) {
+          console.error('解析反思翻译结果失败:', jsonError);
+          // 如果解析反思结果失败，返回直译结果
+          return {
+            translations: directResult,
+            tokensUsed: totalTokensUsed
+          };
+        }
+      } catch (error) {
+        if (error.name === 'AbortError' || error.message?.includes('取消')) {
+          throw error;
+        }
+        
+        console.error('反思翻译失败:', error);
+        // 如果反思翻译过程中出错，返回直译结果
+        return {
+          translations: directResult,
+          tokensUsed: totalTokensUsed
+        };
+      }
+    } else {
+      // 如果未启用反思翻译，直接返回直译结果
+      return {
+        translations: directResult,
+        tokensUsed: totalTokensUsed
+      };
+    }
+  }, [state.config, generateSharedPrompt, generateDirectPrompt, generateReflectionPrompt]);
 
   const updateProgress = useCallback(async (
     current: number, 
@@ -324,7 +381,7 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
     try {
       if (actualTaskId) {
         // 准备更新对象
-        const updateObj: Partial<SingleTask['translation_progress']> = {
+        const updateObj: any = {
           completed: current,
           total: total,
           status: phase === 'completed' ? 'completed' : 'translating',
@@ -350,11 +407,11 @@ Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other
     try {
       const currentTask = dataManager.getCurrentTask();
       if (currentTask) {
-        await dataManager.updateTranslationProgress({
-          completed: 0,
-          tokens: 0,
-          status: 'idle'
-        });
+      await dataManager.updateTaskTranslationProgress(currentTask.taskId, {
+        completed: 0,
+        tokens: 0,
+        status: 'idle'
+      });
       }
     } catch (error) {
       console.error('重置翻译进度失败:', error);
