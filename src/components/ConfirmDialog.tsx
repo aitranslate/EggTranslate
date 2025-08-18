@@ -11,7 +11,6 @@ interface ConfirmDialogProps {
   confirmText?: string;
   cancelText?: string;
   confirmButtonClass?: string;
-  cancelButtonTitle?: string;
 }
 
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
@@ -22,8 +21,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   message,
   confirmText = '确认',
   cancelText = '取消',
-  confirmButtonClass = 'bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30',
-  cancelButtonTitle = '取消'
+  confirmButtonClass = 'bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30'
 }) => {
   const handleConfirm = () => {
     onConfirm();
@@ -61,7 +59,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                   <button
                     onClick={onClose}
                     className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                    aria-label={cancelButtonTitle}
+                    aria-label="关闭"
                   >
                     <X className="h-5 w-5 text-white/60" />
                   </button>
