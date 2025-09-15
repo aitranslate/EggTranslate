@@ -6,9 +6,8 @@ import sourceIdentifierPlugin from 'vite-plugin-source-info'
 const isProd = process.env.BUILD_MODE === 'prod'
 
 // GitHub Pages 的 base 路径配置
-// 如果是用户/组织页面 (username.github.io)，使用 '/'
-// 如果是项目页面 (username.github.io/project-name)，使用 '/project-name/'
-const base = '/'
+// 根据你的 GitHub Pages URL: https://aitranslate.github.io/SrtTranslate/
+const base = '/SrtTranslate/'
 
 export default defineConfig({
   base: base,
