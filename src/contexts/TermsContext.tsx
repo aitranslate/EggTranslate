@@ -15,7 +15,7 @@ interface TermsContextValue extends TermsState {
   clearTerms: () => Promise<void>;
   importTerms: (termsText: string) => Promise<void>;
   exportTerms: () => string;
-  getRelevantTerms: (text: string) => Term[];
+  getRelevantTerms: (text: string, contextBefore?: string, contextAfter?: string) => Term[];
 }
 
 type TermsAction =

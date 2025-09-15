@@ -26,7 +26,6 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
     history, 
     deleteHistoryEntry, 
     clearHistory,
-    loadTaskFromHistory,
     getHistoryStats 
   } = useHistory();
   

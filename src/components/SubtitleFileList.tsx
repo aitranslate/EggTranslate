@@ -446,7 +446,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
     });
     
     if (filesToTranslate.length === 0) {
-      toast.info('所有文件都已翻译完成');
+      toast.success('所有文件都已翻译完成');
       return;
     }
     

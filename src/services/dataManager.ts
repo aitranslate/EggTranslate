@@ -28,6 +28,7 @@ class DataManager {
     terms_list: Term[];
     translation_config: TranslationConfig;
     translation_history: TranslationHistoryEntry[];
+    current_translation_task?: CurrentTranslationTask;
   };
 
   // localStorage key 常量
@@ -49,7 +50,8 @@ class DataManager {
     contextAfter: 2,
     batchSize: 10,
     threadCount: 4,
-    rpm: 0
+    rpm: 0,
+    enableReflection: false
   };
 
   constructor() {
@@ -58,7 +60,8 @@ class DataManager {
       batch_tasks: { tasks: [] },
       terms_list: [],
       translation_config: this.DEFAULT_CONFIG,
-      translation_history: []
+      translation_history: [],
+      current_translation_task: undefined
     };
   }
 
@@ -93,7 +96,19 @@ class DataManager {
    * 获取当前翻译任务（从内存中）
    */
   getCurrentTask(): CurrentTranslationTask | null {
-    return this.memoryStore.current_translation_task;
+    return this.memoryStore.current_translation_task || null;
+  }
+
+  /**
+   * 清空当前翻译任务
+   */
+  async clearCurrentTask(): Promise<void> {
+    try {
+      this.memoryStore.current_translation_task = undefined;
+    } catch (error) {
+      console.error('清空当前翻译任务失败:', error);
+      throw error;
+    }
   }
 
   /**

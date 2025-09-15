@@ -60,7 +60,7 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
       const controller = await initTranslation();
       
       // 在开始翻译时才创建任务
-      const currentTaskId = await dataManager.createNewTask(filename, entries);
+      const currentTaskId = await dataManager.createNewTask(filename, entries, 0);
       
       const { batchSize, contextBefore, contextAfter, threadCount } = config;
       const totalBatches = Math.ceil(entries.length / batchSize);
@@ -150,7 +150,7 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
               currentCompletedCount += batchUpdates.length;
               
               if (batchUpdates.length > 0) {
-                await dataManager.batchUpdateTaskSubtitleEntries(batchUpdates);
+                await dataManager.batchUpdateTaskSubtitleEntries(currentTaskId, batchUpdates);
                 for (const update of batchUpdates) {
                   await updateEntry(update.id, update.text, update.translatedText);
                 }
