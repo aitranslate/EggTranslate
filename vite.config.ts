@@ -5,10 +5,10 @@ import sourceIdentifierPlugin from 'vite-plugin-source-info'
 
 const isProd = process.env.BUILD_MODE === 'prod'
 
-// GitHub Pages 的 base 路径应该与仓库名一致
-// 你可以根据你的实际仓库名修改这个值
-const base = process.env.GITHUB_REPOSITORY ? 
-  `/${process.env.GITHUB_REPOSITORY.split('/')[1]}/` : '/'
+// GitHub Pages 的 base 路径配置
+// 如果是用户/组织页面 (username.github.io)，使用 '/'
+// 如果是项目页面 (username.github.io/project-name)，使用 '/project-name/'
+const base = '/'
 
 export default defineConfig({
   base: base,
@@ -36,5 +36,7 @@ export default defineConfig({
         assetFileNames: 'assets/[name]-[hash].[ext]'
       }
     }
-  }
+  },
+  // 确保 public 目录下的文件使用相对路径
+  publicDir: 'public'
 })
