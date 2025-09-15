@@ -4,8 +4,8 @@ const RUNTIME_CACHE = 'srt-translator-runtime-v1';
 
 // 需要预缓存的核心资源
 const PRECACHE_URLS = [
-  '/',
-  '/index.html'
+  '/SrtTranslate/',
+  '/SrtTranslate/index.html'
 ];
 
 // 安装事件 - 预缓存核心资源
@@ -54,8 +54,13 @@ self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
   
-  // 只处理同源请求
+  // 只处理同源请求和正确的路径
   if (url.origin !== location.origin) {
+    return;
+  }
+  
+  // 只处理 SrtTranslate 路径下的请求
+  if (!url.pathname.startsWith('/SrtTranslate/')) {
     return;
   }
   
@@ -117,7 +122,7 @@ async function cacheFirst(request) {
     
     // 如果是HTML请求且无缓存，返回离线页面
     if (isHTMLRequest(request)) {
-      const offlineResponse = await caches.match('/');
+      const offlineResponse = await caches.match('/SrtTranslate/');
       if (offlineResponse) {
         return offlineResponse;
       }
