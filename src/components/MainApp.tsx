@@ -67,7 +67,7 @@ export const MainApp: React.FC = () => {
           <div className="max-w-6xl mx-auto px-4 py-4">
             <div className="flex justify-between items-center">
               <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                AI字幕翻译
+                蛋蛋字幕翻译
               </h1>
               
               {/* Navigation buttons - evenly spaced */}
