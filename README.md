@@ -23,7 +23,7 @@
 
 ## 🚀 使用指南
 
-1. 访问 [蛋蛋字幕翻译网站](https://aitranslate.github.io/SrtTranslate/)
+1. 访问 [蛋蛋字幕翻译网站](https://aitranslate.github.io/EggTranslate/)
 2. 在设置中配置您的大模型 API 密钥、接口地址和模型名称
 3. （可选）在术语管理中添加专业术语及其翻译规则
 4. 将SRT字幕文件拖拽到上传区域或点击选择文件
@@ -63,4 +63,4 @@
 
 ---
 
-立即体验：[https://aitranslate.github.io/SrtTranslate/](https://aitranslate.github.io/SrtTranslate/)
+立即体验：[https://aitranslate.github.io/EggTranslate/](https://aitranslate.github.io/EggTranslate/)

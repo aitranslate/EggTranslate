@@ -17,8 +17,8 @@
     try {
       console.log('[SW注册] 开始注册 Service Worker...');
       
-      const registration = await navigator.serviceWorker.register('/SrtTranslate/sw.js', {
-        scope: '/SrtTranslate/'
+      const registration = await navigator.serviceWorker.register('/EggTranslate/sw.js', {
+        scope: '/EggTranslate/'
       });
       
       console.log('[SW注册] Service Worker 注册成功:', registration.scope);

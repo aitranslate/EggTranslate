@@ -6,8 +6,8 @@ import sourceIdentifierPlugin from 'vite-plugin-source-info'
 const isProd = process.env.BUILD_MODE === 'prod'
 
 // GitHub Pages 的 base 路径配置
-// 根据你的 GitHub Pages URL: https://aitranslate.github.io/SrtTranslate/
-const base = '/SrtTranslate/'
+// 根据你的 GitHub Pages URL: https://aitranslate.github.io/EggTranslate/
+const base = '/EggTranslate/'
 
 export default defineConfig({
   base: base,

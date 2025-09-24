@@ -4,8 +4,8 @@ const RUNTIME_CACHE = 'srt-translator-runtime-v1';
 
 // 需要预缓存的核心资源
 const PRECACHE_URLS = [
-  '/SrtTranslate/',
-  '/SrtTranslate/index.html'
+  '/EggTranslate/',
+  '/EggTranslate/index.html'
 ];
 
 // 安装事件 - 预缓存核心资源
@@ -59,8 +59,8 @@ self.addEventListener('fetch', event => {
     return;
   }
   
-  // 只处理 SrtTranslate 路径下的请求
-  if (!url.pathname.startsWith('/SrtTranslate/')) {
+  // 只处理 EggTranslate 路径下的请求
+  if (!url.pathname.startsWith('/EggTranslate/')) {
     return;
   }
   
@@ -122,7 +122,7 @@ async function cacheFirst(request) {
     
     // 如果是HTML请求且无缓存，返回离线页面
     if (isHTMLRequest(request)) {
-      const offlineResponse = await caches.match('/SrtTranslate/');
+      const offlineResponse = await caches.match('/EggTranslate/');
       if (offlineResponse) {
         return offlineResponse;
       }
