@@ -4,6 +4,7 @@ import { rateLimiter } from '@/utils/rateLimiter';
 import { jsonrepair } from 'jsonrepair';
 import dataManager from '@/services/dataManager';
 import { generateSharedPrompt, generateDirectPrompt, generateReflectionPrompt } from '@/utils/translationPrompts';
+import { publicAPIManager } from '@/utils/publicAPIManager';
 
 interface TranslationState {
   config: TranslationConfig;
@@ -48,7 +49,8 @@ const initialConfig: TranslationConfig = {
   batchSize: 10,
   threadCount: 4,
   rpm: 0,
-  enableReflection: false
+  enableReflection: false,
+  usePublicAPI: true
 };
 
 const initialState: TranslationState = {
@@ -73,7 +75,7 @@ const translationReducer = (state: TranslationState, action: TranslationAction):
       return {
         ...state,
         config: newConfig,
-        isConfigured: newConfig.apiKey.length > 0
+        isConfigured: newConfig.usePublicAPI || newConfig.apiKey.length > 0
       };
     }
     case 'SET_TRANSLATING':
@@ -119,13 +121,64 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (apiKeys.length === 0) {
       throw new Error('未配置有效的API密钥');
     }
-    
+
     const currentIndex = apiKeyIndexRef.current;
     const nextIndex = (currentIndex + 1) % apiKeys.length;
     apiKeyIndexRef.current = nextIndex;
-    
+
     return apiKeys[currentIndex];
   }, []);
+
+  const getPublicAPIConfig = useCallback(async () => {
+    const api = await publicAPIManager.getNextAPI();
+    if (!api) {
+      throw new Error('没有可用的公益API配置');
+    }
+    return api;
+  }, []);
+
+  // 统一的API调用函数，减少代码重复
+  const makeAPICall = useCallback(async (prompt: string, signal?: AbortSignal): Promise<{ data: any; tokensUsed: number }> => {
+    let apiConfig: { apikey: string; url: string; model: string };
+
+    if (state.config.usePublicAPI) {
+      apiConfig = await getPublicAPIConfig();
+    } else {
+      if (!state.config.apiKey) {
+        throw new Error('请先配置API密钥');
+      }
+      const apiKey = getNextApiKey(state.config.apiKey);
+      apiConfig = {
+        apikey: apiKey,
+        url: state.config.baseURL,
+        model: state.config.model
+      };
+    }
+
+    const response = await fetch(`${apiConfig.url}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiConfig.apikey}`
+      },
+      body: JSON.stringify({
+        model: apiConfig.model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.3
+      }),
+      signal
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const tokensUsed = data.usage?.total_tokens || 0;
+
+    return { data, tokensUsed };
+  }, [state.config, getPublicAPIConfig, getNextApiKey]);
 
   const updateConfig = useCallback(async (newConfig: Partial<TranslationConfig>) => {
     dispatch({ type: 'SET_CONFIG', payload: newConfig });
@@ -138,117 +191,71 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, [state.config]);
 
   const testConnection = useCallback(async (): Promise<boolean> => {
-    if (!state.config.apiKey) {
-      throw new Error('请先配置API密钥');
-    }
-    
-    const apiKey = getNextApiKey(state.config.apiKey);
-    
     try {
-      const response = await fetch(`${state.config.baseURL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: state.config.model,
-          messages: [{ role: 'user', content: 'Hello' }],
-          max_tokens: 10
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || `HTTP ${response.status}`);
-      }          
+      await makeAPICall('Hello');
       return true;
     } catch (error) {
-      console.error('连接测试失败:', error);
+      console.error(state.config.usePublicAPI ? '公益API连接测试失败:' : '连接测试失败:', error);
       throw error;
     }
-  }, [state.config]);
+  }, [makeAPICall]);
 
   // 使用导入的提示词生成函数
 
   const translateBatch = useCallback(async (
-    texts: string[], 
+    texts: string[],
     signal?: AbortSignal,
-    contextBefore = '', 
-    contextAfter = '', 
-    terms = '', 
+    contextBefore = '',
+    contextAfter = '',
+    terms = '',
     maxRetries = 5
   ): Promise<{translations: Record<string, any>, tokensUsed: number}> => {
-    if (!state.config.apiKey) {
-      throw new Error('请先配置API密钥');
-    }
-    
-    rateLimiter.setRPM(state.config.rpm);
-    
+    // 如果使用公益API，RPM固定为20
+    const rpm = state.config.usePublicAPI ? 20 : state.config.rpm;
+    rateLimiter.setRPM(rpm);
+
     const textToTranslate = texts.join('\n');
     const sharedPrompt = generateSharedPrompt(contextBefore, contextAfter, terms);
     const directPrompt = generateDirectPrompt(
-      textToTranslate, 
-      sharedPrompt, 
-      state.config.sourceLanguage, 
+      textToTranslate,
+      sharedPrompt,
+      state.config.sourceLanguage,
       state.config.targetLanguage
     );
-    
+
     let lastError: any = null;
     let totalTokensUsed = 0;
     let directResult: Record<string, any> = {};
-    
+
     // 第一步：直译
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       if (signal?.aborted) {
         throw new Error('翻译被取消');
       }
-      
+
       try {
         await rateLimiter.waitForAvailability();
-        
+
         if (signal?.aborted) {
           throw new Error('翻译被取消');
         }
-        
-        const apiKey = getNextApiKey(state.config.apiKey);
-        
-        const directResponse = await fetch(`${state.config.baseURL}/chat/completions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            model: state.config.model,
-            messages: [{ role: 'user', content: directPrompt }],
-            temperature: 0.3
-          }),
-          signal
-        });
-        
-        if (!directResponse.ok) {
-          const errorData = await directResponse.json();
-          throw new Error(errorData.error?.message || `HTTP ${directResponse.status}`);
-        }
-        
-        const directData = await directResponse.json();
-        
-        const directTokensUsed = directData.usage?.total_tokens || 0;
+
+        // 使用统一的API调用函数
+        const { data: directData, tokensUsed: directTokensUsed } = await makeAPICall(directPrompt, signal);
         totalTokensUsed += directTokensUsed;
-        
+
         const directContent = directData.choices[0]?.message?.content || '';
-        
+
         const repairedDirectJson = jsonrepair(directContent);
         directResult = JSON.parse(repairedDirectJson);
-        
+
         // 成功获取直译结果后，继续进行反思翻译
         break;
       } catch (error) {
         if (error.name === 'AbortError' || error.message?.includes('取消')) {
           throw error;
         }
-        
+
         lastError = error;
         console.error(`直译批次第${attempt}次尝试失败:`, error);
         if (attempt < maxRetries) {
@@ -256,19 +263,19 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
         }
       }
     }
-    
+
     if (!directResult || Object.keys(directResult).length === 0) {
       console.error('直译批次失败，已达到最大重试次数:', lastError);
       throw lastError || new Error('直译失败');
     }
-    
+
     // 第二步：如果启用了反思翻译，则执行反思翻译
     if (state.config.enableReflection) {
       try {
         if (signal?.aborted) {
           throw new Error('翻译被取消');
         }
-        
+
         // 生成反思提示词
         const reflectionPrompt = generateReflectionPrompt(
           directResult,
@@ -277,53 +284,40 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
           state.config.sourceLanguage,
           state.config.targetLanguage
         );
-        
+
         await rateLimiter.waitForAvailability();
-        
+
         if (signal?.aborted) {
           throw new Error('翻译被取消');
         }
-        
-        const apiKey = getNextApiKey(state.config.apiKey);
-        
-        const reflectionResponse = await fetch(`${state.config.baseURL}/chat/completions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            model: state.config.model,
-            messages: [{ role: 'user', content: reflectionPrompt }],
-            temperature: 0.3
-          }),
-          signal
-        });
-        
-        if (!reflectionResponse.ok) {
-          const errorData = await reflectionResponse.json();
-          console.error('反思翻译请求失败:', errorData);
+
+        // 使用统一的API调用函数进行反思翻译
+        let reflectionData: any;
+        let reflectionTokensUsed: number;
+
+        try {
+          const { data, tokensUsed } = await makeAPICall(reflectionPrompt, signal);
+          reflectionData = data;
+          reflectionTokensUsed = tokensUsed;
+          totalTokensUsed += reflectionTokensUsed;
+        } catch (error) {
+          console.error('反思翻译请求失败:', error);
           // 如果反思失败，仍然返回直译结果
           return {
             translations: directResult,
             tokensUsed: totalTokensUsed
           };
         }
-        
-        const reflectionData = await reflectionResponse.json();
-        
-        const reflectionTokensUsed = reflectionData.usage?.total_tokens || 0;
-        totalTokensUsed += reflectionTokensUsed;
-        
+
         const reflectionContent = reflectionData.choices[0]?.message?.content || '';
-        
+
         try {
           const repairedReflectionJson = jsonrepair(reflectionContent);
           const reflectionResult = JSON.parse(repairedReflectionJson);
-          
+
           // 将反思结果转换为直译格式
           const formattedResult: Record<string, any> = {};
-          
+
           // 遍历反思结果，提取需要的字段并保持直译格式
           Object.keys(reflectionResult).forEach(key => {
             formattedResult[key] = {
@@ -331,7 +325,7 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
               direct: reflectionResult[key].free || reflectionResult[key].direct // 优先使用自由翻译，如果没有则使用直译
             };
           });
-          
+
           return {
             translations: formattedResult,
             tokensUsed: totalTokensUsed
@@ -348,7 +342,7 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
         if (error.name === 'AbortError' || error.message?.includes('取消')) {
           throw error;
         }
-        
+
         console.error('反思翻译失败:', error);
         // 如果反思翻译过程中出错，返回直译结果
         return {
@@ -363,7 +357,7 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
         tokensUsed: totalTokensUsed
       };
     }
-  }, [state.config, generateSharedPrompt, generateDirectPrompt, generateReflectionPrompt]);
+  }, [state.config, getPublicAPIConfig, getNextApiKey, generateSharedPrompt, generateDirectPrompt, generateReflectionPrompt]);
 
   const updateProgress = useCallback(async (
     current: number, 

@@ -20,6 +20,7 @@ export interface TranslationConfig {
   threadCount: number;
   rpm: number; // 每分钟请求数
   enableReflection: boolean; // 是否启用反思翻译
+  usePublicAPI: boolean; // 是否使用公益API
 }
 
 // 翻译进度类型
