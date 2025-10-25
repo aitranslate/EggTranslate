@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { motion } from 'framer-motion';
 import { X, TestTube, Save, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-react';
@@ -21,6 +21,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     if (isOpen) {
       setFormData(config);
       setTestResult(null);
+      // 重置公益API测试索引
+      publicAPITestIndexRef.current = 0;
     }
   }, [isOpen, config]);
 
@@ -45,52 +47,98 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     return apiKeys[0];
   }, []);
 
-  const onTest = useCallback(async () => {
-    // 使用当前的 formData 状态
-    const currentApiKey = formData.apiKey?.trim();
-    
-    if (!currentApiKey || currentApiKey === '') {
-      setTestResult({ success: false, message: '请先输入API密钥' });
-      return;
-    }
+  // 创建一个公益API测试索引的引用
+  const publicAPITestIndexRef = useRef(0);
 
+  const onTest = useCallback(async () => {
     setIsTesting(true);
     setTestResult(null);
 
     try {
-      // 使用当前 formData 直接测试连接，无需先保存
-      const testConfig = { ...formData };
-      
-      // 获取下一个API Key（轮询）
-      const apiKey = getNextApiKey(testConfig.apiKey);
-      
-      const response = await fetch(`${testConfig.baseURL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: testConfig.model,
-          messages: [{ role: 'user', content: 'Hello' }],
-          max_tokens: 10
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+      if (formData.usePublicAPI) {
+        // 测试公益API
+        const response = await fetch('/EggTranslate/public-apis.json');
+        if (!response.ok) {
+          throw new Error('加载公益API配置失败');
+        }
+
+        const publicAPIs = await response.json();
+        if (publicAPIs.length === 0) {
+          throw new Error('没有可用的公益API配置');
+        }
+
+        // 获取当前要测试的公益API
+        const currentTestIndex = publicAPITestIndexRef.current;
+        const apiToTest = publicAPIs[currentTestIndex];
+
+        const apiResponse = await fetch(`${apiToTest.url}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiToTest.apikey}`
+          },
+          body: JSON.stringify({
+            model: apiToTest.model,
+            messages: [{ role: 'user', content: 'Hello' }],
+            max_tokens: 10
+          })
+        });
+
+        if (!apiResponse.ok) {
+          const errorData = await apiResponse.json();
+          throw new Error(errorData.error?.message || `HTTP ${apiResponse.status}`);
+        }
+
+        const data = await apiResponse.json();
+        setTestResult({
+          success: true,
+          message: `公益API (${currentTestIndex + 1}/${publicAPIs.length}) 连接成功！使用模型：${apiToTest.model}`
+        });
+
+        // 更新到下一个公益API索引
+        publicAPITestIndexRef.current = (currentTestIndex + 1) % publicAPIs.length;
+
+      } else {
+        // 测试用户配置的API
+        const currentApiKey = formData.apiKey?.trim();
+
+        if (!currentApiKey || currentApiKey === '') {
+          setTestResult({ success: false, message: '请先输入API密钥' });
+          setIsTesting(false);
+          return;
+        }
+
+        const testConfig = { ...formData };
+        const apiKey = getNextApiKey(testConfig.apiKey);
+
+        const response = await fetch(`${testConfig.baseURL}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: testConfig.model,
+            messages: [{ role: 'user', content: 'Hello' }],
+            max_tokens: 10
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        setTestResult({ success: true, message: '连接成功！API配置正常' });
       }
-      
-      const data = await response.json();
-      setTestResult({ success: true, message: '连接成功！API配置正常' });
     } catch (error) {
       const message = error instanceof Error ? error.message : '连接失败';
       setTestResult({ success: false, message });
     } finally {
       setIsTesting(false);
     }
-  }, [formData]);
+  }, [formData, getNextApiKey]);
 
   const onInputChange = useCallback((field: keyof typeof config, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -313,17 +361,43 @@ API 配置
               <div>
                 <label className="block text-sm font-medium text-white/80 mb-2">
                   RPM 限制 (每分钟请求数)
+                  {formData.usePublicAPI && <span className="text-xs text-green-400 ml-2">(公益API固定20)</span>}
                 </label>
                 <input
                   type="number"
                   min="1"
                   max="1000"
-                  value={formData.rpm}
-                  onChange={(e) => onInputChange('rpm', parseInt(e.target.value))}
-                  className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 transition-colors"
+                  value={formData.usePublicAPI ? 20 : formData.rpm}
+                  onChange={(e) => !formData.usePublicAPI && onInputChange('rpm', parseInt(e.target.value))}
+                  disabled={formData.usePublicAPI}
+                  className={`w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 transition-colors ${
+                    formData.usePublicAPI ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 />
               </div>
               
+              <div className="flex items-center mt-4">
+                <div className="flex items-center">
+                  <div className="relative cursor-pointer" onClick={() => onInputChange('usePublicAPI', !formData.usePublicAPI)}>
+                    <input
+                      type="checkbox"
+                      checked={formData.usePublicAPI || false}
+                      onChange={(e) => e.stopPropagation()} // 防止事件冒泡
+                      className="sr-only"
+                    />
+                    <div className={`block w-14 h-8 rounded-full transition-colors ${
+                      formData.usePublicAPI ? 'bg-green-500' : 'bg-white/10'
+                    }`}></div>
+                    <div className={`absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${
+                      formData.usePublicAPI ? 'transform translate-x-6' : ''
+                    }`}></div>
+                  </div>
+                  <div className="ml-3 text-white/80">
+                    公益API
+                  </div>
+                </div>
+              </div>
+
               <div className="flex items-center mt-4">
                 <div className="flex items-center">
                   <div className="relative cursor-pointer" onClick={() => onInputChange('enableReflection', !formData.enableReflection)}>
@@ -375,7 +449,7 @@ API 配置
           <div className="flex flex-col sm:flex-row justify-between space-y-3 sm:space-y-0 sm:space-x-3 pt-4 border-t border-white/20">
             <button
               onClick={onTest}
-              disabled={isTesting || !formData.apiKey}
+              disabled={isTesting || (!formData.usePublicAPI && !formData.apiKey)}
               className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <TestTube className={`h-4 w-4 ${isTesting ? 'animate-spin' : ''}`} />
