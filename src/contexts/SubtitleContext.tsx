@@ -3,6 +3,7 @@ import { SubtitleEntry, FileType } from '@/types';
 import dataManager from '@/services/dataManager';
 import { parseSRT, toSRT, toTXT, toBilingual } from '@/utils/srtParser';
 import toast from 'react-hot-toast';
+import { useTranslation } from './TranslationContext';
 
 const generateTaskId = (): string => {
   return `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -148,6 +149,7 @@ const formatFileSize = (bytes: number): string => {
 
 export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(subtitleReducer, initialState);
+  const { isConfigured } = useTranslation();
 
   const loadFromFile = useCallback(async (file: File) => {
     dispatch({ type: 'SET_LOADING', payload: true });
@@ -290,6 +292,12 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return;
     }
 
+    // 检查 API 是否已配置
+    if (!isConfigured) {
+      toast.error('转录失败: 请先配置API密钥');
+      return;
+    }
+
     try {
       // === 真实流程：解码音频 ===
       dispatch({
@@ -426,7 +434,7 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       });
       toast.error(`转录失败: ${error.message}`);
     }
-  }, [state.files]);
+  }, [state.files, isConfigured]);
 
   const exportSRT = useCallback((fileId: string, useTranslation = true) => {
     const file = getFile(fileId);

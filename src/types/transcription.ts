@@ -27,7 +27,6 @@ export interface TranscriptionConfig {
   backend: 'webgpu-hybrid' | 'wasm';  // 计算后端
   encoderQuant: 'int8' | 'fp32';      // 编码器量化
   decoderQuant: 'int8' | 'fp32';      // 解码器量化
-  llmMergeThreadCount: number;  // LLM 组句线程数
 }
 
 // 转录模型状态

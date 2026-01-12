@@ -43,9 +43,9 @@ const initialConfig: TranslationConfig = {
   model: 'gpt-3.5-turbo',
   sourceLanguage: 'English',
   targetLanguage: '简体中文',
-  contextBefore: 2,
-  contextAfter: 2,
-  batchSize: 10,
+  contextBefore: 5,
+  contextAfter: 3,
+  batchSize: 20,
   threadCount: 4,
   rpm: 0,
   enableReflection: false

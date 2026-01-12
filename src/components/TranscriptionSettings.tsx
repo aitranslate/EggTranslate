@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, RefreshCw, CheckCircle, Circle } from 'lucide-react';
+import { Download, RefreshCw, CheckCircle, Circle, Database } from 'lucide-react';
 import { TranscriptionConfig, ModelStatus } from '@/types';
 
 interface TranscriptionSettingsProps {
@@ -13,6 +13,12 @@ interface TranscriptionSettingsProps {
     total: number;
     remainingTime?: number;
   };
+  cacheInfo: Array<{
+    filename: string;
+    size: number;
+    date: number;
+  }>;
+  onRefreshCacheInfo: () => Promise<void>;
   onLoadModel: () => void;
 }
 
@@ -21,9 +27,20 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
   onConfigChange,
   modelStatus,
   modelProgress,
+  cacheInfo,
+  onRefreshCacheInfo,
   onLoadModel
 }) => {
   const [isAnimating, setIsAnimating] = useState(false);
+
+  // 格式化文件大小
+  const formatSize = (bytes: number): string => {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
 
   const handleLoadModel = () => {
     setIsAnimating(true);
@@ -49,14 +66,16 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-white/80 mb-2">
-              模型仓库 ID
+              模型
             </label>
-            <input
-              type="text"
+            <select
               value={config.repoId}
               onChange={(e) => onConfigChange({ repoId: e.target.value })}
               className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 transition-colors"
-            />
+            >
+              <option value="istupakov/parakeet-tdt-0.6b-v2-onnx" className="bg-gray-800">parakeet-tdt-0.6b-v2-onnx（支持英语）</option>
+              <option value="istupakov/parakeet-tdt-0.6b-v3-onnx" className="bg-gray-800">parakeet-tdt-0.6b-v3-onnx（支持25种欧洲语言）</option>
+            </select>
           </div>
 
           <div>
@@ -119,29 +138,6 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
         </div>
       </div>
 
-      {/* LLM 组句设置 */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-white border-b border-white/20 pb-2">
-          LLM 组句设置
-        </h3>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-white/80 mb-2">
-              线程数
-            </label>
-            <input
-              type="number"
-              min="1"
-              max="10"
-              value={config.llmMergeThreadCount}
-              onChange={(e) => onConfigChange({ llmMergeThreadCount: parseInt(e.target.value) })}
-              className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 transition-colors"
-            />
-          </div>
-        </div>
-      </div>
-
       {/* 模型状态 */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-white border-b border-white/20 pb-2">
@@ -164,7 +160,10 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
             </div>
             {modelProgress.filename && (
               <p className="text-sm text-white/60">
-                正在下载: {modelProgress.filename} ({(modelProgress.loaded / 1024 / 1024).toFixed(0)}/{(modelProgress.total / 1024 / 1024).toFixed(0)} MB)
+                {modelProgress.total > 0
+                  ? `正在下载: ${modelProgress.filename} (${(modelProgress.loaded / 1024 / 1024).toFixed(0)}/${(modelProgress.total / 1024 / 1024).toFixed(0)} MB)`
+                  : modelProgress.filename
+                }
               </p>
             )}
           </div>
@@ -189,15 +188,55 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
               <span className="text-white/60">● 未加载</span>
             </div>
             <p className="text-sm text-white/60">
-              首次加载需要下载约 520 MB
+              首次加载需要下载约 3.2 GB
             </p>
             <button
               onClick={handleLoadModel}
               className="flex items-center justify-center space-x-2 w-full px-6 py-3 bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 rounded-lg transition-colors"
             >
               <Download className="h-4 w-4" />
-              <span>加载转录模型</span>
+              <span>加载模型</span>
             </button>
+          </div>
+        )}
+      </div>
+
+      {/* 缓存信息 */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-white border-b border-white/20 pb-2 flex-1">
+            缓存信息
+          </h3>
+          <button
+            onClick={onRefreshCacheInfo}
+            className="text-xs text-white/50 hover:text-white/70 transition-colors flex items-center space-x-1"
+          >
+            <RefreshCw className="h-3 w-3" />
+            <span>刷新</span>
+          </button>
+        </div>
+
+        {cacheInfo.length === 0 ? (
+          <div className="bg-white/5 border border-white/10 rounded-lg p-6 text-center">
+            <Database className="h-8 w-8 text-white/30 mx-auto mb-2" />
+            <p className="text-sm text-white/60">暂无缓存</p>
+            <p className="text-xs text-white/50 mt-1">首次加载模型后会自动缓存</p>
+          </div>
+        ) : (
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4 space-y-2">
+            <div className="flex items-center justify-between text-xs text-white/60 mb-3">
+              <span>共 {cacheInfo.length} 个文件</span>
+              <span>总计: {formatSize(cacheInfo.reduce((sum, item) => sum + item.size, 0))}</span>
+            </div>
+            {cacheInfo.map((item, index) => (
+              <div key={index} className="flex items-center justify-between text-sm py-2 px-3 bg-white/5 rounded-lg">
+                <div className="flex items-center space-x-2 flex-1 min-w-0">
+                  <Database className="h-4 w-4 text-blue-400 flex-shrink-0" />
+                  <span className="text-white/80 truncate">{item.filename}</span>
+                </div>
+                <span className="text-white/60 text-xs ml-2">{formatSize(item.size)}</span>
+              </div>
+            ))}
           </div>
         )}
       </div>
