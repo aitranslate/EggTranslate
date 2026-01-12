@@ -90,3 +90,6 @@ export interface TranslationHistoryEntry {
   timestamp: number; // 完成时间戳
   current_translation_task: CurrentTranslationTask; // 保存完整任务数据
 }
+
+// 导出转录相关类型
+export * from './transcription';

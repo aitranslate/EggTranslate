@@ -1,12 +1,13 @@
 import localforage from 'localforage';
-import { 
-  TranslationConfig, 
-  SubtitleEntry, 
-  Term, 
-  TranslationHistoryEntry, 
+import {
+  TranslationConfig,
+  SubtitleEntry,
+  Term,
+  TranslationHistoryEntry,
   CurrentTranslationTask,
   SingleTask,
-  BatchTasks
+  BatchTasks,
+  TranscriptionConfig,
 } from '@/types';
 
 /**
@@ -27,6 +28,7 @@ class DataManager {
     batch_tasks: BatchTasks;
     terms_list: Term[];
     translation_config: TranslationConfig;
+    transcription_config?: TranscriptionConfig;
     translation_history: TranslationHistoryEntry[];
     current_translation_task?: CurrentTranslationTask;
   };
@@ -34,8 +36,9 @@ class DataManager {
   // localStorage key 常量
   private readonly KEYS = {
     BATCH_TASKS: 'batch_tasks',
-    TERMS: 'terms_list', 
+    TERMS: 'terms_list',
     CONFIG: 'translation_config',
+    TRANSCRIPTION_CONFIG: 'transcription_config',
     HISTORY: 'translation_history'
   } as const;
 
@@ -72,10 +75,11 @@ class DataManager {
   async initialize(): Promise<void> {
     try {
       // 并行加载所有数据
-      const [batchTasks, terms, config, history] = await Promise.all([
+      const [batchTasks, terms, config, transcriptionConfig, history] = await Promise.all([
         localforage.getItem<BatchTasks>(this.KEYS.BATCH_TASKS),
         localforage.getItem<Term[]>(this.KEYS.TERMS),
         localforage.getItem<TranslationConfig>(this.KEYS.CONFIG),
+        localforage.getItem<TranscriptionConfig>(this.KEYS.TRANSCRIPTION_CONFIG),
         localforage.getItem<TranslationHistoryEntry[]>(this.KEYS.HISTORY)
       ]);
 
@@ -83,6 +87,7 @@ class DataManager {
       this.memoryStore.batch_tasks = batchTasks || { tasks: [] };
       this.memoryStore.terms_list = terms || [];
       this.memoryStore.translation_config = config || this.DEFAULT_CONFIG;
+      this.memoryStore.transcription_config = transcriptionConfig;
       this.memoryStore.translation_history = history || [];
     } catch (error) {
       console.error('数据管理器初始化失败:', error);
@@ -704,10 +709,36 @@ class DataManager {
         localforage.setItem(this.KEYS.BATCH_TASKS, this.memoryStore.batch_tasks),
         localforage.setItem(this.KEYS.TERMS, this.memoryStore.terms_list),
         localforage.setItem(this.KEYS.CONFIG, this.memoryStore.translation_config),
+        localforage.setItem(this.KEYS.TRANSCRIPTION_CONFIG, this.memoryStore.transcription_config),
         localforage.setItem(this.KEYS.HISTORY, this.memoryStore.translation_history)
       ]);
     } catch (error) {
       console.error('强制持久化数据失败:', error);
+      throw error;
+    }
+  }
+
+  // ===== 转录配置模块 =====
+
+  /**
+   * 获取转录配置（从内存中）
+   */
+  getTranscriptionConfig(): TranscriptionConfig | null {
+    return this.memoryStore.transcription_config || null;
+  }
+
+  /**
+   * 保存转录配置并持久化
+   */
+  async saveTranscriptionConfig(config: TranscriptionConfig): Promise<void> {
+    try {
+      // 更新内存中的数据
+      this.memoryStore.transcription_config = config;
+
+      // 持久化到 localforage
+      await localforage.setItem(this.KEYS.TRANSCRIPTION_CONFIG, config);
+    } catch (error) {
+      console.error('保存转录配置失败:', error);
       throw error;
     }
   }

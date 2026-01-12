@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useCallback } from 'react';
-import { SubtitleEntry } from '@/types';
+import { SubtitleEntry, FileType } from '@/types';
 import dataManager from '@/services/dataManager';
 import { parseSRT, toSRT, toTXT, toBilingual } from '@/utils/srtParser';
 import toast from 'react-hot-toast';
@@ -21,6 +21,20 @@ interface SubtitleFile {
   entries: SubtitleEntry[];
   filename: string;
   currentTaskId: string;
+  type?: FileType;          // 文件类型：srt, audio, video
+  fileRef?: File;           // 原始文件引用（用于音视频转录）
+  duration?: number;        // 音视频时长（秒）
+  transcriptionStatus?: 'idle' | 'loading_model' | 'decoding' | 'chunking' | 'transcribing' | 'llm_merging' | 'completed' | 'failed';
+  // 转录进度
+  transcriptionProgress?: {
+    // 总体进度（各阶段权重：解码10% + 转录50% + LLM合并40%）
+    percent: number;
+    // 各阶段具体进度
+    currentChunk?: number;     // 当前转录块 (1/20)
+    totalChunks?: number;       // 总块数
+    llmBatch?: number;          // LLM 合并批次 (2/10)
+    totalLlmBatches?: number;   // LLM 总批次数
+  };
 }
 
 interface SubtitleState {
@@ -43,6 +57,7 @@ interface SubtitleContextValue extends SubtitleState {
   getFile: (fileId: string) => SubtitleFile | null;
   getAllFiles: () => SubtitleFile[];
   removeFile: (fileId: string) => Promise<void>;
+  simulateTranscription: (fileId: string) => Promise<void>; // 模拟转录进度（演示用）
 }
 
 type SubtitleAction =
@@ -111,6 +126,26 @@ const subtitleReducer = (state: SubtitleState, action: SubtitleAction): Subtitle
 
 const SubtitleContext = createContext<SubtitleContextValue | null>(null);
 
+// 检测文件类型
+const detectFileType = (filename: string): FileType => {
+  const ext = filename.toLowerCase().split('.').pop();
+  if (ext === 'srt') return 'srt';
+  const audioExts = ['mp3', 'wav', 'm4a', 'ogg', 'flac', 'aac'];
+  const videoExts = ['mp4', 'webm', 'mkv', 'avi', 'mov', 'wmv', 'flv'];
+  if (audioExts.includes(ext || '')) return 'audio';
+  if (videoExts.includes(ext || '')) return 'video';
+  return 'srt'; // 默认
+};
+
+// 格式化文件大小显示
+const formatFileSize = (bytes: number): string => {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
+
 export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(subtitleReducer, initialState);
 
@@ -119,28 +154,55 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      const content = await file.text();
-      const entries = parseSRT(content);
-      
-      // 在导入文件时创建批处理任务
-      const index = state.files.length; // 在列表中的位置
-      const taskId = await dataManager.createNewTask(file.name, entries, index);
-      
-      // 使用稳定的文件ID生成方式
-      const fileId = generateStableFileId(taskId);
-      
-      const newFile: SubtitleFile = {
-        id: fileId,
-        name: file.name,
-        size: 0, // 不再使用文件大小
-        lastModified: file.lastModified,
-        entries,
-        filename: file.name,
-        currentTaskId: taskId
-      };
-      
-      dispatch({ type: 'ADD_FILE', payload: newFile });
-      
+      const fileType = detectFileType(file.name);
+
+      if (fileType === 'srt') {
+        // SRT 文件：读取文本内容
+        const content = await file.text();
+        const entries = parseSRT(content);
+
+        // 在导入文件时创建批处理任务
+        const index = state.files.length;
+        const taskId = await dataManager.createNewTask(file.name, entries, index);
+
+        const fileId = generateStableFileId(taskId);
+
+        const newFile: SubtitleFile = {
+          id: fileId,
+          name: file.name,
+          size: file.size,
+          lastModified: file.lastModified,
+          entries,
+          filename: file.name,
+          currentTaskId: taskId,
+          type: 'srt',
+          transcriptionStatus: 'completed'
+        };
+
+        dispatch({ type: 'ADD_FILE', payload: newFile });
+      } else {
+        // 音视频文件：不读取内容，只存储元数据和文件引用
+        // 转录时会使用流式处理：解码 → 分块转录 → 及时释放内存
+        const taskId = generateTaskId();
+        const fileId = generateStableFileId(taskId);
+
+        // 创建空字幕条目的文件
+        const newFile: SubtitleFile = {
+          id: fileId,
+          name: file.name,
+          size: file.size,
+          lastModified: file.lastModified,
+          entries: [], // 音视频文件初始没有字幕
+          filename: file.name,
+          currentTaskId: taskId,
+          type: fileType,
+          fileRef: file, // 保存原始文件引用用于后续转录
+          transcriptionStatus: 'idle'
+        };
+
+        dispatch({ type: 'ADD_FILE', payload: newFile });
+      }
+
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '文件加载失败';
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
@@ -203,10 +265,10 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!file) {
       return;
     }
-    
+
     // 先更新UI
     dispatch({ type: 'REMOVE_FILE', payload: fileId });
-    
+
     try {
       // 然后删除任务数据
       await dataManager.removeTask(file.currentTaskId);
@@ -214,6 +276,155 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch (error) {
       console.error('Failed to remove task from dataManager:', error);
       toast.error('删除文件失败');
+    }
+  }, [state.files]);
+
+  // 模拟转录进度（仅用于演示UI效果）
+  // 真实流程：读取文件 → 解码音频 → 切片
+  // 模拟流程：转录（假数据）→ LLM组句（假数据）
+  const simulateTranscription = useCallback(async (fileId: string) => {
+    const file = state.files.find(f => f.id === fileId);
+    if (!file || file.type === 'srt') return;
+    if (!file.fileRef) {
+      toast.error('文件引用丢失，请重新上传');
+      return;
+    }
+
+    try {
+      // === 真实流程：解码音频 ===
+      dispatch({
+        type: 'UPDATE_FILE',
+        payload: { fileId, updates: { transcriptionStatus: 'decoding' } }
+      });
+
+      // 读取文件
+      const arrayBuffer = await file.fileRef.arrayBuffer();
+      // 解码音频（16kHz 单声道）
+      const audioContext = new AudioContext({ sampleRate: 16000 });
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      const pcm = audioBuffer.getChannelData(0); // Float32Array
+      const duration = pcm.length / 16000; // 时长（秒）
+
+      // === 真实流程：切片 ===
+      dispatch({
+        type: 'UPDATE_FILE',
+        payload: { fileId, updates: { transcriptionStatus: 'chunking', duration } }
+      });
+
+      const CHUNK_DURATION = 60; // 60秒
+      const OVERLAP_DURATION = 2; // 2秒重叠
+      const chunkStep = (CHUNK_DURATION - OVERLAP_DURATION) * 16000;
+      const chunkSize = CHUNK_DURATION * 16000;
+      const totalChunks = Math.ceil((pcm.length - OVERLAP_DURATION * 16000) / chunkStep);
+
+      await new Promise(r => setTimeout(r, 2000)); // 显示分片信息更久一点
+
+      toast(`音频时长: ${Math.floor(duration / 60)}:${(Math.floor(duration % 60)).toString().padStart(2, '0')}，切分成 ${totalChunks} 个片段`);
+
+      // === 模拟流程：转录（不调用 parakeet，生成假数据）===
+      const allWords = [];
+
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * chunkStep;
+        const end = Math.min(start + chunkSize, pcm.length);
+        const timeOffset = start / 16000;
+
+        dispatch({
+          type: 'UPDATE_FILE',
+          payload: {
+            fileId,
+            updates: {
+              transcriptionStatus: 'transcribing',
+              transcriptionProgress: {
+                percent: Math.floor(10 + (i / totalChunks) * 50), // 10%-60%
+                currentChunk: i + 1,
+                totalChunks: totalChunks
+              }
+            }
+          }
+        });
+
+        // 模拟转录结果（生成假的单词级数据）
+        const chunkDuration = (end - start) / 16000;
+        const wordsPerSecond = 2; // 假设每秒2个词
+        const numWords = Math.floor(chunkDuration * wordsPerSecond);
+
+        const chunkWords = Array.from({ length: numWords }, (_, j) => ({
+          text: `词${i}-${j}`,
+          start_time: timeOffset + (j / wordsPerSecond),
+          end_time: timeOffset + (j / wordsPerSecond) + 0.4,
+          confidence: 0.85 + Math.random() * 0.1
+        }));
+
+        // 去除重叠部分
+        const validStart = timeOffset + (i === 0 ? 0 : OVERLAP_DURATION);
+        const validEnd = timeOffset + CHUNK_DURATION - (i === totalChunks - 1 ? 0 : OVERLAP_DURATION);
+        const validWords = chunkWords.filter(w => {
+          const wordMid = (w.start_time + w.end_time) / 2;
+          return wordMid >= validStart && wordMid <= validEnd;
+        });
+
+        allWords.push(...validWords);
+
+        await new Promise(r => setTimeout(r, 1000)); // 每个分片模拟1秒
+      }
+
+      // === 模拟流程：LLM 组句（不调用翻译 API）===
+      const totalLlmBatches = 10; // 固定10批
+
+      for (let batch = 0; batch < totalLlmBatches; batch++) {
+        dispatch({
+          type: 'UPDATE_FILE',
+          payload: {
+            fileId,
+            updates: {
+              transcriptionStatus: 'llm_merging',
+              transcriptionProgress: {
+                percent: Math.floor(60 + (batch / totalLlmBatches) * 40), // 60%-100%
+                total: totalChunks,
+                current: totalChunks,
+                totalChunks: totalChunks,
+                llmBatch: batch + 1,
+                totalLlmBatches: totalLlmBatches
+              }
+            }
+          }
+        });
+
+        await new Promise(r => setTimeout(r, 1000)); // 每个批次模拟1秒
+      }
+
+      // === 生成字幕条目（模拟 LLM 合并后的句子）===
+      const entries = allWords.map((word, index) => ({
+        id: index + 1,
+        startTime: word.start_time,
+        endTime: word.end_time,
+        text: `${word.text} `,
+        translatedText: ''
+      }));
+
+      // 完成
+      dispatch({
+        type: 'UPDATE_FILE',
+        payload: {
+          fileId,
+          updates: {
+            transcriptionStatus: 'completed',
+            transcriptionProgress: { percent: 100, total: totalChunks, current: totalChunks },
+            entries,
+            duration
+          }
+        }
+      });
+
+      toast.success(`转录完成！生成 ${entries.length} 条字幕`);
+    } catch (error) {
+      console.error('转录失败:', error);
+      dispatch({
+        type: 'UPDATE_FILE',
+        payload: { fileId, updates: { transcriptionStatus: 'failed' } }
+      });
+      toast.error(`转录失败: ${error.message}`);
     }
   }, [state.files]);
 
@@ -252,16 +463,18 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           if (batchTasks && batchTasks.tasks.length > 0) {
             // 将 batch_tasks 转换为 files 状态
             const filesToLoad = batchTasks.tasks.map((task) => ({
-              id: generateStableFileId(task.taskId), // 使用稳定的ID生成方式
+              id: generateStableFileId(task.taskId),
               name: task.subtitle_filename,
-              size: 0, // 大小信息在任务中没有保存
-              lastModified: Date.now(), // 修改时间使用当前时间
+              size: 0,
+              lastModified: Date.now(),
               entries: task.subtitle_entries,
               filename: task.subtitle_filename,
-              currentTaskId: task.taskId
+              currentTaskId: task.taskId,
+              type: detectFileType(task.subtitle_filename) as FileType,
+              fileRef: undefined, // File对象无法持久化，恢复时为undefined
+              transcriptionStatus: 'completed' as const
             }));
-            
-            // 使用 SET_FILES 批量设置文件，避免重复添加检查
+
             dispatch({ type: 'SET_FILES', payload: filesToLoad });
           }
         }
@@ -271,7 +484,7 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     loadSavedData();
-  }, []); // 依赖数组保持为空，只在组件挂载时执行一次
+  }, []);
 
   const value: SubtitleContextValue = {
     ...state,
@@ -287,7 +500,8 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     getCurrentTaskId,
     getFile,
     getAllFiles,
-    removeFile
+    removeFile,
+    simulateTranscription
   };
 
   return <SubtitleContext.Provider value={value}>{children}</SubtitleContext.Provider>;

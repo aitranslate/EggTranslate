@@ -3,20 +3,24 @@ import { useSubtitle } from '@/contexts/SubtitleContext';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { useTerms } from '@/contexts/TermsContext';
 import { useHistory } from '@/contexts/HistoryContext';
+import { FileType } from '@/types';
 import dataManager from '@/services/dataManager';
-import { 
-  Play, 
-  Download, 
-  Settings, 
-  Edit3, 
-  Trash2, 
+import {
+  Languages,
+  Download,
+  Settings,
+  Edit3,
+  Trash2,
   Eye,
   FileText,
   CheckCircle,
   Clock,
   Zap,
   AlertTriangle,
-  X
+  X,
+  Mic,
+  Music,
+  Video,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -29,9 +33,64 @@ interface SubtitleFileItemProps {
   onStartTranslation: (file: any) => Promise<void>;
   onExport: (file: any, format: 'srt' | 'txt' | 'bilingual') => void;
   onDelete: (file: any) => Promise<void>;
+  onTranscribe: (fileId: string) => Promise<void>;
   isTranslatingGlobally: boolean;
   currentTranslatingFileId: string | null;
 }
+
+// 辅助函数：格式化文件大小
+const formatFileSize = (bytes: number): string => {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
+
+// 辅助函数：获取文件图标
+const getFileIcon = (type?: FileType) => {
+  switch (type) {
+    case 'audio':
+      return Music;
+    case 'video':
+      return Video;
+    case 'srt':
+    default:
+      return FileText;
+  }
+};
+
+// 辅助函数：获取状态文本
+const getStatusText = (file: any): string => {
+  const type = file.type as FileType;
+  const transcriptionStatus = file.transcriptionStatus;
+
+  if (type === 'srt') {
+    return 'SRT 字幕';
+  }
+
+  // 音视频文件
+  switch (transcriptionStatus) {
+    case 'idle':
+      return '等待转录';
+    case 'loading_model':
+      return '加载模型中';
+    case 'decoding':
+      return '解码音频中';
+    case 'chunking':
+      return '分片中';
+    case 'transcribing':
+      return '转录中';
+    case 'llm_merging':
+      return 'LLM 合并中';
+    case 'completed':
+      return '转录完成';
+    case 'failed':
+      return '转录失败';
+    default:
+      return '等待转录';
+  }
+};
 
 const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
   file,
@@ -40,6 +99,7 @@ const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
   onStartTranslation,
   onExport,
   onDelete,
+  onTranscribe,
   isTranslatingGlobally,
   currentTranslatingFileId
 }) => {
@@ -48,12 +108,12 @@ const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
   
   const translationStats = useMemo(() => {
     const translated = file.entries.filter((entry: any) => entry.translatedText).length;
-    
+
     // 直接从批处理任务中获取tokens - 简单有效！
     const batchTasks = dataManager.getBatchTasks();
     const task = file.currentTaskId ? batchTasks.tasks.find(t => t.taskId === file.currentTaskId) : null;
     const tokens = task?.translation_progress?.tokens || 0;
-    
+
     return {
       total: file.entries.length,
       translated,
@@ -62,6 +122,9 @@ const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
       tokens: tokens
     };
   }, [file.entries, file.currentTaskId]);
+
+  // 获取文件图标组件
+  const FileIcon = getFileIcon(file.type);
 
   const handleStartTranslationLocal = useCallback(async () => {
     if (isTranslating) return;
@@ -100,85 +163,189 @@ const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center space-x-3">
             <div className="flex-shrink-0">
-              <FileText className="h-5 w-5 text-blue-400" />
+              <FileIcon className={`h-5 w-5 ${
+                file.type === 'audio' ? 'text-green-400' :
+                file.type === 'video' ? 'text-purple-400' :
+                'text-blue-400'
+              }`} />
             </div>
             <div>
-              <h4 className="font-medium text-white truncate max-w-xs">{file.name}</h4>
+              <h4 className="font-medium text-white truncate max-w-xs" title={file.name}>{file.name}</h4>
               <div className="text-xs text-white/60 mt-1">
-                {file.entries.length} 条字幕
+                {file.type === 'srt' ? (
+                  <>{file.entries.length} 条字幕</>
+                ) : (
+                  <>{formatFileSize(file.size)}</>
+                )}
               </div>
             </div>
           </div>
-          
+
           <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-            translationStats.percentage === 100
-              ? 'bg-green-500/30 text-green-200'
-              : translationStats.percentage > 0
-              ? 'bg-blue-500/30 text-blue-200'
-              : 'bg-gray-500/30 text-gray-200'
+            file.type === 'srt' ? (
+              translationStats.percentage === 100
+                ? 'bg-green-500/30 text-green-200'
+                : translationStats.percentage > 0
+                ? 'bg-blue-500/30 text-blue-200'
+                : 'bg-gray-500/30 text-gray-200'
+            ) : (
+              file.transcriptionStatus === 'completed'
+                ? 'bg-green-500/30 text-green-200'
+                : file.transcriptionStatus === 'failed'
+                ? 'bg-red-500/30 text-red-200'
+                : 'bg-gray-500/30 text-gray-200'
+            )
           }`}>
-            {translationStats.percentage === 100 ? '已完成' : 
-             translationStats.percentage > 0 ? '翻译中' : '未开始'}
+            {file.type === 'srt' ? (
+              translationStats.percentage === 100 ? '已完成' :
+              translationStats.percentage > 0 ? '翻译中' : '等待翻译'
+            ) : (
+              getStatusText(file)
+            )}
           </div>
         </div>
 
         {/* 进度条和操作按钮 */}
         <div className="mb-4">
-          {/* 翻译进度标题 */}
-          <div className="text-sm text-white/70 mb-2">翻译进度</div>
-          
+          {/* 进度标题 */}
+          <div className="text-sm text-white/70 mb-2">
+            {file.type === 'srt' ? '翻译进度' :
+             file.transcriptionStatus === 'completed' ? (translationStats.percentage > 0 ? '翻译进度' : '转录完成') :
+             '转录进度'}
+          </div>
+
           <div className="flex items-center space-x-3">
-            {/* 进度条 */}
+            {/* 进度显示区域 */}
             <div className="flex-grow relative">
-              <div className="absolute right-0 -top-6 text-sm text-white/70">{translationStats.percentage}%</div>
-              <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
-                <motion.div
-                  className={`h-full rounded-full ${
-                    translationStats.percentage === 100
-                      ? 'bg-gradient-to-r from-green-400 to-emerald-400'
-                      : 'bg-gradient-to-r from-purple-400 to-blue-400'
-                  }`}
-                  initial={{ width: '0%' }}
-                  animate={{ width: `${translationStats.percentage}%` }}
-                  transition={{ duration: 0.5, ease: 'easeInOut' }}
-                />
-              </div>
-              <div className="flex justify-between text-xs text-white/60 mt-1">
-                <span>{translationStats.translated} / {translationStats.total} 已翻译</span>
-                <span className="flex items-center space-x-1">
-                  <Zap className="h-3 w-3" />
-                  <span>{translationStats.tokens.toLocaleString()} tokens</span>
-                </span>
-              </div>
+              {file.type === 'srt' || (file.transcriptionStatus === 'completed' && translationStats.percentage > 0) ? (
+                // SRT文件 或 已开始翻译：显示翻译进度条
+                <>
+                  <div className="absolute right-0 -top-6 text-sm text-white/70">{translationStats.percentage}%</div>
+                  <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+                    <motion.div
+                      className={`h-full rounded-full ${
+                        translationStats.percentage === 100
+                          ? 'bg-gradient-to-r from-green-400 to-emerald-400'
+                          : 'bg-gradient-to-r from-purple-400 to-blue-400'
+                      }`}
+                      initial={{ width: '0%' }}
+                      animate={{ width: `${translationStats.percentage}%` }}
+                      transition={{ duration: 0.5, ease: 'easeInOut' }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-white/60 mt-1">
+                    <span>{translationStats.translated} / {translationStats.total} 已翻译</span>
+                    <span className="flex items-center space-x-1">
+                      <Zap className="h-3 w-3" />
+                      <span>{translationStats.tokens.toLocaleString()} tokens</span>
+                    </span>
+                  </div>
+                </>
+              ) : file.transcriptionStatus === 'completed' ? (
+                // 音视频已转录但未开始翻译：显示绿色完成进度条
+                <>
+                  <div className="absolute right-0 -top-6 text-sm text-white/70">100%</div>
+                  <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+                    <div className="h-full rounded-full bg-gradient-to-r from-green-400 to-emerald-400" style={{ width: '100%' }} />
+                  </div>
+                  <div className="flex justify-between text-xs text-white/60 mt-1">
+                    <span></span>
+                    <span className="text-green-400">✓ 转录完成 • {file.entries.length} 条字幕</span>
+                  </div>
+                </>
+              ) : file.transcriptionStatus === 'idle' ? (
+                // 未转录：显示空的进度条
+                <>
+                  <div className="absolute right-0 -top-6 text-sm text-white/70">0%</div>
+                  <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+                    <div className="h-full rounded-full bg-white/10" style={{ width: '0%' }} />
+                  </div>
+                  <div className="flex justify-between text-xs text-white/60 mt-1">
+                    <span></span>
+                    <span></span>
+                  </div>
+                </>
+              ) : (
+                // 转录中：显示转录进度条
+                <>
+                  <div className="absolute right-0 -top-6 text-sm text-white/70">
+                    {file.transcriptionProgress?.percent ?? 0}%
+                  </div>
+                  <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+                    <motion.div
+                      className="h-full rounded-full bg-gradient-to-r from-teal-400 to-cyan-400"
+                      initial={{ width: '0%' }}
+                      animate={{ width: `${file.transcriptionProgress?.percent ?? 0}%` }}
+                      transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-white/60 mt-1">
+                    {file.transcriptionStatus === 'transcribing' ? (
+                      <span>转录 {file.transcriptionProgress?.currentChunk} / {file.transcriptionProgress?.totalChunks}</span>
+                    ) : file.transcriptionStatus === 'llm_merging' ? (
+                      <span>LLM组句 {file.transcriptionProgress?.llmBatch} / {file.transcriptionProgress?.totalLlmBatches}</span>
+                    ) : (
+                      <span></span>
+                    )}
+                    <span></span>
+                  </div>
+                </>
+              )}
             </div>
-            
+
             {/* 操作按钮 */}
             <div className="flex items-center space-x-2">
+              {/* 转录按钮 - SRT文件禁用 */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTranscribe(file.id);
+                }}
+                disabled={file.type === 'srt'}
+                className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 ${
+                  file.type === 'srt'
+                    ? 'bg-gray-500/10 text-gray-500/30 border border-gray-500/20 cursor-not-allowed'
+                    : 'bg-teal-500/20 hover:bg-teal-500/30 text-teal-200 border border-teal-500/30 hover:scale-110'
+                }`}
+                title={file.type === 'srt' ? 'SRT文件无需转录' : '转录'}
+              >
+                <Mic className="h-4 w-4" />
+              </button>
+
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   handleStartTranslationLocal();
                 }}
-                disabled={isTranslating || translationStats.percentage === 100 || (isTranslatingGlobally && !isTranslating)}
+                disabled={
+                  isTranslating ||
+                  translationStats.percentage === 100 ||
+                  (isTranslatingGlobally && !isTranslating) ||
+                  (file.type !== 'srt' && file.transcriptionStatus !== 'completed')
+                }
                 className={`
                   flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200
                   ${translationStats.percentage === 100
                     ? 'bg-green-500/20 text-green-200 border border-green-500/30'
                     : isTranslating || currentTranslatingFileId === file.id
                     ? 'bg-orange-500/20 text-orange-200 border border-orange-500/30 cursor-not-allowed'
-                    : (isTranslatingGlobally && !isTranslating)
+                    : (isTranslatingGlobally && !isTranslating) || (file.type !== 'srt' && file.transcriptionStatus !== 'completed')
                     ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30 cursor-not-allowed'
                     : 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 hover:scale-110'
                   }
                 `}
-                title={translationStats.percentage === 100 ? '已完成' : 
-                      isTranslating || currentTranslatingFileId === file.id ? '翻译中...' : 
-                      (isTranslatingGlobally && !isTranslating) ? '待处理' : '开始翻译'}
+                title={
+                  file.type !== 'srt' && file.transcriptionStatus !== 'completed'
+                    ? '请先完成转录'
+                    : translationStats.percentage === 100 ? '已完成'
+                    : isTranslating || currentTranslatingFileId === file.id ? '翻译中...'
+                    : (isTranslatingGlobally && !isTranslating) ? '待处理' : '开始翻译'
+                }
               >
                 {isTranslating || currentTranslatingFileId === file.id ? (
                   <div className="animate-spin h-4 w-4 border-2 border-orange-300 border-t-transparent rounded-full" />
                 ) : (
-                  <Play className="h-4 w-4" />
+                  <Languages className="h-4 w-4" />
                 )}
               </button>
               
@@ -270,7 +437,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
   onEditFile, 
   onCloseEditModal 
 }) => {
-  const { files, updateEntry, exportSRT, exportTXT, exportBilingual, clearAllData, removeFile, getTranslationProgress } = useSubtitle();
+  const { files, updateEntry, exportSRT, exportTXT, exportBilingual, clearAllData, removeFile, getTranslationProgress, simulateTranscription } = useSubtitle();
   const {
     config,
     isTranslating: isTranslatingGlobally,
@@ -556,7 +723,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
           {/* 列表标题 */}
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-white">
-              字幕文件列表
+              文件列表
             </h3>
             <div className="flex items-center space-x-3">
               <div className="text-sm text-white/70">
@@ -567,7 +734,6 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
                 disabled={files.length === 0 || isTranslatingGloballyState}
                 className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-200 border border-green-500/30 transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Play className="h-4 w-4" />
                 <span>全部开始</span>
               </button>
               <button
@@ -593,6 +759,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
                   onStartTranslation={handleStartTranslation}
                   onExport={handleExport}
                   onDelete={handleDeleteFile}
+                  onTranscribe={simulateTranscription}
                   isTranslatingGlobally={isTranslatingGloballyState}
                   currentTranslatingFileId={currentTranslatingFileId}
                 />

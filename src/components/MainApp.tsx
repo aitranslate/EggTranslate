@@ -119,7 +119,7 @@ export const MainApp: React.FC = () => {
             {/* 批量文件上传 */}
             <BatchFileUpload />
 
-            {/* 字幕文件列表 */}
+            {/* 文件列表 */}
             {files.length > 0 && (
               <SubtitleFileList 
                 onEditFile={handleEditFile}
@@ -132,9 +132,8 @@ export const MainApp: React.FC = () => {
 
         {/* 底部信息 */}
         <footer className="w-full px-4 py-8">
-          <div className="text-center text-white/60 space-y-2">
-            <p>由 MiniMax Agent 开发</p>
-            <p className="text-sm">支持多种格式导出，本地存储，隐私安全</p>
+          <div className="text-center text-white/60 space-y-1">
+            <p className="text-sm">SRT 字幕翻译 • 音视频转录 • 本地处理 • 隐私安全</p>
           </div>
         </footer>
       </div>

@@ -15,17 +15,22 @@ export const BatchFileUpload: React.FC<BatchFileUploadProps> = ({ className }) =
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(async (file: File) => {
-    if (!file.name.toLowerCase().endsWith('.srt')) {
-      toast.error('请选择有效的SRT文件');
+    const ext = file.name.toLowerCase().split('.').pop();
+
+    // 支持的文件类型
+    const supportedTypes = ['srt', 'mp3', 'wav', 'm4a', 'ogg', 'flac', 'mp4', 'webm', 'mkv', 'avi', 'mov'];
+
+    if (!ext || !supportedTypes.includes(ext)) {
+      toast.error(`不支持的文件格式，请选择 .srt 字幕或音视频文件`);
       return;
     }
 
     try {
       setIsUploading(true);
       await loadFromFile(file);
-      
+
       // 文件由Context管理，不需要本地状态
-      
+
       toast.success(`成功加载 ${file.name}`);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '文件加载失败';
@@ -88,7 +93,7 @@ export const BatchFileUpload: React.FC<BatchFileUploadProps> = ({ className }) =
           <input
             ref={fileInputRef}
             type="file"
-            accept=".srt"
+            accept=".srt,.mp3,.wav,.m4a,.ogg,.flac,.mp4,.webm,.mkv,.avi,.mov,audio/*,video/*"
             multiple
             onChange={onFileSelect}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -104,13 +109,13 @@ export const BatchFileUpload: React.FC<BatchFileUploadProps> = ({ className }) =
             
             <div className="text-center">
               <h3 className="text-xl font-semibold text-white mb-2">
-                {isDragging ? '放开文件即可上传' : '批量上传SRT字幕文件'}
+                {isDragging ? '放开文件即可上传' : '拖拽上传 SRT 字幕或音视频文件'}
               </h3>
               <p className="text-white/70">
                 {isUploading ? '正在加载...' : '拖拽多个文件到此处或点击选择文件'}
               </p>
               <p className="text-sm text-white/60 mt-1">
-                支持多个 .srt 格式文件
+                支持 .srt .mp3 .wav .m4a .mp4 .webm .ogg 等格式
               </p>
             </div>
             
