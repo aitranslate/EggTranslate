@@ -47,7 +47,7 @@ const PARAKEET_CACHE_STORE = 'file-store';
 const DEFAULT_CONFIG: TranscriptionConfig = {
   repoId: 'istupakov/parakeet-tdt-0.6b-v2-onnx',
   backend: 'webgpu-hybrid',
-  encoderQuant: 'int8',
+  encoderQuant: 'fp32',  // webgpu-hybrid 要求 encoder 必须是 fp32
   decoderQuant: 'int8',
 };
 
@@ -72,10 +72,17 @@ function cleanCacheFilename(key: string): string {
 async function readCacheInfo(): Promise<Array<{ filename: string; size: number; date: number }>> {
   try {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open(PARAKEET_CACHE_DB, 1);
+      // 不指定版本号，打开当前存在的版本
+      const request = indexedDB.open(PARAKEET_CACHE_DB);
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve(request.result);
     }) as IDBDatabase;
+
+    // 检查 object store 是否存在
+    if (!db.objectStoreNames.contains(PARAKEET_CACHE_STORE)) {
+      db.close();
+      return [];
+    }
 
     const transaction = db.transaction([PARAKEET_CACHE_STORE], 'readonly');
     const store = transaction.objectStore(PARAKEET_CACHE_STORE);
@@ -137,7 +144,6 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
   const refreshCacheInfo = useCallback(async () => {
     const cacheEntries = await readCacheInfo();
     setCacheInfo(cacheEntries);
-    console.log('[Transcription] Cache info:', cacheEntries);
   }, []);
 
   // 清空 IndexedDB 缓存
@@ -162,7 +168,6 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
       // 清空状态
       setCacheInfo([]);
       toast.success('缓存已清空');
-      console.log('[Transcription] Cache cleared successfully');
     } catch (error) {
       console.error('[Transcription] Failed to clear cache:', error);
       toast.error('清空缓存失败');
@@ -191,7 +196,30 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [refreshCacheInfo]);
 
   const updateConfig = useCallback(async (newConfig: Partial<TranscriptionConfig>) => {
-    const updated = { ...config, ...newConfig };
+    let updated = { ...config, ...newConfig };
+
+    // 智能调整：根据 backend 自动调整量化设置
+    if (newConfig.backend) {
+      if (newConfig.backend.startsWith('webgpu')) {
+        // webgpu-hybrid: encoder 必须是 fp32，decoder 可选 int8/fp32
+        if (!newConfig.encoderQuant && !newConfig.decoderQuant) {
+          // 用户只改了 backend，自动调整两个量化设置
+          updated.encoderQuant = 'fp32';
+          updated.decoderQuant = 'int8';
+        } else if (!newConfig.encoderQuant) {
+          // 用户只改了 backend 和 decoder，自动调整 encoder
+          updated.encoderQuant = 'fp32';
+        }
+        // 如果用户同时指定了 encoderQuant='int8'，不覆盖（允许手动修改）
+      } else {
+        // wasm: 两个都用 int8 速度优先
+        if (!newConfig.encoderQuant && !newConfig.decoderQuant) {
+          updated.encoderQuant = 'int8';
+          updated.decoderQuant = 'int8';
+        }
+      }
+    }
+
     setConfig(updated);
     await dataManager.saveTranscriptionConfig(updated);
   }, [config]);
@@ -214,9 +242,6 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
     progressStartTime.current = Date.now();
 
     try {
-      console.time('LoadModel');
-      console.log('[Transcription] Loading model from HuggingFace Hub...');
-
       // 进度回调
       const progressCallback = ({ loaded, total, file }: { loaded: number; total: number; file: string }) => {
         const percent = total > 0 ? Math.round((loaded / total) * 100) : 0;
@@ -243,7 +268,6 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
       });
 
       // 创建编译会话
-      console.log('[Transcription] Creating model sessions...');
       setModelProgress(prev => prev ? { ...prev, percent: 95, filename: '编译模型...', loaded: 0, total: 0 } : { percent: 95, filename: '编译模型...', loaded: 0, total: 0 });
 
       const maxCores = navigator.hardwareConcurrency || 8;
@@ -258,14 +282,10 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
       });
 
       // 验证模型
-      console.log('[Transcription] Warming up model...');
       setModelProgress(prev => prev ? { ...prev, percent: 98, filename: '预热验证...', loaded: 0, total: 0 } : { percent: 98, filename: '预热验证...', loaded: 0, total: 0 });
 
       const warmupPcm = new Float32Array(PARAKEET_SAMPLE_RATE);
       await modelRef.current.transcribe(warmupPcm, PARAKEET_SAMPLE_RATE);
-
-      console.timeEnd('LoadModel');
-      console.log('[Transcription] Model loaded successfully!');
 
       setModelStatus('loaded');
       setModelProgress(undefined);

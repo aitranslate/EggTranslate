@@ -112,14 +112,17 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
             <div>
               <label className="block text-sm font-medium text-white/80 mb-2">
                 编码器量化
+                {config.backend.startsWith('webgpu') && (
+                  <span className="ml-2 text-xs text-orange-400">WebGPU 需 fp32</span>
+                )}
               </label>
               <select
                 value={config.encoderQuant}
                 onChange={(e) => onConfigChange({ encoderQuant: e.target.value as 'int8' | 'fp32' })}
                 className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 transition-colors"
               >
-                <option value="int8" className="bg-gray-800">int8 (更快)</option>
-                <option value="fp32" className="bg-gray-800">fp32 (更高精度)</option>
+                <option value="int8" className="bg-gray-800" disabled={config.backend.startsWith('webgpu')}>int8 (更快，仅 WASM)</option>
+                <option value="fp32" className="bg-gray-800">fp32 (更高精度，WebGPU 必需)</option>
               </select>
             </div>
 
