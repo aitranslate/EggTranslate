@@ -39,7 +39,7 @@ export const TranscriptionPromptModal: React.FC<TranscriptionPromptModalProps> =
               <p>请先在「设置 → 转录设置」中加载转录模型</p>
 
               <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-sm">
-                <p>首次加载需要下载约 3.2 GB</p>
+                <p>首次加载需要下载约 2.3 GB</p>
                 <p className="mt-1 text-white/60">模型将缓存在浏览器中，下次无需重新下载</p>
               </div>
             </div>

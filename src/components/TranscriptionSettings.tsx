@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, RefreshCw, CheckCircle, Circle, Database } from 'lucide-react';
+import { Download, RefreshCw, CheckCircle, Circle, Database, Trash2 } from 'lucide-react';
 import { TranscriptionConfig, ModelStatus } from '@/types';
 
 interface TranscriptionSettingsProps {
@@ -19,6 +19,7 @@ interface TranscriptionSettingsProps {
     date: number;
   }>;
   onRefreshCacheInfo: () => Promise<void>;
+  onClearCache: () => Promise<void>;
   onLoadModel: () => void;
 }
 
@@ -29,6 +30,7 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
   modelProgress,
   cacheInfo,
   onRefreshCacheInfo,
+  onClearCache,
   onLoadModel
 }) => {
   const [isAnimating, setIsAnimating] = useState(false);
@@ -171,7 +173,7 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
           <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <CheckCircle className="h-5 w-5 text-green-400" />
-              <span className="text-green-200">✅ 已加载</span>
+              <span className="text-green-200">已加载</span>
             </div>
             <button
               onClick={handleLoadModel}
@@ -188,7 +190,7 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
               <span className="text-white/60">● 未加载</span>
             </div>
             <p className="text-sm text-white/60">
-              首次加载需要下载约 3.2 GB
+              首次加载需要下载约 2.3 GB
             </p>
             <button
               onClick={handleLoadModel}
@@ -203,17 +205,26 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
 
       {/* 缓存信息 */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white border-b border-white/20 pb-2 flex-1">
+        <div className="flex items-center justify-between border-b border-white/20 pb-2">
+          <h3 className="text-lg font-semibold text-white flex-1">
             缓存信息
           </h3>
-          <button
-            onClick={onRefreshCacheInfo}
-            className="text-xs text-white/50 hover:text-white/70 transition-colors flex items-center space-x-1"
-          >
-            <RefreshCw className="h-3 w-3" />
-            <span>刷新</span>
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={onRefreshCacheInfo}
+              className="text-xs text-white/50 hover:text-white/70 transition-colors flex items-center space-x-1"
+            >
+              <RefreshCw className="h-3 w-3" />
+              <span>刷新</span>
+            </button>
+            <button
+              onClick={onClearCache}
+              className="text-xs text-white/50 hover:text-red-400 transition-colors flex items-center space-x-1"
+            >
+              <Trash2 className="h-3 w-3" />
+              <span>清空</span>
+            </button>
+          </div>
         </div>
 
         {cacheInfo.length === 0 ? (

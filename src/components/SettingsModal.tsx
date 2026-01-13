@@ -15,7 +15,7 @@ type TabType = 'translation' | 'transcription';
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const { config, updateConfig, testConnection } = useTranslation();
-  const { config: transcriptionConfig, updateConfig: updateTranscriptionConfig, modelStatus, modelProgress, cacheInfo, refreshCacheInfo, loadModel } = useTranscription();
+  const { config: transcriptionConfig, updateConfig: updateTranscriptionConfig, modelStatus, modelProgress, cacheInfo, refreshCacheInfo, clearCache, loadModel } = useTranscription();
 
   const [activeTab, setActiveTab] = useState<TabType>('translation');
   const [formData, setFormData] = useState(config);
@@ -441,6 +441,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               modelProgress={modelProgress}
               cacheInfo={cacheInfo}
               onRefreshCacheInfo={refreshCacheInfo}
+              onClearCache={clearCache}
               onLoadModel={loadModel}
             />
           )}

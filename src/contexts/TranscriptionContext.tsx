@@ -26,6 +26,7 @@ interface TranscriptionContextValue {
     date: number;
   }>;
   refreshCacheInfo: () => Promise<void>;
+  clearCache: () => Promise<void>;
 
   // 操作
   loadModel: () => Promise<void>;
@@ -137,6 +138,36 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
     const cacheEntries = await readCacheInfo();
     setCacheInfo(cacheEntries);
     console.log('[Transcription] Cache info:', cacheEntries);
+  }, []);
+
+  // 清空 IndexedDB 缓存
+  const clearCache = useCallback(async () => {
+    try {
+      // 删除整个数据库
+      await new Promise<void>((resolve, reject) => {
+        const request = indexedDB.deleteDatabase(PARAKEET_CACHE_DB);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+        request.onblocked = () => {
+          console.warn('[Transcription] Delete database blocked, trying again...');
+          // 如果被阻塞，稍后重试
+          setTimeout(() => {
+            const retryRequest = indexedDB.deleteDatabase(PARAKEET_CACHE_DB);
+            retryRequest.onsuccess = () => resolve();
+            retryRequest.onerror = () => reject(retryRequest.error);
+          }, 100);
+        };
+      });
+
+      // 清空状态
+      setCacheInfo([]);
+      toast.success('缓存已清空');
+      console.log('[Transcription] Cache cleared successfully');
+    } catch (error) {
+      console.error('[Transcription] Failed to clear cache:', error);
+      toast.error('清空缓存失败');
+      throw error;
+    }
   }, []);
 
   // 从本地存储加载配置
@@ -261,6 +292,7 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
     modelProgress,
     cacheInfo,
     refreshCacheInfo,
+    clearCache,
     loadModel,
     getModel,
   };
