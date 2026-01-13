@@ -8,5 +8,3 @@ node_modules
 .env.production.local
 # Claude Code
 /.claude
-# Parakeet demo code
-parakeet_transcribe/
