@@ -33,25 +33,25 @@ ${terms}`;
  * @returns 格式化的直译提示词
  */
 export const generateDirectPrompt = (
-  lines: string, 
-  sharedPrompt: string, 
-  sourceLanguage: string, 
+  lines: string,
+  sharedPrompt: string,
+  sourceLanguage: string,
   targetLanguage: string
 ): string => {
   const lineArray = lines.split('\n');
   const jsonDict: Record<string, any> = {};
-  
+
   lineArray.forEach((line, index) => {
     jsonDict[`${index + 1}`] = {
       origin: line,
       direct: ""
     };
   });
-  
+
   const jsonFormat = JSON.stringify(jsonDict, null, 2);
-  
+
   return `## Role
-You are a professional Netflix subtitle translator, fluent in both ${sourceLanguage} and ${targetLanguage}, as well as their respective cultures. 
+You are a professional Netflix subtitle translator, fluent in both ${sourceLanguage} and ${targetLanguage}, as well as their respective cultures.
 Your expertise lies in accurately understanding the semantics and structure of the original ${sourceLanguage} text and faithfully translating it into ${targetLanguage} while preserving the original meaning.
 
 ## Task
@@ -100,7 +100,7 @@ export const generateReflectionPrompt = (
 ): string => {
   // 创建包含反思和自由翻译字段的JSON格式
   const jsonDict: Record<string, any> = {};
-  
+
   Object.keys(directTranslations).forEach(key => {
     jsonDict[key] = {
       origin: directTranslations[key].origin,
@@ -109,9 +109,9 @@ export const generateReflectionPrompt = (
       free: "your free translation"
     };
   });
-  
+
   const jsonFormat = JSON.stringify(jsonDict, null, 2);
-  
+
   return `## Role
 You are a professional Netflix subtitle translator and language consultant.
 Your expertise lies not only in accurately understanding the original ${sourceLanguage} but also in optimizing the ${targetLanguage} translation to better suit the target language's expression habits and cultural background.
@@ -141,7 +141,7 @@ Please use a two-step thinking process to handle the text line by line:
    - Ensure it's easy for ${targetLanguage} audience to understand and accept
    - Adapt the language style to match the theme (e.g., use casual language for tutorials, professional terminology for technical content, formal language for documentaries)
 </Translation Analysis Steps>
-   
+
 ## INPUT
 <subtitles>
 ${lines}
@@ -153,4 +153,59 @@ ${jsonFormat}
 \`\`\`
 
 Note: Start you answer with \`\`\`json and end with \`\`\`, do not add any other text.`;
+};
+
+/**
+ * 生成句子分割提示词
+ * 将转录的单词列表分割成符合 Netflix 标准的字幕句子
+ * @param wordsList 单词数组
+ * @param maxLength 最大句子长度（词数），默认 20
+ * @param sourceLanguage 源语言
+ * @returns 格式化的句子分割提示词
+ */
+export const getSentenceSegmentationPrompt = (
+  wordsList: string[],
+  maxLength: number = 20,
+  sourceLanguage: string
+): string => {
+  const wordsText = wordsList.join(' ');
+
+  return `## Role
+You are a professional subtitle segmentation expert in **${sourceLanguage}** specializing in Netflix-quality subtitle formatting.
+
+## Task
+1. Group the given words into complete sentences based on natural language boundaries
+2. Split any sentence longer than ${maxLength} words into shorter, more readable segments
+3. Follow Netflix subtitle standards for sentence segmentation
+
+## Segmentation Rules
+1. **Sentence Boundaries**: Use natural pausing points (punctuation marks, conjunctions, etc.)
+2. **Hyphenated/ellipsis continuation**: If a sentence ends with '-' or '...', merge with the next sentence
+3. **Long sentence splitting**: Split sentences >${maxLength} words at semantically appropriate points
+4. **Minimum length**: Each sentence should have at least 3 words
+5. **Punctuation handling**: Maintain proper punctuation for readability
+
+## Input Words
+<words_sequence>
+${wordsText}
+</words_sequence>
+
+## Output Requirements
+Return a JSON object with:
+- "sentences": Array of segmented sentences
+- "analysis": Brief explanation of segmentation decisions
+
+## Output Format
+\`\`\`json
+{
+    "sentences": [
+        "First complete sentence here.",
+        "Second sentence here.",
+        "Third sentence split from long text..."
+    ],
+    "analysis": "Brief description of segmentation strategy and any splitting decisions"
+}
+\`\`\`
+
+Note: Start with \`\`\`json and end with \`\`\`, no other text.`;
 };

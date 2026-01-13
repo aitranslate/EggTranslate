@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { useSubtitle } from '@/contexts/SubtitleContext';
 import { useTranslation } from '@/contexts/TranslationContext';
+import { useTranscription } from '@/contexts/TranscriptionContext';
 import { useTerms } from '@/contexts/TermsContext';
 import { useHistory } from '@/contexts/HistoryContext';
 import { FileType } from '@/types';
@@ -25,6 +26,8 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { ConfirmDialog } from './ConfirmDialog';
+import { TranscriptionPromptModal } from './TranscriptionPromptModal';
+import { SettingsModal } from './SettingsModal';
 
 interface SubtitleFileItemProps {
   file: any;
@@ -432,10 +435,10 @@ interface SubtitleFileListProps {
   onCloseEditModal: () => void;
 }
 
-export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({ 
-  className, 
-  onEditFile, 
-  onCloseEditModal 
+export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
+  className,
+  onEditFile,
+  onCloseEditModal
 }) => {
   const { files, updateEntry, exportSRT, exportTXT, exportBilingual, clearAllData, removeFile, getTranslationProgress, simulateTranscription } = useSubtitle();
   const {
@@ -450,15 +453,51 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
     stopTranslation,
     completeTranslation
   } = useTranslation();
+  const { modelStatus } = useTranscription();
   const { getRelevantTerms } = useTerms();
   const { addHistoryEntry, history } = useHistory();
-  
+
   const [editingFile, setEditingFile] = useState<any>(null);
   const [isTranslatingGloballyState, setIsTranslatingGlobally] = useState(false);
   const [currentTranslatingFileId, setCurrentTranslatingFileId] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<any>(null);
+
+  // 转录相关状态
+  const [showTranscriptionPrompt, setShowTranscriptionPrompt] = useState(false);
+  const [pendingTranscribeFileId, setPendingTranscribeFileId] = useState<string | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // 处理转录点击
+  const handleTranscribe = useCallback(async (fileId: string) => {
+    // 检查模型是否已加载
+    if (modelStatus !== 'loaded') {
+      setPendingTranscribeFileId(fileId);
+      setShowTranscriptionPrompt(true);
+      return;
+    }
+
+    // 模型已加载，直接执行转录
+    await simulateTranscription(fileId);
+  }, [modelStatus, simulateTranscription]);
+
+  // 模态框操作
+  const handleGoToSettings = useCallback(() => {
+    setShowTranscriptionPrompt(false);
+    setIsSettingsOpen(true);
+  }, []);
+
+  const handleCancelPrompt = useCallback(() => {
+    setShowTranscriptionPrompt(false);
+    setPendingTranscribeFileId(null);
+  }, []);
+
+  const handleSettingsClose = useCallback(() => {
+    setIsSettingsOpen(false);
+    // 清空待处理的文件 ID，用户需要手动点击转录按钮
+    setPendingTranscribeFileId(null);
+  }, []);
 
   const handleEdit = useCallback((file: any) => {
     setEditingFile(file);
@@ -759,7 +798,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
                   onStartTranslation={handleStartTranslation}
                   onExport={handleExport}
                   onDelete={handleDeleteFile}
-                  onTranscribe={simulateTranscription}
+                  onTranscribe={handleTranscribe}
                   isTranslatingGlobally={isTranslatingGloballyState}
                   currentTranslatingFileId={currentTranslatingFileId}
                 />
@@ -793,6 +832,21 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
         confirmText="确认删除"
         confirmButtonClass="bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30"
       />
+
+      {/* 转录模型未加载提示模态框 */}
+      <TranscriptionPromptModal
+        isOpen={showTranscriptionPrompt}
+        onGoToSettings={handleGoToSettings}
+        onCancel={handleCancelPrompt}
+      />
+
+      {/* 设置模态框 */}
+      {isSettingsOpen && (
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={handleSettingsClose}
+        />
+      )}
     </div>
   );
 };

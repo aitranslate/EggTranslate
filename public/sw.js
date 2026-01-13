@@ -8,10 +8,28 @@ const PRECACHE_URLS = [
   '/EggTranslate/index.html'
 ];
 
+// 增强响应头，开启跨源隔离（支持 SharedArrayBuffer）
+function addIsolationHeaders(response) {
+  if (!response || response.status === 0) {
+    return response;
+  }
+
+  const newHeaders = new Headers(response.headers);
+  newHeaders.set("Cross-Origin-Embedder-Policy", "require-corp");
+  newHeaders.set("Cross-Origin-Opener-Policy", "same-origin");
+  newHeaders.set("Cross-Origin-Resource-Policy", "cross-origin");
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: newHeaders,
+  });
+}
+
 // 安装事件 - 预缓存核心资源
 self.addEventListener('install', event => {
   console.log('[SW] 安装中...');
-  
+
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
@@ -28,7 +46,7 @@ self.addEventListener('install', event => {
 // 激活事件 - 清理旧缓存
 self.addEventListener('activate', event => {
   console.log('[SW] 激活中...');
-  
+
   event.waitUntil(
     caches.keys()
       .then(cacheNames => {
@@ -53,17 +71,17 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
-  
+
   // 只处理同源请求和正确的路径
   if (url.origin !== location.origin) {
     return;
   }
-  
+
   // 只处理 EggTranslate 路径下的请求
   if (!url.pathname.startsWith('/EggTranslate/')) {
     return;
   }
-  
+
   // 根据资源类型选择缓存策略
   if (isStaticAsset(request.url)) {
     // 静态资源：缓存优先
@@ -84,7 +102,7 @@ function isStaticAsset(url) {
 
 // 判断是否为HTML请求
 function isHTMLRequest(request) {
-  return request.method === 'GET' && 
+  return request.method === 'GET' &&
          (request.headers.get('accept') || '').includes('text/html');
 }
 
@@ -95,39 +113,39 @@ async function cacheFirst(request) {
     const cachedResponse = await caches.match(request);
     if (cachedResponse) {
       console.log('[SW] 缓存命中:', request.url);
-      return cachedResponse;
+      return addIsolationHeaders(cachedResponse);
     }
-    
+
     // 缓存未命中，请求网络
     console.log('[SW] 网络请求:', request.url);
     const networkResponse = await fetch(request);
-    
+
     // 缓存成功的响应
     if (networkResponse.ok) {
       const cache = await caches.open(RUNTIME_CACHE);
       cache.put(request, networkResponse.clone());
       console.log('[SW] 已缓存:', request.url);
     }
-    
-    return networkResponse;
+
+    return addIsolationHeaders(networkResponse);
   } catch (error) {
     console.error('[SW] 请求失败:', request.url, error);
-    
+
     // 网络失败时尝试返回缓存
     const cachedResponse = await caches.match(request);
     if (cachedResponse) {
       console.log('[SW] 离线模式，返回缓存:', request.url);
-      return cachedResponse;
+      return addIsolationHeaders(cachedResponse);
     }
-    
+
     // 如果是HTML请求且无缓存，返回离线页面
     if (isHTMLRequest(request)) {
       const offlineResponse = await caches.match('/EggTranslate/');
       if (offlineResponse) {
-        return offlineResponse;
+        return addIsolationHeaders(offlineResponse);
       }
     }
-    
+
     throw error;
   }
 }
@@ -137,25 +155,25 @@ async function networkFirst(request) {
   try {
     console.log('[SW] 网络优先请求:', request.url);
     const networkResponse = await fetch(request);
-    
+
     // 缓存成功的响应
     if (networkResponse.ok) {
       const cache = await caches.open(RUNTIME_CACHE);
       cache.put(request, networkResponse.clone());
       console.log('[SW] 已更新缓存:', request.url);
     }
-    
-    return networkResponse;
+
+    return addIsolationHeaders(networkResponse);
   } catch (error) {
     console.error('[SW] 网络请求失败:', request.url, error);
-    
+
     // 网络失败时返回缓存
     const cachedResponse = await caches.match(request);
     if (cachedResponse) {
       console.log('[SW] 网络失败，返回缓存:', request.url);
-      return cachedResponse;
+      return addIsolationHeaders(cachedResponse);
     }
-    
+
     throw error;
   }
 }

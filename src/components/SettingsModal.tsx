@@ -17,7 +17,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const { config, updateConfig, testConnection } = useTranslation();
   const { config: transcriptionConfig, updateConfig: updateTranscriptionConfig, modelStatus, modelProgress, cacheInfo, refreshCacheInfo, clearCache, loadModel } = useTranscription();
 
-  const [activeTab, setActiveTab] = useState<TabType>('translation');
+  const [activeTab, setActiveTab] = useState<TabType>('transcription');
   const [formData, setFormData] = useState(config);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -28,7 +28,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     if (isOpen) {
       setFormData(config);
       setTestResult(null);
-      setActiveTab('translation');
+      setActiveTab('transcription');
     }
   }, [isOpen, config]);
 
@@ -128,16 +128,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         {/* 标签页切换 */}
         <div className="flex space-x-2 mb-6">
           <button
-            onClick={() => setActiveTab('translation')}
-            className={`px-6 py-2 rounded-lg transition-colors ${
-              activeTab === 'translation'
-                ? 'bg-purple-500/30 text-purple-200 border border-purple-500/30'
-                : 'bg-white/5 text-white/60 hover:bg-white/10'
-            }`}
-          >
-            翻译设置
-          </button>
-          <button
             onClick={() => setActiveTab('transcription')}
             className={`px-6 py-2 rounded-lg transition-colors ${
               activeTab === 'transcription'
@@ -146,6 +136,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             }`}
           >
             转录设置
+          </button>
+          <button
+            onClick={() => setActiveTab('translation')}
+            className={`px-6 py-2 rounded-lg transition-colors ${
+              activeTab === 'translation'
+                ? 'bg-purple-500/30 text-purple-200 border border-purple-500/30'
+                : 'bg-white/5 text-white/60 hover:bg-white/10'
+            }`}
+          >
+            翻译设置
           </button>
         </div>
 

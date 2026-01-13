@@ -16,18 +16,34 @@
   async function registerServiceWorker() {
     try {
       console.log('[SW注册] 开始注册 Service Worker...');
-      
+
       const registration = await navigator.serviceWorker.register('/EggTranslate/sw.js', {
         scope: '/EggTranslate/'
       });
-      
+
       console.log('[SW注册] Service Worker 注册成功:', registration.scope);
-      
+
+      // 检查是否需要刷新以启用 SharedArrayBuffer
+      // 如果 SW 已激活但页面还未跨源隔离，需要刷新一次
+      const hasRefreshed = sessionStorage.getItem('sw-sab-refreshed');
+      if (registration.active && !window.crossOriginIsolated && !hasRefreshed) {
+        console.log('[SW注册] Service Worker 已激活，正在刷新以启用多线程支持...');
+        sessionStorage.setItem('sw-sab-refreshed', 'true');
+        window.location.reload();
+        return;
+      }
+
+      // 清除标记（如果已经跨源隔离）
+      if (window.crossOriginIsolated && hasRefreshed) {
+        sessionStorage.removeItem('sw-sab-refreshed');
+        console.log('[SW注册] SharedArrayBuffer 已启用，多线程支持正常');
+      }
+
       // 监听更新
       registration.addEventListener('updatefound', () => {
         console.log('[SW注册] 发现新版本');
         const newWorker = registration.installing;
-        
+
         newWorker.addEventListener('statechange', () => {
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
             console.log('[SW注册] 新版本已安装，等待激活');
@@ -35,18 +51,18 @@
           }
         });
       });
-      
+
       // 监听控制器变化
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         console.log('[SW注册] Service Worker 已更新，刷新页面');
         window.location.reload();
       });
-      
+
       // 检查是否有等待中的 Service Worker
       if (registration.waiting) {
         showUpdateNotification(registration);
       }
-      
+
     } catch (error) {
       console.error('[SW注册] Service Worker 注册失败:', error);
     }
