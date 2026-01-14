@@ -7,6 +7,7 @@ import { useHistory } from '@/contexts/HistoryContext';
 import dataManager from '@/services/dataManager';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { downloadSubtitleFile } from '@/utils/fileExport';
 
 interface TranslationControlsProps {
   className?: string;
@@ -253,7 +254,7 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
     
     try {
       let content = '';
-      let extension = '';
+      let extension: 'srt' | 'txt' = 'txt';
       
       switch (format) {
         case 'srt':
@@ -270,16 +271,7 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
           break;
       }
       
-      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      
-      const baseName = filename.replace(/\.srt$/i, '');
-      a.href = url;
-      a.download = `${baseName}_translated.${extension}`;
-      a.click();
-      
-      URL.revokeObjectURL(url);
+      downloadSubtitleFile(content, filename, extension);
       toast.success('导出成功');
     } catch (error) {
       console.error('导出失败:', error);

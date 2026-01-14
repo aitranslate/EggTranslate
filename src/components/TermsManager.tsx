@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, Edit3, Save, X, Upload, Download, BookOpen, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ConfirmDialog } from './ConfirmDialog';
+import { downloadTextFile } from '@/utils/fileExport';
 
 interface TermsManagerProps {
   isOpen: boolean;
@@ -110,13 +111,7 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
       return;
     }
 
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'terms.txt';
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadTextFile(content, 'terms.txt');
     toast.success('术语导出成功');
   }, [exportTerms]);
 

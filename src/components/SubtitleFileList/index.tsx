@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { downloadSubtitleFile } from '@/utils/fileExport';
 import { useSubtitle } from '@/contexts/SubtitleContext';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { useTranscription } from '@/contexts/TranscriptionContext';
@@ -255,7 +256,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
 
   const handleExport = useCallback((file: SubtitleFile, format: 'srt' | 'txt' | 'bilingual') => {
     let content = '';
-    let extension = '';
+    let extension: 'srt' | 'txt' = 'txt';
 
     switch (format) {
       case 'srt':
@@ -272,16 +273,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
         break;
     }
 
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-
-    const baseName = file.name.replace(/\.srt$/i, '');
-    a.href = url;
-    a.download = `${baseName}_translated.${extension}`;
-    a.click();
-
-    URL.revokeObjectURL(url);
+    downloadSubtitleFile(content, file.name, extension);
     toast.success('导出成功');
   }, [exportSRT, exportTXT, exportBilingual]);
 

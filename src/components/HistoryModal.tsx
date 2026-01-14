@@ -13,6 +13,7 @@ import {
   Download
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { downloadSubtitleFile } from '@/utils/fileExport';
 import { TranslationHistoryEntry } from '@/types';
 import { toSRT, toTXT, toBilingual } from '@/utils/srtParser';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -106,7 +107,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
       }
       
       let content = '';
-      let extension = '';
+      let extension: 'srt' | 'txt' = 'txt';
       
       switch (format) {
         case 'srt':
@@ -123,16 +124,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
           break;
       }
       
-      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      
-      const baseName = entry.filename.replace(/\.srt$/i, '');
-      a.href = url;
-      a.download = `${baseName}_translated.${extension}`;
-      a.click();
-      
-      URL.revokeObjectURL(url);
+      downloadSubtitleFile(content, entry.filename, extension);
       toast.success('导出成功');
     } catch (error) {
       console.error('导出失败:', error);
