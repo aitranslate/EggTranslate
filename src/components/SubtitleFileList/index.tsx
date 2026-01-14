@@ -10,6 +10,7 @@ import { useTerms } from '@/contexts/TermsContext';
 import { useHistory } from '@/contexts/HistoryContext';
 import { SubtitleFile, SubtitleEntry } from '@/types';
 import dataManager from '@/services/dataManager';
+import { API_CONSTANTS } from '@/constants/api';
 import { SubtitleFileItem } from './components/SubtitleFileItem';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { TranscriptionPromptModal } from '../TranscriptionPromptModal';
@@ -209,7 +210,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
     for (const file of filesToTranslate) {
       try {
         await handleStartTranslation(file);
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, API_CONSTANTS.BATCH_TASK_GAP_MS));
       } catch (error) {
         console.error(`翻译文件 ${file.name} 失败:`, error);
         toast.error(`翻译文件 ${file.name} 失败: ${error.message}`);

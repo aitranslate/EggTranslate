@@ -150,7 +150,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
                 {/* 筛选器 */}
                 <select
                   value={filterType}
-                  onChange={(e) => setFilterType(e.target.value as any)}
+                  onChange={(e) => setFilterType(e.target.value as 'all' | 'translated' | 'untranslated')}
                   className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-400 transition-colors"
                 >
                   <option value="all" className="bg-gray-800">全部</option>

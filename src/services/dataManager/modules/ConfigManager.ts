@@ -1,5 +1,6 @@
 import localforage from 'localforage';
 import { TranslationConfig } from '@/types';
+import { DEFAULT_TRANSLATION_CONFIG } from '@/constants/translationDefaults';
 
 /**
  * 配置管理器 - 负责翻译配置的 CRUD 操作
@@ -11,20 +12,6 @@ class ConfigManager {
 
   private readonly CONFIG_KEY = 'translation_config';
 
-  private readonly DEFAULT_CONFIG: TranslationConfig = {
-    apiKey: '',
-    baseURL: 'https://api.openai.com/v1',
-    model: 'gpt-3.5-turbo',
-    sourceLanguage: 'English',
-    targetLanguage: '简体中文',
-    contextBefore: 5,
-    contextAfter: 3,
-    batchSize: 20,
-    threadCount: 4,
-    rpm: 0,
-    enableReflection: false
-  };
-
   constructor(memoryStore: { translation_config: TranslationConfig }) {
     this.memoryStore = memoryStore;
   }
@@ -33,7 +20,7 @@ class ConfigManager {
    * 获取默认配置
    */
   getDefaultConfig(): TranslationConfig {
-    return { ...this.DEFAULT_CONFIG };
+    return { ...DEFAULT_TRANSLATION_CONFIG };
   }
 
   /**

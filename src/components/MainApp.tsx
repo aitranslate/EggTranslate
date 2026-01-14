@@ -3,8 +3,7 @@ import { motion } from 'framer-motion';
 import {
   Settings,
   BookOpen,
-  History,
-  Zap
+  History
 } from 'lucide-react';
 import { FileUpload } from './FileUpload';
 import { BatchFileUpload } from './BatchFileUpload';
@@ -26,7 +25,7 @@ export const MainApp: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [editingFile, setEditingFile] = useState<any>(null);
+  const [editingFile, setEditingFile] = useState<SubtitleFile | null>(null);
   const [isEditingModalOpen, setIsEditingModalOpen] = useState(false);
   const { files, getAllFiles } = useSubtitle();
   const singleSubtitle = useSingleSubtitle();

@@ -23,6 +23,12 @@ export const API_CONSTANTS = {
 
   /** 状态更新等待延迟（毫秒） */
   STATE_UPDATE_DELAY_MS: 100,
+
+  /** 批处理任务间隔（毫秒） */
+  BATCH_TASK_GAP_MS: 1000,
+
+  /** 历史保存延迟（毫秒） */
+  HISTORY_SAVE_DELAY_MS: 500,
 } as const;
 
 /**

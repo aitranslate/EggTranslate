@@ -6,6 +6,7 @@
 import type { SubtitleEntry } from '@/types';
 import dataManager from '@/services/dataManager';
 import toast from 'react-hot-toast';
+import { API_CONSTANTS } from '@/constants/api';
 
 export interface BatchInfo {
   batchIndex: number;
@@ -259,7 +260,7 @@ export async function saveTranslationHistory(
   addHistoryEntry: (entry: any) => Promise<void>
 ): Promise<void> {
   try {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, API_CONSTANTS.HISTORY_SAVE_DELAY_MS));
 
     const batchTasks = dataManager.getBatchTasks();
     const currentTask = batchTasks.tasks.find(t => t.taskId === taskId);

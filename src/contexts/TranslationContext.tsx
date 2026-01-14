@@ -2,6 +2,7 @@ import React, { createContext, useContext, useReducer, useCallback, useRef, useM
 import { TranslationConfig, TranslationProgress } from '@/types';
 import translationService from '@/services/TranslationService';
 import dataManager from '@/services/dataManager';
+import { DEFAULT_TRANSLATION_CONFIG } from '@/constants/translationDefaults';
 
 interface TranslationState {
   config: TranslationConfig;
@@ -35,22 +36,8 @@ type TranslationAction =
   | { type: 'SET_TASK_ID'; payload: string }
   | { type: 'RESET_PROGRESS' };
 
-const initialConfig: TranslationConfig = {
-  apiKey: '',
-  baseURL: 'https://api.openai.com/v1',
-  model: 'gpt-3.5-turbo',
-  sourceLanguage: 'English',
-  targetLanguage: '简体中文',
-  contextBefore: 5,
-  contextAfter: 3,
-  batchSize: 20,
-  threadCount: 4,
-  rpm: 0,
-  enableReflection: false
-};
-
 const initialState: TranslationState = {
-  config: initialConfig,
+  config: DEFAULT_TRANSLATION_CONFIG,
   isTranslating: false,
   progress: {
     current: 0,

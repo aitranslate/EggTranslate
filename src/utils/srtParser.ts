@@ -9,6 +9,16 @@ interface SRTParserResult {
   text: string;
 }
 
+// SRTParser2.toSrt 输入接口
+interface SRTParserInput {
+  id: string;
+  startTime: string;
+  endTime: string;
+  text: string;
+  startSeconds: number;
+  endSeconds: number;
+}
+
 const parser = new SRTParser2();
 
 export const parseSRT = (srtContent: string): SubtitleEntry[] => {
@@ -28,7 +38,7 @@ export const parseSRT = (srtContent: string): SubtitleEntry[] => {
 };
 
 export const toSRT = (entries: SubtitleEntry[], useTranslation: boolean = true): string => {
-  const srtEntries = entries.map(entry => ({
+  const srtEntries: SRTParserInput[] = entries.map(entry => ({
     id: entry.id.toString(),
     startTime: entry.startTime,
     endTime: entry.endTime,
@@ -36,8 +46,8 @@ export const toSRT = (entries: SubtitleEntry[], useTranslation: boolean = true):
     startSeconds: 0,
     endSeconds: 0
   }));
-  
-  return parser.toSrt(srtEntries as any);
+
+  return parser.toSrt(srtEntries);
 };
 
 export const toTXT = (entries: SubtitleEntry[], useTranslation: boolean = true): string => {
@@ -47,7 +57,7 @@ export const toTXT = (entries: SubtitleEntry[], useTranslation: boolean = true):
 };
 
 export const toBilingual = (entries: SubtitleEntry[]): string => {
-  const bilingualEntries = entries.map(entry => ({
+  const bilingualEntries: SRTParserInput[] = entries.map(entry => ({
     id: entry.id.toString(),
     startTime: entry.startTime,
     endTime: entry.endTime,
@@ -55,6 +65,6 @@ export const toBilingual = (entries: SubtitleEntry[]): string => {
     startSeconds: 0,
     endSeconds: 0
   }));
-  
-  return parser.toSrt(bilingualEntries as any);
+
+  return parser.toSrt(bilingualEntries);
 };
