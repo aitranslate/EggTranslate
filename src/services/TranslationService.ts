@@ -3,6 +3,8 @@ import { jsonrepair } from 'jsonrepair';
 import dataManager from '@/services/dataManager';
 import { generateSharedPrompt, generateDirectPrompt, generateReflectionPrompt } from '@/utils/translationPrompts';
 import { callLLM } from '@/utils/llmApi';
+import { DEFAULT_TRANSLATION_CONFIG } from '@/constants/translationDefaults';
+import { API_CONSTANTS, OPENAI_DEFAULTS } from '@/constants/api';
 
 /**
  * 翻译服务 - 纯业务逻辑层
@@ -18,19 +20,7 @@ class TranslationService {
   private config: TranslationConfig;
 
   constructor() {
-    this.config = {
-      apiKey: '',
-      baseURL: 'https://api.openai.com/v1',
-      model: 'gpt-3.5-turbo',
-      sourceLanguage: 'English',
-      targetLanguage: '简体中文',
-      contextBefore: 5,
-      contextAfter: 3,
-      batchSize: 20,
-      threadCount: 4,
-      rpm: 0,
-      enableReflection: false
-    };
+    this.config = { ...DEFAULT_TRANSLATION_CONFIG };
   }
 
   /**
@@ -124,7 +114,7 @@ class TranslationService {
         rpm: this.config.rpm
       },
       [{ role: 'user', content: directPrompt }],
-      { signal, temperature: 0.3, maxRetries: 5 }
+      { signal, temperature: API_CONSTANTS.DEFAULT_TEMPERATURE, maxRetries: API_CONSTANTS.MAX_RETRIES }
     );
 
     const repairedDirectJson = jsonrepair(directContent);
@@ -150,7 +140,7 @@ class TranslationService {
             rpm: this.config.rpm
           },
           [{ role: 'user', content: reflectionPrompt }],
-          { signal, temperature: 0.3, maxRetries: 1 }
+          { signal, temperature: API_CONSTANTS.DEFAULT_TEMPERATURE, maxRetries: 1 }
         );
 
         totalTokensUsed += reflectionTokensUsed;
@@ -263,7 +253,7 @@ class TranslationService {
           } catch (error) {
             console.error('延迟持久化失败:', error);
           }
-        }, 200);
+        }, API_CONSTANTS.PERSIST_DELAY_MS);
       }
     } catch (error) {
       console.error('保存完成状态失败:', error);

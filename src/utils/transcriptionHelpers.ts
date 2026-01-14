@@ -3,6 +3,8 @@
  * 用于音视频转录过程中的批次处理和 LLM 跳过判断
  */
 
+import { TRANSCRIPTION_BATCH_CONSTANTS } from '@/constants/transcription';
+
 /**
  * 转录单词类型
  */
@@ -59,25 +61,25 @@ export const shouldSkipLLM = (
   startIdx: number,
   allWords: TranscriptionWord[]
 ): boolean => {
-  const PAUSE_THRESHOLD = 1.0; // 停顿阈值（秒）
+  const PAUSE_THRESHOLD = TRANSCRIPTION_BATCH_CONSTANTS.PAUSE_THRESHOLD;
   const wordCount = wordsInBatch.length;
 
   // 场景 1: 极短片段 (1-2 个词) + 前后都有停顿
-  if (wordCount <= 2 && pauseFound && pauseGap > PAUSE_THRESHOLD) {
+  if (wordCount <= TRANSCRIPTION_BATCH_CONSTANTS.VERY_SHORT_WORD_COUNT && pauseFound && pauseGap > PAUSE_THRESHOLD) {
     const hasPause = hasPauseBefore(wordsInBatch[0], allWords, PAUSE_THRESHOLD);
     if (hasPause) {
       return true;
     }
   }
 
-  // 场景 2: 完整句子（以标点结尾）+ 后面有停顿 + 长度不超过 20 词
+  // 场景 2: 完整句子（以标点结尾）+ 后面有停顿 + 长度不超过 COMPLETE_SENTENCE_WORD_COUNT 词
   const lastWord = wordsInBatch[wordCount - 1];
-  if (hasEndingPunctuation(lastWord.text) && pauseFound && wordCount <= 20) {
+  if (hasEndingPunctuation(lastWord.text) && pauseFound && wordCount <= TRANSCRIPTION_BATCH_CONSTANTS.COMPLETE_SENTENCE_WORD_COUNT) {
     return true;
   }
 
-  // 场景 3: 短片段 (3-10 个词) + 前后都有长停顿
-  if (wordCount <= 10 && wordCount > 2 && pauseFound && pauseGap > PAUSE_THRESHOLD) {
+  // 场景 3: 短片段 (3-SHORT_WORD_COUNT 个词) + 前后都有长停顿
+  if (wordCount <= TRANSCRIPTION_BATCH_CONSTANTS.SHORT_WORD_COUNT && wordCount > TRANSCRIPTION_BATCH_CONSTANTS.VERY_SHORT_WORD_COUNT && pauseFound && pauseGap > PAUSE_THRESHOLD) {
     const hasPause = hasPauseBefore(wordsInBatch[0], allWords, PAUSE_THRESHOLD);
     if (hasPause) {
       return true;

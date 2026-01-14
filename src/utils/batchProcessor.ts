@@ -5,6 +5,7 @@
 
 import { TranscriptionWord } from './transcriptionHelpers';
 import { hasEndingPunctuation, shouldSkipLLM } from './transcriptionHelpers';
+import { TRANSCRIPTION_BATCH_CONSTANTS } from '@/constants/transcription';
 
 /**
  * 批次切分原因
@@ -26,8 +27,8 @@ export interface BatchInfo {
  * 批次切分配置
  */
 export interface BatchSplitConfig {
-  batchSize?: number;       // 批次大小，默认 300
-  pauseThreshold?: number;  // 停顿阈值（秒），默认 1.0
+  batchSize?: number;       // 批次大小，默认 DEFAULT_BATCH_SIZE
+  pauseThreshold?: number;  // 停顿阈值（秒），默认 PAUSE_THRESHOLD
 }
 
 /**
@@ -40,12 +41,6 @@ export interface SentenceMapping {
 }
 
 /**
- * 批次切分配置（默认值）
- */
-const DEFAULT_BATCH_SIZE = 300;
-const DEFAULT_PAUSE_THRESHOLD = 1.0;
-
-/**
  * 基于时间间隔和标点符号的混合切分
  * @param words - 转录单词数组
  * @param config - 切分配置
@@ -56,8 +51,8 @@ export const createBatches = (
   config: BatchSplitConfig = {}
 ): BatchInfo[] => {
   const {
-    batchSize = DEFAULT_BATCH_SIZE,
-    pauseThreshold = DEFAULT_PAUSE_THRESHOLD
+    batchSize = TRANSCRIPTION_BATCH_CONSTANTS.DEFAULT_BATCH_SIZE,
+    pauseThreshold = TRANSCRIPTION_BATCH_CONSTANTS.PAUSE_THRESHOLD
   } = config;
 
   const batches: BatchInfo[] = [];

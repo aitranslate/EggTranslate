@@ -3,6 +3,7 @@ import { ParakeetModel, getParakeetModel } from 'parakeet.js';
 import { TranscriptionConfig, ModelStatus } from '@/types';
 import dataManager from '@/services/dataManager';
 import toast from 'react-hot-toast';
+import { TRANSCRIPTION_PROGRESS_CONSTANTS, AUDIO_CONSTANTS } from '@/constants/transcription';
 
 interface TranscriptionContextValue {
   // 配置
@@ -34,10 +35,6 @@ interface TranscriptionContextValue {
 }
 
 const TranscriptionContext = createContext<TranscriptionContextValue | null>(null);
-
-// 常量定义
-const PARAKEET_SAMPLE_RATE = 16000;  // Parakeet 模型采样率
-const PROGRESS_DOWNLOAD_CAP = 90;     // 下载进度上限 (剩余留给编译)
 
 // IndexedDB 常量
 const PARAKEET_CACHE_DB = 'parakeet-cache-db';
@@ -224,18 +221,23 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
     await dataManager.saveTranscriptionConfig(updated);
   }, [config]);
 
-  const loadModel = useCallback(async () => {
-    // 如果已有模型，先释放
+  // 清理函数：释放模型资源
+  const disposeModel = useCallback(() => {
     if (modelRef.current) {
       try {
         if (typeof (modelRef.current as any).dispose === 'function') {
           (modelRef.current as any).dispose();
         }
       } catch (e) {
-        console.warn('释放旧模型时出错:', e);
+        console.warn('[Transcription] 释放模型资源时出错:', e);
       }
       modelRef.current = null;
     }
+  }, []);
+
+  const loadModel = useCallback(async () => {
+    // 如果已有模型，先释放
+    disposeModel();
 
     setModelStatus('loading');
     setModelProgress({ percent: 0, loaded: 0, total: 0 });
@@ -251,7 +253,7 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
         const remainingTime = loaded > 0 ? ((total - loaded) / loaded) * (elapsed / 1000) : undefined;
 
         setModelProgress({
-          percent: Math.min(percent, PROGRESS_DOWNLOAD_CAP),
+          percent: Math.min(percent, TRANSCRIPTION_PROGRESS_CONSTANTS.DOWNLOAD_CAP),
           filename: file,
           loaded,
           total,
@@ -284,8 +286,8 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
       // 验证模型
       setModelProgress(prev => prev ? { ...prev, percent: 98, filename: '预热验证...', loaded: 0, total: 0 } : { percent: 98, filename: '预热验证...', loaded: 0, total: 0 });
 
-      const warmupPcm = new Float32Array(PARAKEET_SAMPLE_RATE);
-      await modelRef.current.transcribe(warmupPcm, PARAKEET_SAMPLE_RATE);
+      const warmupPcm = new Float32Array(AUDIO_CONSTANTS.SAMPLE_RATE);
+      await modelRef.current.transcribe(warmupPcm, AUDIO_CONSTANTS.SAMPLE_RATE);
 
       setModelStatus('loaded');
       setModelProgress(undefined);
@@ -299,11 +301,18 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
       const errorMessage = error instanceof Error ? error.message : '未知错误';
       toast.error(`模型加载失败: ${errorMessage}`);
     }
-  }, [config, refreshCacheInfo]);
+  }, [config, refreshCacheInfo, disposeModel]);
 
   const getModel = useCallback(() => {
     return modelRef.current;
   }, []);
+
+  // 组件卸载时释放模型资源，防止内存泄漏
+  useEffect(() => {
+    return () => {
+      disposeModel();
+    };
+  }, [disposeModel]);
 
   // 使用 useMemo 优化 Context value，避免不必要的重渲染
   const value: TranscriptionContextValue = useMemo(() => ({

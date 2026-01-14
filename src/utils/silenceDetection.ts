@@ -3,13 +3,15 @@
  * 用于音视频转录中的音频切分
  */
 
+import { SILENCE_DETECTION_CONSTANTS } from '@/constants/transcription';
+
 /**
  * 静音检测配置
  */
 export interface SilenceDetectionConfig {
-  analysisWindowSize?: number;      // 分析窗口大小（秒），默认 0.01 (10ms)
-  minSilenceDuration?: number;      // 最小静音持续时间（秒），默认 0.4 (400ms)
-  silenceThresholdRatio?: number;   // 静音阈值比例，默认 0.15 (平均RMS的15%)
+  analysisWindowSize?: number;      // 分析窗口大小（秒），默认 ANALYSIS_WINDOW_SIZE (10ms)
+  minSilenceDuration?: number;      // 最小静音持续时间（秒），默认 MIN_SILENCE_DURATION (400ms)
+  silenceThresholdRatio?: number;   // 静音阈值比例，默认 SILENCE_THRESHOLD_RATIO (平均RMS的15%)
 }
 
 /**
@@ -34,9 +36,9 @@ export const findSilencePoints = (
   config: SilenceDetectionConfig = {}
 ): number[] => {
   const {
-    analysisWindowSize = Math.floor(sampleRate * 0.01), // 10ms 窗口
-    minSilenceDuration = 0.4, // 静音持续至少 400ms
-    silenceThresholdRatio = 0.15 // 静音阈值为平均 RMS 的 15%
+    analysisWindowSize = Math.floor(sampleRate * SILENCE_DETECTION_CONSTANTS.ANALYSIS_WINDOW_SIZE),
+    minSilenceDuration = SILENCE_DETECTION_CONSTANTS.MIN_SILENCE_DURATION,
+    silenceThresholdRatio = SILENCE_DETECTION_CONSTANTS.SILENCE_THRESHOLD_RATIO
   } = config;
 
   // 计算音频的平均 RMS（均方根）作为基准
@@ -106,8 +108,8 @@ export const createChunkPlan = (
   config: ChunkPlanConfig = {}
 ): AudioChunk[] => {
   const {
-    chunkDuration = 60, // 目标每片约 60 秒
-    searchWindow = 20   // 在目标位置前后搜索静音点的窗口（秒）
+    chunkDuration = SILENCE_DETECTION_CONSTANTS.CHUNK_DURATION,
+    searchWindow = SILENCE_DETECTION_CONSTANTS.SEARCH_WINDOW
   } = config;
 
   const chunkSizeSamples = chunkDuration * sampleRate;

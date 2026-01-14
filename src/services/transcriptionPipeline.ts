@@ -3,7 +3,7 @@
  * 封装完整的音视频转录流程：解码 -> 静音检测 -> 分片 -> 转录 -> LLM分割 -> 字幕生成
  */
 
-import { SubtitleEntry } from '@/types';
+import { SubtitleEntry, type LLMConfig as BaseLLMConfig } from '@/types';
 import { DecodedAudio, decodeAudioFile } from './audioDecoder';
 import { findSilencePoints, createChunkPlan, type AudioChunk } from '@/utils/silenceDetection';
 import { createBatches, logBatchOverview, type BatchInfo } from '@/utils/batchProcessor';
@@ -12,7 +12,9 @@ import { getSentenceSegmentationPrompt } from '@/utils/translationPrompts';
 import { getLlmWordsAndSplits, mapLlmSplitsToOriginal, reconstructSentences } from '@/utils/sentenceTools';
 import { jsonrepair } from 'jsonrepair';
 import { callLLM } from '@/utils/llmApi';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
+import { API_CONSTANTS } from '@/constants/api';
+import { AUDIO_CONSTANTS, TRANSCRIPTION_BATCH_CONSTANTS, TRANSCRIPTION_PROGRESS } from '@/constants/transcription';
 
 /**
  * 转录单词（来自模型）
@@ -25,12 +27,9 @@ export interface TranscriptionWord {
 }
 
 /**
- * LLM 配置
+ * 转录 LLM 配置（继承基础 LLM 配置，增加转录相关字段）
  */
-export interface LLMConfig {
-  baseURL: string;
-  apiKey: string;
-  model: string;
+export interface TranscriptionLLMConfig extends BaseLLMConfig {
   sourceLanguage: string;
 }
 
@@ -71,13 +70,10 @@ export interface TranscriptionResult {
   totalChunks: number;
 }
 
-const SAMPLE_RATE = 16000;
-const FRAME_STRIDE = 1;
-
 /**
  * 调用 LLM 进行句子分割
  */
-const callLlmApi = async (prompt: string, config: LLMConfig): Promise<string> => {
+const callLlmApi = async (prompt: string, config: TranscriptionLLMConfig): Promise<string> => {
   const result = await callLLM(
     {
       baseURL: config.baseURL,
@@ -85,7 +81,7 @@ const callLlmApi = async (prompt: string, config: LLMConfig): Promise<string> =>
       model: config.model
     },
     [{ role: 'user', content: prompt }],
-    { temperature: 0.3 }
+    { temperature: API_CONSTANTS.DEFAULT_TEMPERATURE }
   );
 
   return result.content;
@@ -96,7 +92,7 @@ const callLlmApi = async (prompt: string, config: LLMConfig): Promise<string> =>
  */
 const processBatch = async (
   batch: BatchInfo,
-  llmConfig: LLMConfig
+  llmConfig: TranscriptionLLMConfig
 ): Promise<Array<{ sentence: string; startIdx: number; endIdx: number }>> => {
   // 如果标记为跳过 LLM，直接将单词连接成句子
   if (batch.skipLLM) {
@@ -116,7 +112,7 @@ const processBatch = async (
   const wordsList = batch.words.map(w => w.text);
   const segmentationPrompt = getSentenceSegmentationPrompt(
     wordsList,
-    20,
+    TRANSCRIPTION_BATCH_CONSTANTS.LLM_MAX_WORDS,
     llmConfig.sourceLanguage
   );
 
@@ -176,23 +172,23 @@ const processBatch = async (
 export const runTranscriptionPipeline = async (
   fileRef: File,
   model: TranscriptionModel,
-  llmConfig: LLMConfig,
+  llmConfig: TranscriptionLLMConfig,
   callbacks: ProgressCallbacks = {}
 ): Promise<TranscriptionResult> => {
   // 1. 解码音频
   callbacks.onDecoding?.();
-  const { pcm, duration } = await decodeAudioFile(fileRef, SAMPLE_RATE);
+  const { pcm, duration } = await decodeAudioFile(fileRef, AUDIO_CONSTANTS.SAMPLE_RATE);
 
   // 2. 静音检测和分片
   callbacks.onChunking?.(duration);
-  const silencePoints = findSilencePoints(pcm, SAMPLE_RATE);
+  const silencePoints = findSilencePoints(pcm, AUDIO_CONSTANTS.SAMPLE_RATE);
   console.log('[Transcription] 检测到', silencePoints.length, '个静音点');
 
-  const chunks = createChunkPlan(pcm, SAMPLE_RATE, silencePoints);
+  const chunks = createChunkPlan(pcm, AUDIO_CONSTANTS.SAMPLE_RATE, silencePoints);
   const totalChunks = chunks.length;
   console.log('[Transcription] 分片计划:', chunks.map(c => `${Math.floor(c.duration)}s`).join(', '));
 
-  await new Promise(r => setTimeout(r, 500)); // 显示分片信息
+  await new Promise(r => setTimeout(r, API_CONSTANTS.STATE_UPDATE_DELAY_MS));
   toast(`音频时长: ${Math.floor(duration / 60)}:${(Math.floor(duration % 60)).toString().padStart(2, '0')}，基于静音检测切分成 ${totalChunks} 个片段`);
 
   // 3. 模型转录
@@ -200,11 +196,11 @@ export const runTranscriptionPipeline = async (
 
   if (totalChunks === 1) {
     // 短音频，直接处理
-    callbacks.onTranscribing?.(1, 1, 20);
-    const res = await model.transcribe(pcm, SAMPLE_RATE, {
+    callbacks.onTranscribing?.(1, 1, TRANSCRIPTION_PROGRESS.SHORT_AUDIO_PROGRESS);
+    const res = await model.transcribe(pcm, AUDIO_CONSTANTS.SAMPLE_RATE, {
       returnTimestamps: true,
       returnConfidences: true,
-      frameStride: FRAME_STRIDE
+      frameStride: AUDIO_CONSTANTS.FRAME_STRIDE
     });
 
     if (res.words) {
@@ -215,14 +211,18 @@ export const runTranscriptionPipeline = async (
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
       const chunkPcm = pcm.slice(chunk.start, chunk.end);
-      const timeOffset = chunk.start / SAMPLE_RATE;
+      const timeOffset = chunk.start / AUDIO_CONSTANTS.SAMPLE_RATE;
 
-      callbacks.onTranscribing?.(i + 1, chunks.length, Math.floor(10 + (i / chunks.length) * 70));
+      callbacks.onTranscribing?.(
+        i + 1,
+        chunks.length,
+        Math.floor(TRANSCRIPTION_PROGRESS.LONG_AUDIO_PROGRESS_START + (i / chunks.length) * TRANSCRIPTION_PROGRESS.LONG_AUDIO_PROGRESS_RANGE)
+      );
 
-      const chunkRes = await model.transcribe(chunkPcm, SAMPLE_RATE, {
+      const chunkRes = await model.transcribe(chunkPcm, AUDIO_CONSTANTS.SAMPLE_RATE, {
         returnTimestamps: true,
         returnConfidences: true,
-        frameStride: FRAME_STRIDE
+        frameStride: AUDIO_CONSTANTS.FRAME_STRIDE
       });
 
       // 调整时间偏移
@@ -255,7 +255,11 @@ export const runTranscriptionPipeline = async (
 
         // 更新进度
         completedBatches++;
-        callbacks.onLLMProgress?.(completedBatches, batches.length, Math.floor(80 + (completedBatches / batches.length) * 20));
+        callbacks.onLLMProgress?.(
+          completedBatches,
+          batches.length,
+          Math.floor(TRANSCRIPTION_PROGRESS.LLM_PROGRESS_START + (completedBatches / batches.length) * TRANSCRIPTION_PROGRESS.LLM_PROGRESS_RANGE)
+        );
       } catch (error) {
         const reasonText = batch.reason === 'pause'
           ? `pause ${batch.pauseGap?.toFixed(1)}s`

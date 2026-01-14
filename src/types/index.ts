@@ -7,18 +7,22 @@ export interface SubtitleEntry {
   translatedText?: string;
 }
 
-// 翻译配置类型
-export interface TranslationConfig {
-  apiKey: string;
+// LLM API 基础配置类型
+export interface LLMConfig {
   baseURL: string;
+  apiKey: string;
   model: string;
+  rpm?: number;
+}
+
+// 翻译配置类型（继承 LLM 基础配置）
+export interface TranslationConfig extends LLMConfig {
   sourceLanguage: string;
   targetLanguage: string;
   contextBefore: number;
   contextAfter: number;
   batchSize: number;
   threadCount: number;
-  rpm: number; // 每分钟请求数
   enableReflection: boolean; // 是否启用反思翻译
 }
 

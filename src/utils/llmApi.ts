@@ -1,11 +1,9 @@
 import { RateLimiter, rateLimiter } from './rateLimiter';
+import { API_CONSTANTS } from '@/constants/api';
 
-interface LLMConfig {
-  baseURL: string;
-  apiKey: string;  // 支持单个或多个 key（用 | 分隔）
-  model: string;
-  rpm?: number;    // 频率限制（每分钟请求数），0 表示不限制
-}
+// 导入类型并重新导出，保持向后兼容
+import type { LLMConfig } from '@/types';
+export type { LLMConfig };
 
 interface LLMMessage {
   role: 'system' | 'user' | 'assistant';
@@ -52,7 +50,7 @@ export function resetApiKeyIndex(): void {
  * 统一的 LLM API 调用函数
  *
  * 自动具备以下能力：
- * 1. 失败重试（最多 5 次，指数退避）
+ * 1. 失败重试（最多 MAX_RETRIES 次，指数退避）
  * 2. 多 API Key 轮询（支持用 | 分隔多个 key）
  * 3. 频率限制（通过 RPM 配置）
  * 4. Token 统计（自动返回消耗的 tokens）
@@ -67,7 +65,7 @@ export async function callLLM(
   messages: LLMMessage[],
   options: CallLLMOptions = {}
 ): Promise<CallLLMResult> {
-  const { maxRetries = 5, temperature = 0.3, signal } = options;
+  const { maxRetries = API_CONSTANTS.MAX_RETRIES, temperature = API_CONSTANTS.DEFAULT_TEMPERATURE, signal } = options;
 
   // 设置频率限制
   if (config.rpm !== undefined) {
@@ -100,41 +98,43 @@ export async function callLLM(
         },
         body: JSON.stringify({
           model: config.model,
-          messages,
-          temperature
+          messages: messages,
+          temperature,
+          max_tokens: 2048
         }),
         signal
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ error: { message: response.statusText } }));
         throw new Error(errorData.error?.message || `HTTP ${response.status}`);
       }
 
       const data = await response.json();
       const content = data.choices[0]?.message?.content || '';
+
+      // 计算 token 消耗（粗略估计，实际应该使用 usage.total_tokens）
       const tokensUsed = data.usage?.total_tokens || 0;
 
       return { content, tokensUsed };
-    } catch (error: unknown) {
-      // 如果是取消信号，直接抛出
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('请求被取消');
-      }
-
+    } catch (error) {
       lastError = error;
-      console.error(`LLM 调用第 ${attempt}/${maxRetries} 次失败:`, error instanceof Error ? error.message : error);
 
-      // 如果还有重试机会，等待后重试（指数退避）
-      if (attempt < maxRetries) {
-        const waitTime = 1000 * attempt; // 1s, 2s, 3s, 4s
-        console.log(`等待 ${waitTime / 1000} 秒后重试...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
+      // 如果是取消错误，直接抛出
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw error;
       }
+
+      // 最后一次尝试失败，抛出错误
+      if (attempt === maxRetries) {
+        throw error;
+      }
+
+      // 指数退避
+      const delay = Math.min(1000 * Math.pow(2, attempt - 1), API_CONSTANTS.RETRY_DELAY_MS);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
 
-  // 所有重试都失败
-  throw lastError || new Error('LLM 调用失败');
+  throw lastError;
 }
-

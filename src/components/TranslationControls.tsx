@@ -7,11 +7,13 @@ import { useHistory } from '@/contexts/HistoryContext';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { downloadSubtitleFile } from '@/utils/fileExport';
+import { generateTaskId } from '@/utils/taskIdGenerator';
 import {
   executeTranslation,
   saveTranslationHistory,
   type TranslationConfig
 } from '@/services/TranslationOrchestrator';
+import { API_CONSTANTS } from '@/constants/api';
 
 interface TranslationControlsProps {
   className?: string;
@@ -66,7 +68,7 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
       const controller = await startTranslation();
 
       // 生成任务ID
-      const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const taskId = generateTaskId();
 
       // 准备翻译配置
       const translationConfig: TranslationConfig = {
@@ -97,7 +99,7 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
       );
 
       // 添加短暂延迟，确保所有tokens更新都已完成
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, API_CONSTANTS.STATE_UPDATE_DELAY_MS));
 
       await completeTranslation(taskId);
 
