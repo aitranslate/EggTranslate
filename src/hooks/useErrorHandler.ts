@@ -1,0 +1,281 @@
+/**
+ * 统一错误处理 Hook
+ * 提供标准的错误处理能力，包括 toast 通知、日志记录和错误上报
+ */
+
+import { useCallback } from 'react';
+import toast from 'react-hot-toast';
+import {
+  AppError,
+  isAbortError,
+  toAppError,
+  getUserMessage,
+  ErrorContext,
+  LogLevel
+} from '@/utils/errors';
+
+/**
+ * 错误处理选项
+ */
+export interface ErrorHandlerOptions {
+  /** 是否显示 toast 通知（默认 true） */
+  showToast?: boolean;
+  /** 是否记录日志（默认 true） */
+  log?: boolean;
+  /** 自定义成功消息 */
+  successMessage?: string;
+  /** 自定义错误消息前缀 */
+  errorPrefix?: string;
+  /** 日志级别（默认 ERROR） */
+  logLevel?: LogLevel;
+  /** 错误上下文 */
+  context?: ErrorContext;
+}
+
+/**
+ * 错误处理结果
+ */
+export interface ErrorHandlerResult {
+  /** 是否成功 */
+  success: boolean;
+  /** 错误对象（如果失败） */
+  error?: Error;
+}
+
+/**
+ * 统一错误处理 Hook
+ *
+ * @example
+ * const { handleError, handleAsync } = useErrorHandler();
+ *
+ * // 同步错误处理
+ * try {
+ *   riskyOperation();
+ * } catch (error) {
+ *   handleError(error, { operation: '翻译文件' });
+ * }
+ *
+ * // 异步错误处理
+ * const result = await handleAsync(
+ *   async () => await translateFile(file),
+ *   { operation: '翻译文件' }
+ * );
+ */
+export function useErrorHandler() {
+  /**
+   * 记录错误日志
+   */
+  const logError = useCallback((
+    error: Error,
+    level: LogLevel = LogLevel.ERROR,
+    context?: ErrorContext
+  ) => {
+    const prefix = context?.operation ? `[${context.operation}]` : '';
+    const message = `${prefix} ${error.message}`;
+
+    switch (level) {
+      case LogLevel.DEBUG:
+        console.debug('[DEBUG]', message, error);
+        break;
+      case LogLevel.INFO:
+        console.info('[INFO]', message, error);
+        break;
+      case LogLevel.WARN:
+        console.warn('[WARN]', message, error);
+        break;
+      case LogLevel.ERROR:
+        console.error('[ERROR]', message, error);
+        break;
+    }
+
+    // 记录额外上下文
+    if (context?.details) {
+      console.log('[ERROR Details]', context.details);
+    }
+  }, []);
+
+  /**
+   * 显示错误 toast
+   */
+  const showErrorToast = useCallback((
+    error: Error,
+    prefix?: string
+  ) => {
+    const message = getUserMessage(error);
+    const fullMessage = prefix ? `${prefix}: ${message}` : message;
+    toast.error(fullMessage);
+  }, []);
+
+  /**
+   * 核心错误处理函数
+   *
+   * @param error - 捕获的错误
+   * @param options - 处理选项
+   * @returns 处理结果
+   */
+  const handleError = useCallback((
+    error: unknown,
+    options: ErrorHandlerOptions = {}
+  ): ErrorHandlerResult => {
+    const {
+      showToast = true,
+      log = true,
+      errorPrefix,
+      logLevel = LogLevel.ERROR,
+      context
+    } = options;
+
+    // 转换为标准错误
+    const appError = toAppError(error);
+
+    // 记录日志
+    if (log) {
+      logError(appError, logLevel, context);
+    }
+
+    // 处理取消操作（特殊处理）
+    if (isAbortError(appError)) {
+      if (showToast) {
+        toast.success(context?.operation ? `${context.operation}已取消` : '操作已取消');
+      }
+      return { success: false, error: appError };
+    }
+
+    // 显示错误 toast
+    if (showToast) {
+      const prefix = errorPrefix || context?.operation || '操作';
+      showErrorToast(appError, `${prefix}失败`);
+    }
+
+    return { success: false, error: appError };
+  }, [logError, showErrorToast]);
+
+  /**
+   * 包装异步操作，自动处理错误
+   *
+   * @param asyncFn - 异步函数
+   * @param options - 处理选项
+   * @returns 操作结果
+   *
+   * @example
+   * const result = await handleAsync(
+   *   () => fetch('/api/data'),
+   *   { operation: '加载数据', successMessage: '加载成功' }
+   * );
+   * if (result.success) {
+   *   // 处理成功
+   * }
+   */
+  const handleAsync = useCallback(async <T>(
+    asyncFn: () => Promise<T>,
+    options: ErrorHandlerOptions = {}
+  ): Promise<ErrorHandlerResult & { data?: T }> => {
+    const { successMessage } = options;
+
+    try {
+      const data = await asyncFn();
+
+      // 显示成功消息
+      if (successMessage) {
+        toast.success(successMessage);
+      }
+
+      return { success: true, data };
+    } catch (error) {
+      return handleError(error, options);
+    }
+  }, [handleError]);
+
+  /**
+   * 创建带错误处理的异步函数
+   *
+   * @param asyncFn - 异步函数
+   * @param options - 处理选项
+   * @returns 包装后的函数
+   *
+   * @example
+   * const safeTranslate = createSafeHandler(
+   *   (file) => translateFile(file),
+   *   { operation: '翻译文件' }
+   * );
+   * // 使用时无需 try-catch
+   * await safeTranslate(file);
+   */
+  const createSafeHandler = useCallback(<T extends any[], R>(
+    asyncFn: (...args: T) => Promise<R>,
+    options: ErrorHandlerOptions = {}
+  ) => {
+    return async (...args: T): Promise<R | null> => {
+      const result = await handleAsync(() => asyncFn(...args), options);
+      return result.success ? result.data! : null;
+    };
+  }, [handleAsync]);
+
+  /**
+   * 批量错误处理
+   *
+   * @param errors - 错误数组
+   * @param options - 处理选项
+   *
+   * @example
+   * const errors = [error1, error2, error3];
+   * handleBatchErrors(errors, {
+   *   operation: '批量翻译',
+   *   showToast: false // 只显示汇总
+   * });
+   */
+  const handleBatchErrors = useCallback((
+    errors: unknown[],
+    options: ErrorHandlerOptions = {}
+  ) => {
+    const { context, showToast = true } = options;
+    const abortErrors: Error[] = [];
+    const otherErrors: Error[] = [];
+
+    // 分类错误
+    for (const error of errors) {
+      const appError = toAppError(error);
+      if (isAbortError(appError)) {
+        abortErrors.push(appError);
+      } else {
+        otherErrors.push(appError);
+      }
+    }
+
+    // 记录所有错误
+    for (const error of [...abortErrors, ...otherErrors]) {
+      logError(error, LogLevel.ERROR, context);
+    }
+
+    // 显示汇总 toast
+    if (showToast) {
+      if (otherErrors.length > 0) {
+        toast.error(
+          `${context?.operation || '操作'}完成，${otherErrors.length} 个失败`,
+          { duration: 3000 }
+        );
+      } else if (abortErrors.length > 0) {
+        toast.success(
+          `${context?.operation || '操作'}已取消`,
+          { duration: 2000 }
+        );
+      }
+    }
+
+    return {
+      abortCount: abortErrors.length,
+      errorCount: otherErrors.length,
+      total: errors.length
+    };
+  }, [logError]);
+
+  return {
+    handleError,
+    handleAsync,
+    createSafeHandler,
+    handleBatchErrors,
+    isAbortError,
+    toAppError,
+    getUserMessage
+  };
+}

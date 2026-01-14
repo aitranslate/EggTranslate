@@ -14,6 +14,7 @@ import {
   type TranslationConfig
 } from '@/services/TranslationOrchestrator';
 import { API_CONSTANTS } from '@/constants/api';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 
 interface TranslationControlsProps {
   className?: string;
@@ -48,6 +49,9 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
 
   const { getRelevantTerms } = useTerms();
   const { addHistoryEntry } = useHistory();
+
+  // 使用统一错误处理
+  const { handleError } = useErrorHandler();
 
   const [isExporting, setIsExporting] = useState(false);
 
@@ -107,13 +111,11 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
 
       // 保存历史记录
       await saveTranslationHistory(taskId, filename, tokensUsed, addHistoryEntry);
-    } catch (error: any) {
-      if (error.name === 'AbortError' || error.message?.includes('翻译被取消')) {
-        toast.success('翻译已取消');
-      } else {
-        console.error('翻译失败:', error);
-        toast.error(`翻译失败: ${error.message}`);
-      }
+    } catch (error) {
+      // 使用统一错误处理
+      handleError(error, {
+        context: { operation: '翻译', fileName: filename }
+      });
       await stopTranslation();
     }
   }, [
@@ -130,7 +132,8 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
     completeTranslation,
     getRelevantTerms,
     onOpenSettings,
-    addHistoryEntry
+    addHistoryEntry,
+    handleError
   ]);
 
   const onExport = useCallback(

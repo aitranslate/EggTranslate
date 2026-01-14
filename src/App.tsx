@@ -6,17 +6,25 @@ import { TermsProvider } from '@/contexts/TermsContext';
 import { HistoryProvider } from '@/contexts/HistoryContext';
 import { TranscriptionProvider } from '@/contexts/TranscriptionContext';
 import { MainApp } from '@/components/MainApp';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import '@/index.css';
 
 function App() {
   return (
-    <HistoryProvider>
-      <TermsProvider>
-        <TranslationProvider>
-          <TranscriptionProvider>
-            <SubtitleProvider>
-              <MainApp />
-              <Toaster
+    <ErrorBoundary
+      onError={(error, errorInfo) => {
+        // 错误已经被 ErrorBoundary 记录
+        // 这里可以添加额外的错误上报逻辑
+        // 例如发送到 Sentry、LogRocket 等
+      }}
+    >
+      <HistoryProvider>
+        <TermsProvider>
+          <TranslationProvider>
+            <TranscriptionProvider>
+              <SubtitleProvider>
+                <MainApp />
+                <Toaster
                 position="top-right"
                 toastOptions={{
                   duration: 4000,
@@ -46,6 +54,7 @@ function App() {
         </TranslationProvider>
       </TermsProvider>
     </HistoryProvider>
+    </ErrorBoundary>
   );
 }
 
