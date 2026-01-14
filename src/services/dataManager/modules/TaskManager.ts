@@ -1,5 +1,6 @@
 import localforage from 'localforage';
 import { SubtitleEntry, SingleTask, BatchTasks } from '@/types';
+import { toAppError } from '@/utils/errors';
 
 /**
  * 任务管理器 - 负责翻译任务的 CRUD 操作

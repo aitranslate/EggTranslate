@@ -1,6 +1,7 @@
 import localforage from 'localforage';
 import { TranslationConfig } from '@/types';
 import { DEFAULT_TRANSLATION_CONFIG } from '@/constants/translationDefaults';
+import { toAppError } from '@/utils/errors';
 
 /**
  * 配置管理器 - 负责翻译配置的 CRUD 操作
@@ -41,8 +42,9 @@ class ConfigManager {
       // 持久化到 localforage
       await localforage.setItem(this.CONFIG_KEY, config);
     } catch (error) {
-      console.error('保存翻译配置失败:', error);
-      throw error;
+      const appError = toAppError(error, '保存翻译配置失败');
+      console.error('[ConfigManager]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -60,8 +62,9 @@ class ConfigManager {
 
       return updatedConfig;
     } catch (error) {
-      console.error('更新翻译配置失败:', error);
-      throw error;
+      const appError = toAppError(error, '更新翻译配置失败');
+      console.error('[ConfigManager]', appError.message, appError);
+      throw appError;
     }
   }
 }

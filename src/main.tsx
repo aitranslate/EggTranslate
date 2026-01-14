@@ -4,6 +4,7 @@ import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import dataManager from './services/dataManager'
 import './index.css'
 import App from './App.tsx'
+import { toAppError } from '@/utils/errors'
 
 // 添加页面关闭前的数据强制持久化
 window.addEventListener('beforeunload', () => {
@@ -11,7 +12,8 @@ window.addEventListener('beforeunload', () => {
   try {
     dataManager.forcePersistAllData();
   } catch (error) {
-    console.error('页面关闭前数据持久化失败:', error);
+    const appError = toAppError(error, '页面关闭前数据持久化失败');
+    console.error('[main]', appError.message);
   }
 });
 
@@ -25,7 +27,8 @@ dataManager.initialize().then(() => {
     </StrictMode>,
   )
 }).catch(error => {
-  console.error('应用初始化失败:', error)
+  const appError = toAppError(error, '应用初始化失败');
+  console.error('[main]', appError.message, appError)
   // 即使初始化失败也要渲染应用
   createRoot(document.getElementById('root')!).render(
     <StrictMode>

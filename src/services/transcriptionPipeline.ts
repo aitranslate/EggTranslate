@@ -15,6 +15,7 @@ import { callLLM } from '@/utils/llmApi';
 import { toast } from 'react-hot-toast';
 import { API_CONSTANTS } from '@/constants/api';
 import { AUDIO_CONSTANTS, TRANSCRIPTION_BATCH_CONSTANTS, TRANSCRIPTION_PROGRESS } from '@/constants/transcription';
+import { toAppError } from '@/utils/errors';
 
 /**
  * 转录单词（来自模型）
@@ -264,9 +265,10 @@ export const runTranscriptionPipeline = async (
         const reasonText = batch.reason === 'pause'
           ? `pause ${batch.pauseGap?.toFixed(1)}s`
           : batch.reason === 'punctuation' ? 'punctuation' : 'limit';
-        console.error(`\n❌ Batch ${batchIdx + 1} (${batch.words.length} words, ${reasonText}) 处理失败`);
+        const appError = toAppError(error);
+        console.error(`[TranscriptionPipeline] Batch ${batchIdx + 1} (${batch.words.length} words, ${reasonText}) 处理失败:`, appError.message);
         // 抛出错误，停止转录流程
-        throw new Error(`LLM 句子分割失败（批次 ${batchIdx + 1}）: ${error instanceof Error ? error.message : '未知错误'}`);
+        throw new Error(`LLM 句子分割失败（批次 ${batchIdx + 1}）: ${appError.message}`);
       }
     })
   );

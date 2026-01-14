@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
 import { TranslationHistoryEntry } from '@/types';
 import dataManager from '@/services/dataManager';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 
 interface HistoryState {
   history: TranslationHistoryEntry[];
@@ -58,16 +59,22 @@ const HistoryContext = createContext<HistoryContextValue | null>(null);
 export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(historyReducer, initialState);
 
+  // 使用统一错误处理
+  const { handleError } = useErrorHandler();
+
   const addHistoryEntry = useCallback(async (entry: Omit<TranslationHistoryEntry, 'timestamp'>) => {
     try {
       await dataManager.addHistoryEntry(entry);
       const updatedHistory = dataManager.getHistory();
       dispatch({ type: 'SET_HISTORY', payload: updatedHistory });
     } catch (error) {
-      console.error('保存历史记录失败:', error);
+      handleError(error, {
+        context: { operation: '保存历史记录' },
+        showToast: false
+      });
       dispatch({ type: 'SET_ERROR', payload: '保存历史记录失败' });
     }
-  }, []);
+  }, [handleError]);
 
   const deleteHistoryEntry = useCallback(async (taskId: string) => {
     dispatch({ type: 'DELETE_HISTORY_ENTRY', payload: taskId });
@@ -95,12 +102,15 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const savedHistory = dataManager.getHistory();
       dispatch({ type: 'SET_HISTORY', payload: savedHistory });
     } catch (error) {
-      console.error('刷新历史记录失败:', error);
+      handleError(error, {
+        context: { operation: '刷新历史记录' },
+        showToast: false
+      });
       dispatch({ type: 'SET_ERROR', payload: '刷新历史记录失败' });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
-  }, []);
+  }, [handleError]);
 
   React.useEffect(() => {
     const loadSavedData = async () => {
@@ -109,7 +119,10 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const savedHistory = dataManager.getHistory();
         dispatch({ type: 'SET_HISTORY', payload: savedHistory });
       } catch (error) {
-        console.error('加载保存的历史记录失败:', error);
+        handleError(error, {
+          context: { operation: '加载历史记录' },
+          showToast: false
+        });
         dispatch({ type: 'SET_ERROR', payload: '加载历史记录失败' });
       } finally {
         dispatch({ type: 'SET_LOADING', payload: false });
@@ -117,7 +130,7 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
 
     loadSavedData();
-  }, []);
+  }, [handleError]);
 
   // 使用 useMemo 优化 Context value，避免不必要的重渲染
   const value: HistoryContextValue = useMemo(() => ({

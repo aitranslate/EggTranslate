@@ -1,5 +1,6 @@
 import localforage from 'localforage';
 import { TranscriptionConfig } from '@/types';
+import { toAppError } from '@/utils/errors';
 
 /**
  * 转录配置管理器 - 负责转录配置的 CRUD 操作
@@ -33,8 +34,9 @@ class TranscriptionConfigManager {
       // 持久化到 localforage
       await localforage.setItem(this.TRANSCRIPTION_CONFIG_KEY, config);
     } catch (error) {
-      console.error('保存转录配置失败:', error);
-      throw error;
+      const appError = toAppError(error, '保存转录配置失败');
+      console.error('[TranscriptionConfigManager]', appError.message, appError);
+      throw appError;
     }
   }
 }

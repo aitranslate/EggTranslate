@@ -14,6 +14,7 @@ import TermsManager from './modules/TermsManager';
 import ConfigManager from './modules/ConfigManager';
 import HistoryManager from './modules/HistoryManager';
 import TranscriptionConfigManager from './modules/TranscriptionConfigManager';
+import { toAppError } from '@/utils/errors';
 
 /**
  * 数据管理器 - 内存数据存储与异步持久化
@@ -95,8 +96,9 @@ class DataManager {
       this.memoryStore.transcription_config = transcriptionConfig;
       this.memoryStore.translation_history = history || [];
     } catch (error) {
-      console.error('数据管理器初始化失败:', error);
-      throw error;
+      const appError = toAppError(error, '数据管理器初始化失败');
+      console.error('[DataManager]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -116,8 +118,9 @@ class DataManager {
     try {
       this.memoryStore.current_translation_task = undefined;
     } catch (error) {
-      console.error('清空当前翻译任务失败:', error);
-      throw error;
+      const appError = toAppError(error, '清空当前翻译任务失败');
+      console.error('[DataManager]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -252,8 +255,9 @@ class DataManager {
       // 只清空批处理任务的持久化存储
       await localforage.setItem('batch_tasks', { tasks: [] });
     } catch (error) {
-      console.error('清空数据失败:', error);
-      throw error;
+      const appError = toAppError(error, '清空数据失败');
+      console.error('[DataManager]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -296,8 +300,9 @@ class DataManager {
         localforage.setItem(KEYS.HISTORY, this.memoryStore.translation_history)
       ]);
     } catch (error) {
-      console.error('强制持久化数据失败:', error);
-      throw error;
+      const appError = toAppError(error, '强制持久化数据失败');
+      console.error('[DataManager]', appError.message, appError);
+      throw appError;
     }
   }
 

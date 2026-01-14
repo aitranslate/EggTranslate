@@ -7,6 +7,7 @@ import type { SubtitleEntry } from '@/types';
 import dataManager from '@/services/dataManager';
 import toast from 'react-hot-toast';
 import { API_CONSTANTS } from '@/constants/api';
+import { toAppError } from '@/utils/errors';
 
 export interface BatchInfo {
   batchIndex: number;
@@ -171,7 +172,8 @@ export async function processBatch(
     return { batchIndex: batch.batchIndex, success: true };
   } catch (error: any) {
     if (error.name !== 'AbortError') {
-      console.error(`批次 ${batch.batchIndex + 1} 翻译失败:`, error);
+      const appError = toAppError(error);
+      console.error(`[TranslationOrchestrator] 批次 ${batch.batchIndex + 1} 翻译失败:`, appError.message);
       toast.error(`批次 ${batch.batchIndex + 1} 翻译失败`);
     }
     return { batchIndex: batch.batchIndex, success: false, error };
@@ -289,6 +291,7 @@ export async function saveTranslationHistory(
       }
     }
   } catch (error) {
-    console.error('保存历史记录失败:', error);
+    const appError = toAppError(error, '保存历史记录失败');
+    console.error('[TranslationOrchestrator]', appError.message, appError);
   }
 }

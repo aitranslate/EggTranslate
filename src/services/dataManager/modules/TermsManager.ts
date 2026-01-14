@@ -1,5 +1,6 @@
 import localforage from 'localforage';
 import { Term } from '@/types';
+import { toAppError } from '@/utils/errors';
 
 /**
  * 术语管理器 - 负责任务术语列表的 CRUD 操作
@@ -33,8 +34,9 @@ class TermsManager {
       // 持久化到 localforage
       await localforage.setItem(this.TERMS_KEY, terms);
     } catch (error) {
-      console.error('保存术语列表失败:', error);
-      throw error;
+      const appError = toAppError(error, '保存术语列表失败');
+      console.error('[TermsManager]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -50,8 +52,9 @@ class TermsManager {
       // 持久化到 localforage
       await localforage.setItem(this.TERMS_KEY, updatedTerms);
     } catch (error) {
-      console.error('添加术语失败:', error);
-      throw error;
+      const appError = toAppError(error, '添加术语失败');
+      console.error('[TermsManager]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -67,8 +70,9 @@ class TermsManager {
       // 持久化到 localforage
       await localforage.setItem(this.TERMS_KEY, updatedTerms);
     } catch (error) {
-      console.error('删除术语失败:', error);
-      throw error;
+      const appError = toAppError(error, '删除术语失败');
+      console.error('[TermsManager]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -87,8 +91,9 @@ class TermsManager {
       // 持久化到 localforage
       await localforage.setItem(this.TERMS_KEY, updatedTerms);
     } catch (error) {
-      console.error('更新术语失败:', error);
-      throw error;
+      const appError = toAppError(error, '更新术语失败');
+      console.error('[TermsManager]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -103,8 +108,9 @@ class TermsManager {
       // 清空持久化存储
       await localforage.removeItem(this.TERMS_KEY);
     } catch (error) {
-      console.error('清空术语列表失败:', error);
-      throw error;
+      const appError = toAppError(error, '清空术语列表失败');
+      console.error('[TermsManager]', appError.message, appError);
+      throw appError;
     }
   }
 }

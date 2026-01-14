@@ -1,5 +1,6 @@
 import localforage from 'localforage';
 import { TranslationHistoryEntry } from '@/types';
+import { toAppError } from '@/utils/errors';
 
 /**
  * 历史记录管理器 - 负责翻译历史的 CRUD 操作
@@ -33,8 +34,9 @@ class HistoryManager {
       // 持久化到 localforage
       await localforage.setItem(this.HISTORY_KEY, history);
     } catch (error) {
-      console.error('保存翻译历史失败:', error);
-      throw error;
+      const appError = toAppError(error, '保存翻译历史失败');
+      console.error('[HistoryManager]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -70,8 +72,9 @@ class HistoryManager {
       // 持久化到 localforage
       await localforage.setItem(this.HISTORY_KEY, updatedHistory);
     } catch (error) {
-      console.error('添加历史记录失败:', error);
-      throw error;
+      const appError = toAppError(error, '添加历史记录失败');
+      console.error('[HistoryManager]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -89,8 +92,9 @@ class HistoryManager {
       // 持久化到 localforage
       await localforage.setItem(this.HISTORY_KEY, updatedHistory);
     } catch (error) {
-      console.error('删除历史记录失败:', error);
-      throw error;
+      const appError = toAppError(error, '删除历史记录失败');
+      console.error('[HistoryManager]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -105,8 +109,9 @@ class HistoryManager {
       // 清空持久化存储
       await localforage.removeItem(this.HISTORY_KEY);
     } catch (error) {
-      console.error('清空翻译历史失败:', error);
-      throw error;
+      const appError = toAppError(error, '清空翻译历史失败');
+      console.error('[HistoryManager]', appError.message, appError);
+      throw appError;
     }
   }
 }

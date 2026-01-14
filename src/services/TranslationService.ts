@@ -5,6 +5,7 @@ import { generateSharedPrompt, generateDirectPrompt, generateReflectionPrompt } 
 import { callLLM } from '@/utils/llmApi';
 import { DEFAULT_TRANSLATION_CONFIG } from '@/constants/translationDefaults';
 import { API_CONSTANTS, OPENAI_DEFAULTS } from '@/constants/api';
+import { toAppError } from '@/utils/errors';
 
 /**
  * 翻译服务 - 纯业务逻辑层
@@ -33,7 +34,8 @@ class TranslationService {
         this.config = savedConfig;
       }
     } catch (error) {
-      console.error('加载翻译配置失败:', error);
+      const appError = toAppError(error, '加载翻译配置失败');
+      console.error('[TranslationService]', appError.message, appError);
     }
   }
 
@@ -52,8 +54,9 @@ class TranslationService {
     try {
       await dataManager.saveConfig(this.config);
     } catch (error) {
-      console.error('保存翻译配置失败:', error);
-      throw error;
+      const appError = toAppError(error, '保存翻译配置失败');
+      console.error('[TranslationService]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -77,8 +80,9 @@ class TranslationService {
       );
       return true;
     } catch (error) {
-      console.error('连接测试失败:', error);
-      throw error;
+      const appError = toAppError(error, '连接测试失败');
+      console.error('[TranslationService]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -162,7 +166,8 @@ class TranslationService {
           tokensUsed: totalTokensUsed
         };
       } catch (error) {
-        console.error('反思翻译失败，使用直译结果:', error);
+        const appError = toAppError(error, '反思翻译失败');
+        console.warn('[TranslationService] 反思翻译失败，使用直译结果:', appError.message);
         return {
           translations: directResult,
           tokensUsed: totalTokensUsed
@@ -203,8 +208,9 @@ class TranslationService {
         dataManager.updateTaskTranslationProgressInMemory(taskId, updateObj);
       }
     } catch (error) {
-      console.error('更新翻译进度失败:', error);
-      throw error;
+      const appError = toAppError(error, '更新翻译进度失败');
+      console.error('[TranslationService]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -222,8 +228,9 @@ class TranslationService {
         });
       }
     } catch (error) {
-      console.error('重置翻译进度失败:', error);
-      throw error;
+      const appError = toAppError(error, '重置翻译进度失败');
+      console.error('[TranslationService]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -251,13 +258,15 @@ class TranslationService {
             });
             console.log('翻译任务持久化完成:', taskId);
           } catch (error) {
-            console.error('延迟持久化失败:', error);
+            const appError = toAppError(error, '延迟持久化失败');
+            console.warn('[TranslationService]', appError.message);
           }
         }, API_CONSTANTS.PERSIST_DELAY_MS);
       }
     } catch (error) {
-      console.error('保存完成状态失败:', error);
-      throw error;
+      const appError = toAppError(error, '保存完成状态失败');
+      console.error('[TranslationService]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -268,8 +277,9 @@ class TranslationService {
     try {
       await dataManager.clearCurrentTask();
     } catch (error) {
-      console.error('清空任务失败:', error);
-      throw error;
+      const appError = toAppError(error, '清空任务失败');
+      console.error('[TranslationService]', appError.message, appError);
+      throw appError;
     }
   }
 }

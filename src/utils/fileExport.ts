@@ -3,6 +3,8 @@
  * 统一的文件下载功能，避免代码重复
  */
 
+import { toAppError } from '@/utils/errors';
+
 /**
  * 导出文本文件
  * @param content 文件内容
@@ -25,8 +27,9 @@ export const downloadTextFile = (
 
     URL.revokeObjectURL(url);
   } catch (error) {
-    console.error('文件导出失败:', error);
-    throw error;
+    const appError = toAppError(error, '文件导出失败');
+    console.error('[fileExport]', appError.message, appError);
+    throw appError;
   }
 };
 

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
 import { Term } from '@/types';
 import dataManager from '@/services/dataManager';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 
 interface TermsState {
   terms: Term[];
@@ -64,6 +65,9 @@ const TermsContext = createContext<TermsContextValue | null>(null);
 export const TermsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(termsReducer, initialState);
 
+  // 使用统一错误处理
+  const { handleError } = useErrorHandler();
+
   const addTerm = useCallback(async (original: string, translation: string) => {
     const newTerm = { original, translation };
     dispatch({ type: 'ADD_TERM', payload: newTerm });
@@ -104,10 +108,14 @@ export const TermsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       dispatch({ type: 'SET_TERMS', payload: newTerms });
       await dataManager.saveTerms(newTerms);
     } catch (error) {
+      handleError(error, {
+        context: { operation: '导入术语' },
+        showToast: false
+      });
       const errorMessage = error instanceof Error ? error.message : '导入术语失败';
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
     }
-  }, []);
+  }, [handleError]);
 
   const exportTerms = useCallback(() => {
     return state.terms.map(term => `${term.original}: ${term.translation}`).join('\n');
@@ -151,12 +159,15 @@ export const TermsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           dispatch({ type: 'SET_TERMS', payload: savedTerms });
         }
       } catch (error) {
-        console.error('加载保存的术语失败:', error);
+        handleError(error, {
+          context: { operation: '加载术语' },
+          showToast: false
+        });
       }
     };
 
     loadSavedData();
-  }, []);
+  }, [handleError]);
 
   // 使用 useMemo 优化 Context value，避免不必要的重渲染
   const value: TermsContextValue = useMemo(() => ({
