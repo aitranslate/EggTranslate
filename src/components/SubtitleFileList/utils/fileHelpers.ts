@@ -1,16 +1,9 @@
 import { SubtitleFile } from '@/types';
 import type { FileType } from '@/types/transcription';
+import { formatFileSize as formatFileSizeUtil } from '@/utils/fileFormat';
 
-/**
- * 格式化文件大小
- */
-export const formatFileSize = (bytes: number): string => {
-  if (!bytes || bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-};
+// 重新导出，保持组件使用方便
+export const formatFileSize = formatFileSizeUtil;
 
 /**
  * 获取状态文本

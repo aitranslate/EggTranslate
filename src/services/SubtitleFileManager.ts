@@ -4,31 +4,14 @@
  */
 
 import { SubtitleEntry, FileType } from '@/types';
+import type { SubtitleFile } from '@/types/transcription';
 import { parseSRT } from '@/utils/srtParser';
 import { detectFileType } from '@/utils/fileFormat';
 import dataManager from '@/services/dataManager';
 import { generateTaskId, generateStableFileId } from '@/utils/taskIdGenerator';
 
-export interface SubtitleFile {
-  id: string;
-  name: string;
-  size: number;
-  lastModified: number;
-  entries: SubtitleEntry[];
-  filename: string;
-  currentTaskId: string;
-  type?: FileType;
-  fileRef?: File;
-  duration?: number;
-  transcriptionStatus?: 'idle' | 'loading_model' | 'decoding' | 'chunking' | 'transcribing' | 'llm_merging' | 'completed' | 'failed';
-  transcriptionProgress?: {
-    percent: number;
-    currentChunk?: number;
-    totalChunks?: number;
-    llmBatch?: number;
-    totalLlmBatches?: number;
-  };
-}
+// 重新导出类型，保持向后兼容
+export type { SubtitleFile };
 
 export interface LoadFileOptions {
   existingFilesCount: number;

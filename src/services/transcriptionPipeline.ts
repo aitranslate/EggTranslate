@@ -4,6 +4,7 @@
  */
 
 import { SubtitleEntry, type LLMConfig as BaseLLMConfig } from '@/types';
+import type { TranscriptionWord } from '@/types/transcription';
 import { DecodedAudio, decodeAudioFile } from './audioDecoder';
 import { findSilencePoints, createChunkPlan, type AudioChunk } from '@/utils/silenceDetection';
 import { createBatches, logBatchOverview, type BatchInfo } from '@/utils/batchProcessor';
@@ -17,15 +18,8 @@ import { API_CONSTANTS } from '@/constants/api';
 import { AUDIO_CONSTANTS, TRANSCRIPTION_BATCH_CONSTANTS, TRANSCRIPTION_PROGRESS } from '@/constants/transcription';
 import { toAppError } from '@/utils/errors';
 
-/**
- * 转录单词（来自模型）
- */
-export interface TranscriptionWord {
-  text: string;
-  start_time: number;
-  end_time: number;
-  confidence?: number;
-}
+// 重新导出类型
+export type { TranscriptionWord };
 
 /**
  * 转录 LLM 配置（继承基础 LLM 配置，增加转录相关字段）

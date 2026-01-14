@@ -4,16 +4,10 @@
  */
 
 import { TRANSCRIPTION_BATCH_CONSTANTS } from '@/constants/transcription';
+import type { TranscriptionWord } from '@/types/transcription';
 
-/**
- * 转录单词类型
- */
-export interface TranscriptionWord {
-  text: string;
-  start_time: number;
-  end_time: number;
-  confidence?: number;
-}
+// 重新导出类型
+export type { TranscriptionWord };
 
 /**
  * 检查词是否以句子结束标点结尾
