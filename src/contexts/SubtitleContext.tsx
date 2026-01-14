@@ -419,7 +419,7 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // 基于静音点生成分片计划
       const CHUNK_DURATION = 60; // 目标每片约 60 秒
       const chunkSizeSamples = CHUNK_DURATION * SAMPLE_RATE;
-      const searchWindow = 5 * SAMPLE_RATE; // 在目标位置前后 5 秒内搜索静音点
+      const searchWindow = 20 * SAMPLE_RATE; // 在目标位置前后 20 秒内搜索静音点
 
       const chunkBoundaries: number[] = [0]; // 分片边界（样本索引）
       let currentPos = 0;
@@ -598,7 +598,6 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (wordCount <= 2 && pauseFound && pauseGap > PAUSE_THRESHOLD) {
           const hasPause = hasPauseBefore(wordsInBatch[0], allWords, PAUSE_THRESHOLD);
           if (hasPause) {
-            console.log(`[Transcription] 跳过 LLM：场景1（极短片段 ${wordCount} 词 + 前后停顿）`);
             return true;
           }
         }
@@ -606,7 +605,6 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         // 场景 2: 完整句子（以标点结尾）+ 后面有停顿 + 长度不超过 20 词
         const lastWord = wordsInBatch[wordCount - 1];
         if (hasEndingPunctuation(lastWord.text) && pauseFound && wordCount <= 20) {
-          console.log(`[Transcription] 跳过 LLM：场景2（完整句子 "${lastWord.text}" + 后有停顿，${wordCount} 词）`);
           return true;
         }
 
@@ -614,7 +612,6 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (wordCount <= 10 && wordCount > 2 && pauseFound && pauseGap > PAUSE_THRESHOLD) {
           const hasPause = hasPauseBefore(wordsInBatch[0], allWords, PAUSE_THRESHOLD);
           if (hasPause) {
-            console.log(`[Transcription] 跳过 LLM：场景3（短片段 ${wordCount} 词 + 前后停顿）`);
             return true;
           }
         }
@@ -626,7 +623,14 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       const BATCH_SIZE = 300;
       const PAUSE_THRESHOLD = 1.0; // 停顿阈值（秒）
-      const batches: Array<{ words: typeof allWords; startIdx: number; skipLLM?: boolean }> = [];
+      type BatchInfo = {
+        words: typeof allWords;
+        startIdx: number;
+        skipLLM?: boolean;
+        reason: 'pause' | 'punctuation' | 'limit';
+        pauseGap?: number;
+      };
+      const batches: BatchInfo[] = [];
 
       // 按时间排序（确保单词按时间顺序排列）
       allWords.sort((a, b) => a.start_time - b.start_time);
@@ -638,6 +642,7 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         let endPos = batchEnd; // 默认位置
         let pauseGap = 0;
         let pauseFound = false;
+        let splitReason: 'pause' | 'punctuation' | 'limit' = 'limit';
 
         // 步骤 1: 正向找第一个停顿（在 300 词范围内）
         for (let i = batchIdx; i < batchEnd - 1; i++) {
@@ -649,7 +654,7 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             endPos = i + 1;
             pauseGap = timeGap;
             pauseFound = true;
-            console.log(`[Transcription] 检测到 ${timeGap.toFixed(2)}s 停顿，在单词 "${currentWord.text}" 后切分`);
+            splitReason = 'pause';
             break;
           }
         }
@@ -659,7 +664,7 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           for (let i = batchEnd - 1; i > batchIdx; i--) {
             if (hasEndingPunctuation(allWords[i].text)) {
               endPos = i + 1;
-              console.log(`[Transcription] 未找到停顿，在句号 "${allWords[i].text}" 处切分`);
+              splitReason = 'punctuation';
               break;
             }
           }
@@ -674,13 +679,29 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         batches.push({
           words: wordsInBatch,
           startIdx: batchIdx,
-          skipLLM
+          skipLLM,
+          reason: splitReason,
+          pauseGap: pauseFound ? pauseGap : undefined
         });
 
         batchIdx = endPos;
       }
 
-      console.log(`[Transcription] 共生成 ${batches.length} 个批次，其中 ${batches.filter(b => b.skipLLM).length} 个跳过 LLM`);
+      // 打印批次概览
+      console.log(`\n[Transcription] ========== 批次切分概览 ==========`);
+      batches.forEach((batch, idx) => {
+        const wordCount = batch.words.length;
+        const skipMark = batch.skipLLM ? '⚡' : '📦';
+        const skipNote = batch.skipLLM ? ' - skipping LLM' : '';
+        const reasonText = batch.reason === 'pause'
+          ? `pause ${batch.pauseGap?.toFixed(1)}s`
+          : batch.reason === 'punctuation' ? 'punctuation' : `limit`;
+        console.log(`${skipMark} Batch ${idx + 1} (${wordCount} words, ${reasonText})${skipNote}`);
+      });
+      const llmBatches = batches.filter(b => !b.skipLLM);
+      console.log(`📦 Created ${llmBatches.length} batches for LLM processing`);
+      console.log(`⚡ Skipped ${batches.filter(b => b.skipLLM).length} batches (no LLM needed)`);
+      console.log(`[Transcription] =====================================\n`);
 
       // 多线程并行处理批次
       const allReconstructedSentences: Array<{ sentence: string; startIdx: number; endIdx: number }> = [];
@@ -688,6 +709,7 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       await Promise.all(
         batches.map(async (batch, batchIdx) => {
+          let llmResponse = '';  // 移到 try 外面，catch 块才能访问
           try {
             let sentenceMappings: Array<{ sentence: string; startIdx: number; endIdx: number }> = [];
 
@@ -703,8 +725,6 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 startIdx,
                 endIdx
               }];
-
-              console.log(`[Transcription] 批次 ${batchIdx + 1} 跳过 LLM，直接输出: "${sentence}"`);
             } else {
               // 调用 LLM 进行句子分割
               const wordsList = batch.words.map(w => w.text);
@@ -714,7 +734,7 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 translationConfig.sourceLanguage
               );
 
-              const llmResponse = await callLlmApi(segmentationPrompt);
+              llmResponse = await callLlmApi(segmentationPrompt);
               // 使用 jsonrepair 清理 markdown 代码块等格式问题
               const repairedJson = jsonrepair(llmResponse);
               const parsed = JSON.parse(repairedJson);
@@ -777,7 +797,13 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               }
             });
           } catch (error) {
-            console.error(`批次 ${batchIdx + 1} 处理失败:`, error);
+            const reasonText = batch.reason === 'pause'
+              ? `pause ${batch.pauseGap?.toFixed(1)}s`
+              : batch.reason === 'punctuation' ? 'punctuation' : 'limit';
+            console.error(`\n❌ Batch ${batchIdx + 1} (${batch.words.length} words, ${reasonText}) 处理失败`);
+            console.error(`--- LLM 返回 ---`);
+            console.error(llmResponse);
+            console.error(`----------------\n`);
             // 抛出错误，停止转录流程
             throw new Error(`LLM 句子分割失败（批次 ${batchIdx + 1}）: ${error instanceof Error ? error.message : '未知错误'}`);
           }
