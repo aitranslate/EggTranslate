@@ -1,53 +1,19 @@
 import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
-import { SubtitleEntry, FileType } from '@/types';
-import dataManager from '@/services/dataManager';
-import { parseSRT, toSRT, toTXT, toBilingual } from '@/utils/srtParser';
-import { formatSRTTime } from '@/utils/timeFormat';
-import { detectFileType, formatFileSize } from '@/utils/fileFormat';
-import { hasEndingPunctuation, hasPauseBefore, shouldSkipLLM } from '@/utils/transcriptionHelpers';
-import { findSilencePoints, createChunkPlan } from '@/utils/silenceDetection';
-import { createBatches, logBatchOverview, type BatchInfo } from '@/utils/batchProcessor';
+import { useTranscription } from './TranscriptionContext';
+import { useTranslation } from './TranslationContext';
 import { runTranscriptionPipeline } from '@/services/transcriptionPipeline';
 import toast from 'react-hot-toast';
-import { useTranslation } from './TranslationContext';
-import { useTranscription } from './TranscriptionContext';
-import { getSentenceSegmentationPrompt } from '@/utils/translationPrompts';
-import { getLlmWordsAndSplits, mapLlmSplitsToOriginal, reconstructSentences } from '@/utils/sentenceTools';
-import { jsonrepair } from 'jsonrepair';
-import { callLLM } from '@/utils/llmApi';
-
-const generateTaskId = (): string => {
-  return `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-};
-
-// 使用稳定的文件ID生成方式
-const generateStableFileId = (taskId: string): string => {
-  return `file_${taskId}`;
-};
-
-interface SubtitleFile {
-  id: string;
-  name: string;
-  size: number;
-  lastModified: number;
-  entries: SubtitleEntry[];
-  filename: string;
-  currentTaskId: string;
-  type?: FileType;          // 文件类型：srt, audio, video
-  fileRef?: File;           // 原始文件引用（用于音视频转录）
-  duration?: number;        // 音视频时长（秒）
-  transcriptionStatus?: 'idle' | 'loading_model' | 'decoding' | 'chunking' | 'transcribing' | 'llm_merging' | 'completed' | 'failed';
-  // 转录进度
-  transcriptionProgress?: {
-    // 总体进度（各阶段权重：解码10% + 转录50% + LLM合并40%）
-    percent: number;
-    // 各阶段具体进度
-    currentChunk?: number;     // 当前转录块 (1/20)
-    totalChunks?: number;       // 总块数
-    llmBatch?: number;          // LLM 合并批次 (2/10)
-    totalLlmBatches?: number;   // LLM 总批次数
-  };
-}
+import type { SubtitleEntry } from '@/types';
+import {
+  loadFromFile,
+  updateEntryInMemory,
+  removeFile,
+  restoreFiles,
+  clearAllData as clearAllFileData,
+  type SubtitleFile
+} from '@/services/SubtitleFileManager';
+import { exportSRT, exportTXT, exportBilingual, getTranslationProgress } from '@/services/SubtitleExporter';
+import { generateTaskId, generateStableFileId } from '@/utils/taskIdGenerator';
 
 interface SubtitleState {
   files: SubtitleFile[];
@@ -69,7 +35,7 @@ interface SubtitleContextValue extends SubtitleState {
   getFile: (fileId: string) => SubtitleFile | null;
   getAllFiles: () => SubtitleFile[];
   removeFile: (fileId: string) => Promise<void>;
-  simulateTranscription: (fileId: string) => Promise<void>; // 音视频转录
+  simulateTranscription: (fileId: string) => Promise<void>;
 }
 
 type SubtitleAction =
@@ -80,7 +46,7 @@ type SubtitleAction =
   | { type: 'UPDATE_ENTRY'; payload: { fileId: string; id: number; text: string; translatedText?: string } }
   | { type: 'REMOVE_FILE'; payload: string }
   | { type: 'CLEAR_ALL_DATA' }
-  | { type: 'SET_FILES'; payload: SubtitleFile[] }; // 新增：批量设置文件
+  | { type: 'SET_FILES'; payload: SubtitleFile[] };
 
 const initialState: SubtitleState = {
   files: [],
@@ -96,7 +62,7 @@ const subtitleReducer = (state: SubtitleState, action: SubtitleAction): Subtitle
       return { ...state, error: action.payload };
     case 'ADD_FILE':
       return { ...state, files: [...state.files, action.payload] };
-    case 'SET_FILES': // 新增：批量设置文件
+    case 'SET_FILES':
       return { ...state, files: action.payload };
     case 'UPDATE_FILE':
       return {
@@ -143,59 +109,14 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const { isConfigured, config: translationConfig } = useTranslation();
   const { modelStatus, getModel } = useTranscription();
 
-  const loadFromFile = useCallback(async (file: File) => {
+  // 加载文件
+  const loadFromFileHandler = useCallback(async (file: File) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     dispatch({ type: 'SET_ERROR', payload: null });
 
     try {
-      const fileType = detectFileType(file.name);
-
-      if (fileType === 'srt') {
-        // SRT 文件：读取文本内容
-        const content = await file.text();
-        const entries = parseSRT(content);
-
-        // 在导入文件时创建批处理任务
-        const index = state.files.length;
-        const taskId = await dataManager.createNewTask(file.name, entries, index);
-
-        const fileId = generateStableFileId(taskId);
-
-        const newFile: SubtitleFile = {
-          id: fileId,
-          name: file.name,
-          size: file.size,
-          lastModified: file.lastModified,
-          entries,
-          filename: file.name,
-          currentTaskId: taskId,
-          type: 'srt',
-          transcriptionStatus: 'completed'
-        };
-
-        dispatch({ type: 'ADD_FILE', payload: newFile });
-      } else {
-        // 音视频文件：只存储元数据和文件引用，转录时再处理
-        const taskId = generateTaskId();
-        const fileId = generateStableFileId(taskId);
-
-        // 创建空字幕条目的文件
-        const newFile: SubtitleFile = {
-          id: fileId,
-          name: file.name,
-          size: file.size,
-          lastModified: file.lastModified,
-          entries: [], // 音视频文件初始没有字幕
-          filename: file.name,
-          currentTaskId: taskId,
-          type: fileType,
-          fileRef: file, // 保存原始文件引用用于后续转录
-          transcriptionStatus: 'idle'
-        };
-
-        dispatch({ type: 'ADD_FILE', payload: newFile });
-      }
-
+      const newFile = await loadFromFile(file, { existingFilesCount: state.files.length });
+      dispatch({ type: 'ADD_FILE', payload: newFile });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '文件加载失败';
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
@@ -204,56 +125,65 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [state.files.length]);
 
-  const updateEntry = useCallback(async (fileId: string, id: number, text: string, translatedText?: string) => {
+  // 更新字幕条目
+  const updateEntryHandler = useCallback(async (
+    fileId: string,
+    id: number,
+    text: string,
+    translatedText?: string
+  ) => {
     // 更新UI状态
     dispatch({ type: 'UPDATE_ENTRY', payload: { fileId, id, text, translatedText } });
-    
-    // 获取文件信息
-    const file = state.files.find(f => f.id === fileId);
-    if (file) {
-      // 只在内存中更新，不进行持久化
-      dataManager.updateTaskSubtitleEntryInMemory(file.currentTaskId, id, text, translatedText);
-    }
+
+    // 更新内存数据
+    updateEntryInMemory(state.files, fileId, id, text, translatedText);
   }, [state.files]);
 
-  const clearFile = useCallback(async (fileId: string) => {
+  // 清空文件
+  const clearFileHandler = useCallback(async (fileId: string) => {
     dispatch({ type: 'REMOVE_FILE', payload: fileId });
     const file = state.files.find(f => f.id === fileId);
     if (file) {
-      await dataManager.removeTask(file.currentTaskId);
+      await removeFile(file);
     }
   }, [state.files]);
 
-  const clearAllData = useCallback(async () => {
+  // 清空所有数据
+  const clearAllDataHandler = useCallback(async () => {
     dispatch({ type: 'CLEAR_ALL_DATA' });
-    await dataManager.clearBatchTasks();
+    await clearAllFileData();
     window.dispatchEvent(new CustomEvent('taskCleared'));
   }, []);
 
-  const generateNewTaskId = useCallback((fileId: string): string => {
+  // 生成新任务ID
+  const generateNewTaskIdHandler = useCallback((fileId: string): string => {
     const newTaskId = generateTaskId();
     const newFileId = generateStableFileId(newTaskId);
-    dispatch({ 
-      type: 'UPDATE_FILE', 
+    dispatch({
+      type: 'UPDATE_FILE',
       payload: { fileId, updates: { currentTaskId: newTaskId, id: newFileId } }
     });
     return newTaskId;
   }, []);
 
-  const getCurrentTaskId = useCallback((fileId: string): string => {
+  // 获取当前任务ID
+  const getCurrentTaskIdHandler = useCallback((fileId: string): string => {
     const file = state.files.find(f => f.id === fileId);
     return file?.currentTaskId || '';
   }, [state.files]);
 
-  const getFile = useCallback((fileId: string) => {
+  // 获取文件
+  const getFileHandler = useCallback((fileId: string) => {
     return state.files.find(file => file.id === fileId) || null;
   }, [state.files]);
 
-  const getAllFiles = useCallback(() => {
+  // 获取所有文件
+  const getAllFilesHandler = useCallback(() => {
     return state.files;
   }, [state.files]);
 
-  const removeFile = useCallback(async (fileId: string) => {
+  // 删除文件
+  const removeFileHandler = useCallback(async (fileId: string) => {
     const file = state.files.find(f => f.id === fileId);
     if (!file) {
       return;
@@ -264,16 +194,16 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     try {
       // 然后删除任务数据
-      await dataManager.removeTask(file.currentTaskId);
+      await removeFile(file);
       toast.success('文件已删除');
     } catch (error) {
-      console.error('Failed to remove task from dataManager:', error);
+      console.error('Failed to remove task:', error);
       toast.error('删除文件失败');
     }
   }, [state.files]);
 
   // 音视频转录实现
-  const simulateTranscription = useCallback(async (fileId: string) => {
+  const simulateTranscriptionHandler = useCallback(async (fileId: string) => {
     const file = state.files.find(f => f.id === fileId);
     if (!file || file.type === 'srt') return;
     if (!file.fileRef) {
@@ -288,14 +218,13 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return;
     }
 
-    // 检查 API 是否已配置（用于句子分割）
+    // 检查 API 是否已配置
     if (!isConfigured) {
       toast.error('转录失败: 请先配置API密钥（用于句子分割）');
       return;
     }
 
     try {
-      // 使用转录流程服务
       let totalChunks = 0;
       const result = await runTranscriptionPipeline(
         file.fileRef,
@@ -373,7 +302,7 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       });
 
       toast.success(`转录完成！生成 ${result.entries.length} 条字幕`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('转录失败:', error);
       dispatch({
         type: 'UPDATE_FILE',
@@ -383,53 +312,38 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [state.files, isConfigured, getModel, modelStatus, translationConfig]);
 
-  const exportSRT = useCallback((fileId: string, useTranslation = true) => {
-    const file = getFile(fileId);
+  // 导出功能
+  const exportSRTHandler = useCallback((fileId: string, useTranslation = true) => {
+    const file = getFileHandler(fileId);
     if (!file) return '';
-    return toSRT(file.entries, useTranslation);
-  }, [getFile]);
+    return exportSRT(file.entries, useTranslation);
+  }, [getFileHandler]);
 
-  const exportTXT = useCallback((fileId: string, useTranslation = true) => {
-    const file = getFile(fileId);
+  const exportTXTHandler = useCallback((fileId: string, useTranslation = true) => {
+    const file = getFileHandler(fileId);
     if (!file) return '';
-    return toTXT(file.entries, useTranslation);
-  }, [getFile]);
+    return exportTXT(file.entries, useTranslation);
+  }, [getFileHandler]);
 
-  const exportBilingual = useCallback((fileId: string) => {
-    const file = getFile(fileId);
+  const exportBilingualHandler = useCallback((fileId: string) => {
+    const file = getFileHandler(fileId);
     if (!file) return '';
-    return toBilingual(file.entries);
-  }, [getFile]);
+    return exportBilingual(file.entries);
+  }, [getFileHandler]);
 
-  const getTranslationProgress = useCallback((fileId: string) => {
-    const file = getFile(fileId);
+  const getTranslationProgressHandler = useCallback((fileId: string) => {
+    const file = getFileHandler(fileId);
     if (!file) return { completed: 0, total: 0 };
-    const completed = file.entries.filter(entry => entry.translatedText).length;
-    return { completed, total: file.entries.length };
-  }, [getFile]);
+    return getTranslationProgress(file.entries);
+  }, [getFileHandler]);
 
+  // 加载保存的数据
   React.useEffect(() => {
     const loadSavedData = async () => {
       try {
-        // 只有当当前没有文件时才加载保存的数据
         if (state.files.length === 0) {
-          // 从持久化的 batch_tasks 中恢复数据
-          const batchTasks = dataManager.getBatchTasks();
-          if (batchTasks && batchTasks.tasks.length > 0) {
-            // 将 batch_tasks 转换为 files 状态
-            const filesToLoad = batchTasks.tasks.map((task) => ({
-              id: generateStableFileId(task.taskId),
-              name: task.subtitle_filename,
-              size: 0,
-              lastModified: Date.now(),
-              entries: task.subtitle_entries,
-              filename: task.subtitle_filename,
-              currentTaskId: task.taskId,
-              type: detectFileType(task.subtitle_filename) as FileType,
-              fileRef: undefined, // File对象无法持久化，恢复时为undefined
-              transcriptionStatus: 'completed' as const
-            }));
-
+          const filesToLoad = await restoreFiles();
+          if (filesToLoad.length > 0) {
             dispatch({ type: 'SET_FILES', payload: filesToLoad });
           }
         }
@@ -441,53 +355,51 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     loadSavedData();
   }, []);
 
-  // 使用 useMemo 优化 Context value，避免不必要的重渲染
+  // 优化 Context value
   const value: SubtitleContextValue = useMemo(() => ({
     ...state,
-    loadFromFile,
-    updateEntry,
-    clearFile,
-    clearAllData,
-    exportSRT,
-    exportTXT,
-    exportBilingual,
-    getTranslationProgress,
-    generateNewTaskId,
-    getCurrentTaskId,
-    getFile,
-    getAllFiles,
-    removeFile,
-    simulateTranscription
+    loadFromFile: loadFromFileHandler,
+    updateEntry: updateEntryHandler,
+    clearFile: clearFileHandler,
+    clearAllData: clearAllDataHandler,
+    exportSRT: exportSRTHandler,
+    exportTXT: exportTXTHandler,
+    exportBilingual: exportBilingualHandler,
+    getTranslationProgress: getTranslationProgressHandler,
+    generateNewTaskId: generateNewTaskIdHandler,
+    getCurrentTaskId: getCurrentTaskIdHandler,
+    getFile: getFileHandler,
+    getAllFiles: getAllFilesHandler,
+    removeFile: removeFileHandler,
+    simulateTranscription: simulateTranscriptionHandler
   }), [
     state,
-    loadFromFile,
-    updateEntry,
-    clearFile,
-    clearAllData,
-    exportSRT,
-    exportTXT,
-    exportBilingual,
-    getTranslationProgress,
-    generateNewTaskId,
-    getCurrentTaskId,
-    getFile,
-    getAllFiles,
-    removeFile,
-    simulateTranscription
+    loadFromFileHandler,
+    updateEntryHandler,
+    clearFileHandler,
+    clearAllDataHandler,
+    exportSRTHandler,
+    exportTXTHandler,
+    exportBilingualHandler,
+    getTranslationProgressHandler,
+    generateNewTaskIdHandler,
+    getCurrentTaskIdHandler,
+    getFileHandler,
+    getAllFilesHandler,
+    removeFileHandler,
+    simulateTranscriptionHandler
   ]);
 
   return <SubtitleContext.Provider value={value}>{children}</SubtitleContext.Provider>;
 };
 
-// 兼容性Hook，为单个文件提供旧的接口
-// 注意：这个hook现在接受一个可选的fileId参数，以支持多文件场景
+// 兼容性Hook
 export const useSingleSubtitle = (fileId?: string) => {
   const context = useContext(SubtitleContext);
   if (!context) {
     throw new Error('useSubtitle must be used within a SubtitleProvider');
   }
 
-  // 如果提供了fileId，则使用对应的文件，否则使用第一个文件（向后兼容）
   const currentFile = useMemo(() =>
     fileId
       ? context.files.find(file => file.id === fileId) || null
@@ -495,7 +407,6 @@ export const useSingleSubtitle = (fileId?: string) => {
     [fileId, context.files]
   );
 
-  // 使用 useMemo 优化返回对象，避免不必要的重渲染
   return useMemo(() => ({
     entries: currentFile?.entries || [],
     filename: currentFile?.name || '',
