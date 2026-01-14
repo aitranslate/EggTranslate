@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
 import { SubtitleEntry, FileType } from '@/types';
 import dataManager from '@/services/dataManager';
 import { parseSRT, toSRT, toTXT, toBilingual } from '@/utils/srtParser';
@@ -441,7 +441,8 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     loadSavedData();
   }, []);
 
-  const value: SubtitleContextValue = {
+  // 使用 useMemo 优化 Context value，避免不必要的重渲染
+  const value: SubtitleContextValue = useMemo(() => ({
     ...state,
     loadFromFile,
     updateEntry,
@@ -457,7 +458,23 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     getAllFiles,
     removeFile,
     simulateTranscription
-  };
+  }), [
+    state,
+    loadFromFile,
+    updateEntry,
+    clearFile,
+    clearAllData,
+    exportSRT,
+    exportTXT,
+    exportBilingual,
+    getTranslationProgress,
+    generateNewTaskId,
+    getCurrentTaskId,
+    getFile,
+    getAllFiles,
+    removeFile,
+    simulateTranscription
+  ]);
 
   return <SubtitleContext.Provider value={value}>{children}</SubtitleContext.Provider>;
 };
@@ -471,11 +488,15 @@ export const useSingleSubtitle = (fileId?: string) => {
   }
 
   // 如果提供了fileId，则使用对应的文件，否则使用第一个文件（向后兼容）
-  const currentFile = fileId 
-    ? context.files.find(file => file.id === fileId) || null
-    : context.files.length > 0 ? context.files[0] : null;
+  const currentFile = useMemo(() =>
+    fileId
+      ? context.files.find(file => file.id === fileId) || null
+      : context.files.length > 0 ? context.files[0] : null,
+    [fileId, context.files]
+  );
 
-  return {
+  // 使用 useMemo 优化返回对象，避免不必要的重渲染
+  return useMemo(() => ({
     entries: currentFile?.entries || [],
     filename: currentFile?.name || '',
     isLoading: context.isLoading,
@@ -500,7 +521,7 @@ export const useSingleSubtitle = (fileId?: string) => {
     getTranslationProgress: () => currentFile ? context.getTranslationProgress(currentFile.id) : { completed: 0, total: 0 },
     generateNewTaskId: () => currentFile ? context.generateNewTaskId(currentFile.id) : '',
     getCurrentTaskId: () => currentFile?.currentTaskId || '',
-  };
+  }), [currentFile, context]);
 };
 
 export const useSubtitle = () => {

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { ParakeetModel, getParakeetModel } from 'parakeet.js';
 import { TranscriptionConfig, ModelStatus } from '@/types';
 import dataManager from '@/services/dataManager';
@@ -305,7 +305,8 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
     return modelRef.current;
   }, []);
 
-  const value: TranscriptionContextValue = {
+  // 使用 useMemo 优化 Context value，避免不必要的重渲染
+  const value: TranscriptionContextValue = useMemo(() => ({
     config,
     updateConfig,
     modelStatus,
@@ -315,7 +316,17 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
     clearCache,
     loadModel,
     getModel,
-  };
+  }), [
+    config,
+    updateConfig,
+    modelStatus,
+    modelProgress,
+    cacheInfo,
+    refreshCacheInfo,
+    clearCache,
+    loadModel,
+    getModel,
+  ]);
 
   return (
     <TranscriptionContext.Provider value={value}>

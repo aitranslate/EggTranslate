@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useRef, useMemo } from 'react';
 import { TranslationConfig, TranslationProgress } from '@/types';
 import { jsonrepair } from 'jsonrepair';
 import dataManager from '@/services/dataManager';
@@ -454,7 +454,8 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
   }, [state.tokensUsed]);
 
-  const value: TranslationContextValue = {
+  // 使用 useMemo 优化 Context value，避免不必要的重渲染
+  const value: TranslationContextValue = useMemo(() => ({
     ...state,
     updateConfig,
     testConnection,
@@ -465,7 +466,18 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     startTranslation,
     stopTranslation,
     completeTranslation
-  };
+  }), [
+    state,
+    updateConfig,
+    testConnection,
+    translateBatch,
+    updateProgress,
+    resetProgress,
+    clearTask,
+    startTranslation,
+    stopTranslation,
+    completeTranslation
+  ]);
 
   return <TranslationContext.Provider value={value}>{children}</TranslationContext.Provider>;
 };

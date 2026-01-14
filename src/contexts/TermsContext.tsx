@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
 import { Term } from '@/types';
 import dataManager from '@/services/dataManager';
 
@@ -158,7 +158,8 @@ export const TermsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     loadSavedData();
   }, []);
 
-  const value: TermsContextValue = {
+  // 使用 useMemo 优化 Context value，避免不必要的重渲染
+  const value: TermsContextValue = useMemo(() => ({
     ...state,
     addTerm,
     removeTerm,
@@ -167,7 +168,16 @@ export const TermsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     importTerms,
     exportTerms,
     getRelevantTerms
-  };
+  }), [
+    state,
+    addTerm,
+    removeTerm,
+    updateTerm,
+    clearTerms,
+    importTerms,
+    exportTerms,
+    getRelevantTerms
+  ]);
 
   return <TermsContext.Provider value={value}>{children}</TermsContext.Provider>;
 };

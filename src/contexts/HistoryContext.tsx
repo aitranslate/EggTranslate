@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
 import { TranslationHistoryEntry } from '@/types';
 import dataManager from '@/services/dataManager';
 
@@ -119,7 +119,8 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     loadSavedData();
   }, []);
 
-  const value: HistoryContextValue = {
+  // 使用 useMemo 优化 Context value，避免不必要的重渲染
+  const value: HistoryContextValue = useMemo(() => ({
     ...state,
     addHistoryEntry,
     deleteHistoryEntry,
@@ -127,7 +128,15 @@ export const HistoryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     loadHistoryEntry,
     getHistoryStats,
     refreshHistory
-  };
+  }), [
+    state,
+    addHistoryEntry,
+    deleteHistoryEntry,
+    clearHistory,
+    loadHistoryEntry,
+    getHistoryStats,
+    refreshHistory
+  ]);
 
   return <HistoryContext.Provider value={value}>{children}</HistoryContext.Provider>;
 };
