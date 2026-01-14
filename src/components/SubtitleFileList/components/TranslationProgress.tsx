@@ -84,8 +84,10 @@ export const TranslationProgress: React.FC<TranslationProgressProps> = ({
           <div className="flex justify-between text-xs text-white/60 mt-1">
             {file.transcriptionStatus === 'transcribing' ? (
               <span>转录 {file.transcriptionProgress?.currentChunk} / {file.transcriptionProgress?.totalChunks}</span>
-            ) : file.transcriptionStatus === 'llm_merging' ? (
+            ) : file.transcriptionStatus === 'llm_merging' && (file.transcriptionProgress?.llmBatch ?? 0) > 0 ? (
               <span>LLM组句 {file.transcriptionProgress?.llmBatch} / {file.transcriptionProgress?.totalLlmBatches}</span>
+            ) : file.transcriptionStatus === 'llm_merging' ? (
+              <span>准备LLM组句...</span>
             ) : (
               <span></span>
             )}
