@@ -14,6 +14,7 @@ import {
 } from '@/services/SubtitleFileManager';
 import { exportSRT, exportTXT, exportBilingual, getTranslationProgress } from '@/services/SubtitleExporter';
 import { generateTaskId, generateStableFileId } from '@/utils/taskIdGenerator';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 
 interface SubtitleState {
   files: SubtitleFile[];
@@ -109,6 +110,9 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const { isConfigured, config: translationConfig } = useTranslation();
   const { modelStatus, getModel } = useTranscription();
 
+  // 使用统一错误处理
+  const { handleError } = useErrorHandler();
+
   // 加载文件
   const loadFromFileHandler = useCallback(async (file: File) => {
     dispatch({ type: 'SET_LOADING', payload: true });
@@ -118,12 +122,16 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const newFile = await loadFromFile(file, { existingFilesCount: state.files.length });
       dispatch({ type: 'ADD_FILE', payload: newFile });
     } catch (error) {
+      handleError(error, {
+        context: { operation: '加载文件', fileName: file.name },
+        showToast: false // 调用者会显示 toast
+      });
       const errorMessage = error instanceof Error ? error.message : '文件加载失败';
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
-  }, [state.files.length]);
+  }, [state.files.length, handleError]);
 
   // 更新字幕条目
   const updateEntryHandler = useCallback(async (
@@ -197,10 +205,11 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       await removeFile(file);
       toast.success('文件已删除');
     } catch (error) {
-      console.error('Failed to remove task:', error);
-      toast.error('删除文件失败');
+      handleError(error, {
+        context: { operation: '删除文件', fileName: file.name }
+      });
     }
-  }, [state.files]);
+  }, [state.files, handleError]);
 
   // 音视频转录实现
   const simulateTranscriptionHandler = useCallback(async (fileId: string) => {
@@ -302,15 +311,16 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       });
 
       toast.success(`转录完成！生成 ${result.entries.length} 条字幕`);
-    } catch (error: any) {
-      console.error('转录失败:', error);
+    } catch (error) {
+      handleError(error, {
+        context: { operation: '转录', fileName: file?.name }
+      });
       dispatch({
         type: 'UPDATE_FILE',
         payload: { fileId, updates: { transcriptionStatus: 'failed' } }
       });
-      toast.error(`转录失败: ${error.message}`);
     }
-  }, [state.files, isConfigured, getModel, modelStatus, translationConfig]);
+  }, [state.files, isConfigured, getModel, modelStatus, translationConfig, handleError]);
 
   // 导出功能
   const exportSRTHandler = useCallback((fileId: string, useTranslation = true) => {
@@ -348,12 +358,15 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }
         }
       } catch (error) {
-        console.error('加载保存的数据失败:', error);
+        handleError(error, {
+          context: { operation: '加载保存的数据' },
+          showToast: false
+        });
       }
     };
 
     loadSavedData();
-  }, []);
+  }, [handleError]);
 
   // 优化 Context value
   const value: SubtitleContextValue = useMemo(() => ({

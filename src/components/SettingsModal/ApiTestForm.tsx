@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { TestTube, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { TranslationConfig } from '@/types';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 
 interface ApiTestFormProps {
   config: TranslationConfig;
@@ -17,6 +18,9 @@ export const ApiTestForm: React.FC<ApiTestFormProps> = ({ config, onConfigChange
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
+
+  // 使用统一错误处理（但保留测试结果显示）
+  const { handleError } = useErrorHandler();
 
   // 获取下一个API Key的函数
   const getNextApiKey = useCallback((apiKeyStr: string): string => {
@@ -62,12 +66,17 @@ export const ApiTestForm: React.FC<ApiTestFormProps> = ({ config, onConfigChange
       await response.json();
       setTestResult({ success: true, message: '连接成功！API配置正常' });
     } catch (error) {
+      // 记录错误到统一错误处理系统
+      handleError(error, {
+        context: { operation: 'API 连接测试' },
+        showToast: false // 不显示 toast，因为我们显示测试结果
+      });
       const message = error instanceof Error ? error.message : '连接失败';
       setTestResult({ success: false, message });
     } finally {
       setIsTesting(false);
     }
-  }, [config, getNextApiKey]);
+  }, [config, getNextApiKey, handleError]);
 
   return (
     <>

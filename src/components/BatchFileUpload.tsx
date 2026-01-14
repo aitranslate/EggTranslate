@@ -3,6 +3,7 @@ import { Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react';
 import { useSubtitle } from '@/contexts/SubtitleContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 
 interface BatchFileUploadProps {
   className?: string;
@@ -13,6 +14,9 @@ export const BatchFileUpload: React.FC<BatchFileUploadProps> = ({ className }) =
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 使用统一错误处理
+  const { handleError } = useErrorHandler();
 
   const handleFile = useCallback(async (file: File) => {
     const ext = file.name.toLowerCase().split('.').pop();
@@ -33,12 +37,13 @@ export const BatchFileUpload: React.FC<BatchFileUploadProps> = ({ className }) =
 
       toast.success(`成功加载 ${file.name}`);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : '文件加载失败';
-      toast.error(errorMessage);
+      handleError(err, {
+        context: { operation: '加载文件', fileName: file.name }
+      });
     } finally {
       setIsUploading(false);
     }
-  }, [loadFromFile]);
+  }, [loadFromFile, handleError]);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();

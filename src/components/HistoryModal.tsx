@@ -17,6 +17,7 @@ import { downloadSubtitleFile } from '@/utils/fileExport';
 import { TranslationHistoryEntry } from '@/types';
 import { toSRT, toTXT, toBilingual } from '@/utils/srtParser';
 import { ConfirmDialog } from './ConfirmDialog';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 
 interface HistoryModalProps {
   isOpen: boolean;
@@ -24,19 +25,22 @@ interface HistoryModalProps {
 }
 
 export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) => {
-  const { 
-    history, 
-    deleteHistoryEntry, 
+  const {
+    history,
+    deleteHistoryEntry,
     clearHistory,
-    getHistoryStats 
+    getHistoryStats
   } = useHistory();
-  
+
+  // 使用统一错误处理
+  const { handleError } = useErrorHandler();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [exportingTaskId, setExportingTaskId] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
-  
+
   const stats = getHistoryStats();
   
   // 筛选历史记录
@@ -60,35 +64,39 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
   
   const handleConfirmDelete = useCallback(async () => {
     if (!deletingTaskId) return;
-    
+
     try {
       await deleteHistoryEntry(deletingTaskId);
       toast.success('历史记录已删除');
     } catch (error) {
-      toast.error('删除失败');
+      handleError(error, {
+        context: { operation: '删除历史记录' }
+      });
     } finally {
       setShowDeleteConfirm(false);
       setDeletingTaskId(null);
     }
-  }, [deleteHistoryEntry, deletingTaskId]);
-  
+  }, [deleteHistoryEntry, deletingTaskId, handleError]);
+
   const onClear = useCallback(async () => {
     if (history.length === 0) return;
-    
+
     // 显示自定义确认对话框
     setShowClearConfirm(true);
   }, [history.length]);
-  
+
   const handleConfirmClear = useCallback(async () => {
     try {
       await clearHistory();
       toast.success('已清空所有历史记录');
     } catch (error) {
-      toast.error('清空失败');
+      handleError(error, {
+        context: { operation: '清空历史记录' }
+      });
     } finally {
       setShowClearConfirm(false);
     }
-  }, [clearHistory]);
+  }, [clearHistory, handleError]);
   
   const formatDate = useCallback((timestamp: number) => {
     return new Date(timestamp).toLocaleString('zh-CN');
@@ -127,12 +135,13 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
       downloadSubtitleFile(content, entry.filename, extension);
       toast.success('导出成功');
     } catch (error) {
-      console.error('导出失败:', error);
-      toast.error('导出失败');
+      handleError(error, {
+        context: { operation: '导出历史记录', fileName: entry.filename }
+      });
     } finally {
       setExportingTaskId(null);
     }
-  }, []);
+  }, [handleError]);
   
   if (!isOpen) return null;
   

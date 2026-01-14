@@ -5,6 +5,7 @@ import { Plus, Trash2, Edit3, Save, X, Upload, Download, BookOpen, Search } from
 import toast from 'react-hot-toast';
 import { ConfirmDialog } from './ConfirmDialog';
 import { downloadTextFile } from '@/utils/fileExport';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 
 interface TermsManagerProps {
   isOpen: boolean;
@@ -12,16 +13,19 @@ interface TermsManagerProps {
 }
 
 export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) => {
-  const { 
-    terms, 
-    addTerm, 
-    removeTerm, 
-    updateTerm, 
-    clearTerms, 
-    importTerms, 
-    exportTerms 
+  const {
+    terms,
+    addTerm,
+    removeTerm,
+    updateTerm,
+    clearTerms,
+    importTerms,
+    exportTerms
   } = useTerms();
-  
+
+  // 使用统一错误处理
+  const { handleError } = useErrorHandler();
+
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editOriginal, setEditOriginal] = useState('');
   const [editTranslation, setEditTranslation] = useState('');
@@ -44,18 +48,22 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
       setNewTranslation('');
       toast.success('术语添加成功');
     } catch (error) {
-      toast.error('添加术语失败');
+      handleError(error, {
+        context: { operation: '添加术语' }
+      });
     }
-  }, [newOriginal, newTranslation, addTerm]);
+  }, [newOriginal, newTranslation, addTerm, handleError]);
 
   const onRemoveTerm = useCallback(async (index: number) => {
     try {
       await removeTerm(index);
       toast.success('术语已删除');
     } catch (error) {
-      toast.error('删除术语失败');
+      handleError(error, {
+        context: { operation: '删除术语' }
+      });
     }
-  }, [removeTerm]);
+  }, [removeTerm, handleError]);
 
   const onStartEdit = useCallback((index: number) => {
     setEditingIndex(index);
@@ -65,7 +73,7 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
 
   const onSaveEdit = useCallback(async () => {
     if (editingIndex === null) return;
-    
+
     if (!editOriginal.trim() || !editTranslation.trim()) {
       toast.error('请输入原文和译文');
       return;
@@ -78,9 +86,11 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
       setEditTranslation('');
       toast.success('术语更新成功');
     } catch (error) {
-      toast.error('更新术语失败');
+      handleError(error, {
+        context: { operation: '更新术语' }
+      });
     }
-  }, [editingIndex, editOriginal, editTranslation, updateTerm]);
+  }, [editingIndex, editOriginal, editTranslation, updateTerm, handleError]);
 
   const onCancelEdit = useCallback(() => {
     setEditingIndex(null);
@@ -100,9 +110,11 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
       setShowImport(false);
       toast.success('术语导入成功');
     } catch (error) {
-      toast.error('导入术语失败');
+      handleError(error, {
+        context: { operation: '导入术语' }
+      });
     }
-  }, [importText, importTerms]);
+  }, [importText, importTerms, handleError]);
 
   const onExport = useCallback(() => {
     const content = exportTerms();
@@ -138,11 +150,13 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
       await clearTerms();
       toast.success('已清空所有术语');
     } catch (error) {
-      toast.error('清空术语失败');
+      handleError(error, {
+        context: { operation: '清空术语' }
+      });
     } finally {
       setShowClearConfirm(false);
     }
-  }, [clearTerms]);
+  }, [clearTerms, handleError]);
 
   if (!isOpen) return null;
 

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Edit3, Save, X, Search, Filter, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { SubtitleFile, SubtitleEntry } from '@/types';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 
 interface SubtitleEditorProps {
   isOpen: boolean;
@@ -19,6 +20,10 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
 }) => {
   const { entries, updateEntry, clearAllData } = useSingleSubtitle(file?.id);
   const { resetProgress } = useTranslation();
+
+  // 使用统一错误处理
+  const { handleError } = useErrorHandler();
+
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
   const [editTranslation, setEditTranslation] = useState('');
@@ -61,7 +66,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
 
   const onSaveEdit = useCallback(async () => {
     if (editingId === null) return;
-    
+
     try {
       await updateEntry(editingId, editText, editTranslation);
       setEditingId(null);
@@ -69,9 +74,11 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
       setEditTranslation('');
       toast.success('保存成功');
     } catch (error) {
-      toast.error('保存失败');
+      handleError(error, {
+        context: { operation: '保存字幕编辑' }
+      });
     }
-  }, [editingId, editText, editTranslation, updateEntry]);
+  }, [editingId, editText, editTranslation, updateEntry, handleError]);
 
   const onCancelEdit = useCallback(() => {
     setEditingId(null);

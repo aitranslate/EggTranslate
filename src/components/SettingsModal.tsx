@@ -6,6 +6,7 @@ import { TranscriptionSettings } from './TranscriptionSettings';
 import { motion } from 'framer-motion';
 import { X, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -27,6 +28,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     loadModel
   } = useTranscription();
 
+  // 使用统一错误处理
+  const { handleError } = useErrorHandler();
+
   const [activeTab, setActiveTab] = useState<TabType>('transcription');
   const [formData, setFormData] = useState(config);
 
@@ -44,9 +48,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
       toast.success('设置已保存');
       onClose();
     } catch (error) {
-      toast.error('保存失败');
+      handleError(error, {
+        context: { operation: '保存翻译设置' }
+      });
     }
-  }, [formData, updateConfig, onClose]);
+  }, [formData, updateConfig, onClose, handleError]);
 
   const onInputChange = useCallback(
     (

@@ -7,6 +7,7 @@ import { FileIcon } from './FileIcon';
 import { TranslationProgress } from './TranslationProgress';
 import { FileActionButtons } from './FileActionButtons';
 import { formatFileSize } from '../utils/fileHelpers';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 
 interface SubtitleFileItemProps {
   file: SubtitleFile;
@@ -33,6 +34,9 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
 }) => {
   const [isTranslating, setIsTranslating] = useState(false);
 
+  // 使用统一错误处理
+  const { handleError } = useErrorHandler();
+
   const translationStats = useMemo(() => {
     const translated = file.entries.filter((entry) => entry.translatedText).length;
 
@@ -56,15 +60,13 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
     try {
       await onStartTranslation(file);
     } catch (error) {
-      if (error.name === 'AbortError' || error.message?.includes('翻译被取消')) {
-        toast.success('翻译已取消');
-      } else {
-        toast.error(`翻译失败: ${error.message}`);
-      }
+      handleError(error, {
+        context: { operation: '翻译', fileName: file.name }
+      });
     } finally {
       setIsTranslating(false);
     }
-  }, [file, onStartTranslation, isTranslating]);
+  }, [file, onStartTranslation, isTranslating, handleError]);
 
   const handleExport = useCallback((format: 'srt' | 'txt' | 'bilingual') => {
     onExport(file, format);

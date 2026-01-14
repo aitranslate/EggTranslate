@@ -3,6 +3,7 @@ import { Upload, FileText, AlertCircle } from 'lucide-react';
 import { useSubtitle } from '@/contexts/SubtitleContext';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 
 interface FileUploadProps {
   className?: string;
@@ -12,6 +13,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({ className }) => {
   const { loadFromFile, isLoading, error } = useSubtitle();
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 使用统一错误处理
+  const { handleError } = useErrorHandler();
 
   const handleFile = useCallback(async (file: File) => {
     if (!file.name.toLowerCase().endsWith('.srt')) {
@@ -23,10 +27,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({ className }) => {
       await loadFromFile(file);
       toast.success(`成功加载 ${file.name}`);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : '文件加载失败';
-      toast.error(errorMessage);
+      handleError(err, {
+        context: { operation: '加载文件', fileName: file.name }
+      });
     }
-  }, [loadFromFile]);
+  }, [loadFromFile, handleError]);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
