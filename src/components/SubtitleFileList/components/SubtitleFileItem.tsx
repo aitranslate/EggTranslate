@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, memo } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { SubtitleFile } from '@/types';
@@ -156,3 +156,53 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
     </motion.div>
   );
 };
+
+/**
+ * 记忆化的 SubtitleFileItem 组件
+ * 使用自定义比较函数来避免不必要的重渲染
+ */
+export const SubtitleFileItemMemo = memo(SubtitleFileItem, (prevProps, nextProps) => {
+  // 比较 file 对象的关键属性
+  const fileKeys: (keyof SubtitleFile)[] = [
+    'id',
+    'name',
+    'type',
+    'size',
+    'transcriptionStatus',
+    'currentTaskId'
+  ];
+
+  // 检查 file 对象的关键属性是否变化
+  for (const key of fileKeys) {
+    if (prevProps.file[key] !== nextProps.file[key]) {
+      return false; // 有变化，需要重渲染
+    }
+  }
+
+  // 检查 entries 数量是否变化（快速检查）
+  if (prevProps.file.entries.length !== nextProps.file.entries.length) {
+    return false;
+  }
+
+  // 检查已翻译数量是否变化（影响进度显示）
+  const prevTranslated = prevProps.file.entries.filter(e => e.translatedText).length;
+  const nextTranslated = nextProps.file.entries.filter(e => e.translatedText).length;
+  if (prevTranslated !== nextTranslated) {
+    return false;
+  }
+
+  // 检查全局状态是否变化
+  if (prevProps.isTranslatingGlobally !== nextProps.isTranslatingGlobally) {
+    return false;
+  }
+
+  if (prevProps.currentTranslatingFileId !== nextProps.currentTranslatingFileId) {
+    return false;
+  }
+
+  // 所有关键属性都未变化，可以跳过重渲染
+  return true;
+});
+
+// 默认导出记忆化版本，保持向后兼容
+export default SubtitleFileItemMemo;
