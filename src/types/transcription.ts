@@ -1,3 +1,6 @@
+// 导入 SubtitleEntry 类型以避免循环依赖
+import type { SubtitleEntry } from './index';
+
 // 文件类型
 export type FileType = 'srt' | 'audio' | 'video';
 
@@ -52,4 +55,29 @@ export interface TranscriptionResult {
     rtf: number;
     total_ms: number;
   };
+}
+
+// 转录进度详情（百分比形式）
+export interface TranscriptionProgressInfo {
+  percent: number;           // 总体进度百分比
+  currentChunk?: number;     // 当前转录块 (1/20)
+  totalChunks?: number;      // 总块数
+  llmBatch?: number;         // LLM 合并批次 (2/10)
+  totalLlmBatches?: number;  // LLM 总批次数
+}
+
+// 字幕文件类型（用于文件管理）
+export interface SubtitleFile {
+  id: string;
+  name: string;
+  size: number;
+  lastModified: number;
+  entries: SubtitleEntry[];
+  filename: string;
+  currentTaskId: string;
+  type?: FileType;                    // 文件类型：srt, audio, video
+  fileRef?: File;                     // 原始文件引用（用于音视频转录）
+  duration?: number;                  // 音视频时长（秒）
+  transcriptionStatus?: TranscriptionStatus;
+  transcriptionProgress?: TranscriptionProgressInfo;
 }

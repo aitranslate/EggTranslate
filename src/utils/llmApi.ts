@@ -74,7 +74,7 @@ export async function callLLM(
     rateLimiter.setRPM(config.rpm);
   }
 
-  let lastError: any = null;
+  let lastError: unknown = null;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     if (signal?.aborted) {
@@ -116,14 +116,14 @@ export async function callLLM(
       const tokensUsed = data.usage?.total_tokens || 0;
 
       return { content, tokensUsed };
-    } catch (error: any) {
+    } catch (error: unknown) {
       // 如果是取消信号，直接抛出
-      if (error.name === 'AbortError') {
+      if (error instanceof Error && error.name === 'AbortError') {
         throw new Error('请求被取消');
       }
 
       lastError = error;
-      console.error(`LLM 调用第 ${attempt}/${maxRetries} 次失败:`, error.message || error);
+      console.error(`LLM 调用第 ${attempt}/${maxRetries} 次失败:`, error instanceof Error ? error.message : error);
 
       // 如果还有重试机会，等待后重试（指数退避）
       if (attempt < maxRetries) {

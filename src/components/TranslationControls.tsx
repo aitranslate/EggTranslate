@@ -190,7 +190,7 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
           if (currentTask) {
             // 获取最新的tokens值
             const finalTokens = currentTask.translation_progress?.tokens || tokensUsed || 0;
-            const actualCompleted = currentTask.subtitle_entries?.filter((entry: any) => 
+            const actualCompleted = currentTask.subtitle_entries?.filter((entry: import('@/types').SubtitleEntry) =>
               entry.translatedText && entry.translatedText.trim() !== ''
             ).length || 0;
 

@@ -362,7 +362,7 @@ class DataManager {
       // 获取实际完成的字幕数量
       let completedCount = 0;
       if (task.subtitle_entries && Array.isArray(task.subtitle_entries)) {
-        completedCount = task.subtitle_entries.filter((entry: any) => 
+        completedCount = task.subtitle_entries.filter((entry: import('../types').SubtitleEntry) =>
           entry.translatedText && entry.translatedText.trim() !== ''
         ).length;
       }

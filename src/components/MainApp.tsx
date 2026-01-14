@@ -1,9 +1,9 @@
 import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Settings, 
-  BookOpen, 
-  History, 
+import {
+  Settings,
+  BookOpen,
+  History,
   Zap
 } from 'lucide-react';
 import { FileUpload } from './FileUpload';
@@ -18,6 +18,7 @@ import { HistoryModal } from './HistoryModal';
 import { useSubtitle, useSingleSubtitle } from '@/contexts/SubtitleContext';
 import { useTranslation } from '@/contexts/TranslationContext';
 import { useHistory } from '@/contexts/HistoryContext';
+import { SubtitleFile } from '@/types';
 import { useTerms } from '@/contexts/TermsContext';
 import dataManager from '@/services/dataManager';
 
@@ -34,7 +35,7 @@ export const MainApp: React.FC = () => {
   const { history } = useHistory();
   const { terms } = useTerms();
 
-  const handleEditFile = useCallback((file: any) => {
+  const handleEditFile = useCallback((file: SubtitleFile) => {
     setEditingFile(file);
     setIsEditingModalOpen(true);
   }, []);

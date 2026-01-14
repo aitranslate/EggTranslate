@@ -4,7 +4,8 @@ import { useTranslation } from '@/contexts/TranslationContext';
 import { useTranscription } from '@/contexts/TranscriptionContext';
 import { useTerms } from '@/contexts/TermsContext';
 import { useHistory } from '@/contexts/HistoryContext';
-import { FileType } from '@/types';
+import { SubtitleFile, SubtitleEntry } from '@/types';
+import type { FileType } from '@/types/transcription';
 import dataManager from '@/services/dataManager';
 import {
   Languages,
@@ -30,12 +31,12 @@ import { TranscriptionPromptModal } from './TranscriptionPromptModal';
 import { SettingsModal } from './SettingsModal';
 
 interface SubtitleFileItemProps {
-  file: any;
+  file: SubtitleFile;
   index: number;
-  onEdit: (file: any) => void;
-  onStartTranslation: (file: any) => Promise<void>;
-  onExport: (file: any, format: 'srt' | 'txt' | 'bilingual') => void;
-  onDelete: (file: any) => Promise<void>;
+  onEdit: (file: SubtitleFile) => void;
+  onStartTranslation: (file: SubtitleFile) => Promise<void>;
+  onExport: (file: SubtitleFile, format: 'srt' | 'txt' | 'bilingual') => void;
+  onDelete: (file: SubtitleFile) => Promise<void>;
   onTranscribe: (fileId: string) => Promise<void>;
   isTranslatingGlobally: boolean;
   currentTranslatingFileId: string | null;
@@ -64,16 +65,15 @@ const getFileIcon = (type?: FileType) => {
 };
 
 // 辅助函数：获取状态文本
-const getStatusText = (file: any): string => {
-  const type = file.type as FileType;
-  const transcriptionStatus = file.transcriptionStatus;
+const getStatusText = (file: SubtitleFile): string => {
+  const type = file.type;
 
   if (type === 'srt') {
     return 'SRT 字幕';
   }
 
   // 音视频文件
-  switch (transcriptionStatus) {
+  switch (file.transcriptionStatus) {
     case 'idle':
       return '等待转录';
     case 'loading_model':
@@ -110,7 +110,7 @@ const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
   const [isTranslating, setIsTranslating] = useState(false);
   
   const translationStats = useMemo(() => {
-    const translated = file.entries.filter((entry: any) => entry.translatedText).length;
+    const translated = file.entries.filter((entry) => entry.translatedText).length;
 
     // 直接从批处理任务中获取tokens - 简单有效！
     const batchTasks = dataManager.getBatchTasks();
@@ -431,7 +431,7 @@ const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
 
 interface SubtitleFileListProps {
   className?: string;
-  onEditFile: (file: any) => void;
+  onEditFile: (file: SubtitleFile) => void;
   onCloseEditModal: () => void;
 }
 
@@ -499,11 +499,11 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
     setPendingTranscribeFileId(null);
   }, []);
 
-  const handleEdit = useCallback((file: any) => {
+  const handleEdit = useCallback((file: SubtitleFile) => {
     setEditingFile(file);
   }, []);
 
-  const handleStartTranslation = useCallback(async (file: any) => {
+  const handleStartTranslation = useCallback(async (file: SubtitleFile) => {
     const controller = await startTranslation();
     
     // 设置当前正在翻译的文件ID
@@ -579,7 +579,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
         if (completedTask) {
           // 获取最新的tokens值
           const finalTokens = completedTask.translation_progress?.tokens || 0;
-          const actualCompleted = completedTask.subtitle_entries?.filter((entry: any) => 
+          const actualCompleted = completedTask.subtitle_entries?.filter((entry) =>
             entry.translatedText && entry.translatedText.trim() !== ''
           ).length || 0;
 
@@ -628,7 +628,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
   }, [getRelevantTerms, startTranslation, translateBatch, updateEntry, addHistoryEntry, completeTranslation, updateProgress, stopTranslation, config, history]);
 
   // 获取前面的条目作为上下文
-  const getPreviousEntries = useCallback((entries: any[], currentIndex: number) => {
+  const getPreviousEntries = useCallback((entries: SubtitleEntry[], currentIndex: number) => {
     const contextBefore = config.contextBefore || 2;
     const startIndex = Math.max(0, currentIndex - contextBefore);
     return entries.slice(startIndex, currentIndex).map(entry => entry.text).join(`
@@ -636,7 +636,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
   }, [config.contextBefore]);
 
   // 获取后面的条目作为上下文
-  const getNextEntries = useCallback((entries: any[], currentIndex: number) => {
+  const getNextEntries = useCallback((entries: SubtitleEntry[], currentIndex: number) => {
     const contextAfter = config.contextAfter || 2;
     const endIndex = Math.min(entries.length, currentIndex + contextAfter);
     return entries.slice(currentIndex, endIndex).map(entry => entry.text).join(`
@@ -697,7 +697,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
     }
   }, [clearAllData]);
 
-  const handleDeleteFile = useCallback(async (file: any) => {
+  const handleDeleteFile = useCallback(async (file: SubtitleFile) => {
     setFileToDelete(file);
     setShowDeleteConfirm(true);
   }, []);
@@ -716,7 +716,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
     }
   }, [fileToDelete, removeFile]);
 
-  const handleExport = useCallback((file: any, format: 'srt' | 'txt' | 'bilingual') => {
+  const handleExport = useCallback((file: SubtitleFile, format: 'srt' | 'txt' | 'bilingual') => {
     let content = '';
     let extension = '';
     

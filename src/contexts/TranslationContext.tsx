@@ -258,7 +258,7 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
     try {
       if (actualTaskId) {
         // 准备更新对象
-        const updateObj: any = {
+        const updateObj: Parameters<typeof dataManager.updateTaskTranslationProgressInMemory>[1] = {
           completed: current,
           total: total,
           status: phase === 'completed' ? 'completed' : 'translating',

@@ -1,18 +1,19 @@
 import React, { useState, useCallback } from 'react';
 import { useHistory } from '@/contexts/HistoryContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  History, 
-  X, 
-  Trash2, 
+import {
+  History,
+  X,
+  Trash2,
   Calendar,
-  FileText, 
+  FileText,
   BarChart3,
   Search,
   RefreshCw,
   Download
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { TranslationHistoryEntry } from '@/types';
 import { toSRT, toTXT, toBilingual } from '@/utils/srtParser';
 import { ConfirmDialog } from './ConfirmDialog';
 
@@ -93,7 +94,7 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
   }, []);
 
   // 导出历史任务
-  const onExport = useCallback(async (entry: any, format: 'srt' | 'txt' | 'bilingual') => {
+  const onExport = useCallback(async (entry: TranslationHistoryEntry, format: 'srt' | 'txt' | 'bilingual') => {
     try {
       setExportingTaskId(entry.taskId);
       

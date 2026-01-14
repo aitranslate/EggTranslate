@@ -4,11 +4,12 @@ import { useTranslation } from '@/contexts/TranslationContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Edit3, Save, X, Search, Filter, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { SubtitleFile, SubtitleEntry } from '@/types';
 
 interface SubtitleEditorProps {
   isOpen: boolean;
   onClose: () => void;
-  file: any;
+  file: SubtitleFile;
 }
 
 export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
@@ -35,15 +36,15 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
     
     // 按状态筛选
     if (filterType === 'translated') {
-      filtered = filtered.filter((entry: any) => entry.translatedText);
+      filtered = filtered.filter((entry) => entry.translatedText);
     } else if (filterType === 'untranslated') {
-      filtered = filtered.filter((entry: any) => !entry.translatedText);
+      filtered = filtered.filter((entry) => !entry.translatedText);
     }
     
     // 按关键词搜索
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      filtered = filtered.filter((entry: any) => 
+      filtered = filtered.filter((entry) =>
         entry.text.toLowerCase().includes(term) ||
         (entry.translatedText && entry.translatedText.toLowerCase().includes(term))
       );
@@ -52,7 +53,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
     return filtered;
   }, [fileEntries, filterType, searchTerm]);
 
-  const onStartEdit = useCallback((entry: any) => {
+  const onStartEdit = useCallback((entry: SubtitleEntry) => {
     setEditingId(entry.id);
     setEditText(entry.text);
     setEditTranslation(entry.translatedText || '');
@@ -81,7 +82,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
 
   const translationStats = useMemo(() => {
     const entriesArray = fileEntries || [];
-    const translated = entriesArray.filter((entry: any) => entry.translatedText).length;
+    const translated = entriesArray.filter((entry) => entry.translatedText).length;
     return {
       total: entriesArray.length,
       translated,

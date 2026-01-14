@@ -1,13 +1,21 @@
 import SRTParser2 from 'srt-parser-2';
 import { SubtitleEntry } from '@/types';
 
+// SRTParser2 返回的类型接口
+interface SRTParserResult {
+  id?: string | number;
+  startTime: string;
+  endTime: string;
+  text: string;
+}
+
 const parser = new SRTParser2();
 
 export const parseSRT = (srtContent: string): SubtitleEntry[] => {
   try {
     const parsed = parser.fromSrt(srtContent);
-    return parsed.map((item: any, index: number) => ({
-      id: item.id || index + 1,
+    return parsed.map((item: SRTParserResult, index: number) => ({
+      id: item.id ? Number(item.id) : index + 1,
       startTime: item.startTime,
       endTime: item.endTime,
       text: item.text.trim(),

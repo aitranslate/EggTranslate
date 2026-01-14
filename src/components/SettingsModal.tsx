@@ -100,7 +100,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     }
   }, [formData, getNextApiKey]);
 
-  const onInputChange = useCallback((field: keyof typeof config, value: any) => {
+  const onInputChange = useCallback((field: keyof typeof config, value: import('@/types').TranslationConfig[keyof import('@/types').TranslationConfig]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setTestResult(null); // 清空测试结果
   }, []);
