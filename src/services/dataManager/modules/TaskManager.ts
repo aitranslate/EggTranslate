@@ -62,8 +62,9 @@ class TaskManager {
 
       return taskId;
     } catch (error) {
-      console.error('创建翻译任务失败:', error);
-      throw error;
+      const appError = toAppError(error, '创建翻译任务失败');
+      console.error('[TaskManager]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -112,8 +113,9 @@ class TaskManager {
       // 持久化到 localforage
       await localforage.setItem(this.BATCH_TASKS_KEY, this.memoryStore.batch_tasks);
     } catch (error) {
-      console.error('更新字幕条目失败:', error);
-      throw error;
+      const appError = toAppError(error, '更新字幕条目失败');
+      console.error('[TaskManager]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -159,7 +161,8 @@ class TaskManager {
         this.memoryStore.batch_tasks.tasks[taskIndex] = updatedTask;
       }
     } catch (error) {
-      console.error('更新内存中的字幕条目失败:', error);
+      const appError = toAppError(error, '更新内存中的字幕条目失败');
+      console.error('[TaskManager]', appError.message, appError);
     }
   }
 
@@ -206,8 +209,9 @@ class TaskManager {
         this.memoryStore.batch_tasks.tasks[taskIndex] = updatedTask;
       }
     } catch (error) {
-      console.error('批量更新字幕条目失败:', error);
-      throw error;
+      const appError = toAppError(error, '批量更新字幕条目失败');
+      console.error('[TaskManager]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -240,8 +244,9 @@ class TaskManager {
       // 持久化到 localforage
       await localforage.setItem(this.BATCH_TASKS_KEY, this.memoryStore.batch_tasks);
     } catch (error) {
-      console.error('更新翻译进度失败:', error);
-      throw error;
+      const appError = toAppError(error, '更新翻译进度失败');
+      console.error('[TaskManager]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -271,7 +276,8 @@ class TaskManager {
         this.memoryStore.batch_tasks.tasks[taskIndex] = updatedTask;
       }
     } catch (error) {
-      console.error('更新内存中的翻译进度失败:', error);
+      const appError = toAppError(error, '更新内存中的翻译进度失败');
+      console.error('[TaskManager]', appError.message, appError);
     }
   }
 
@@ -317,8 +323,9 @@ class TaskManager {
       // 持久化到 localforage
       await localforage.setItem(this.BATCH_TASKS_KEY, this.memoryStore.batch_tasks);
     } catch (error) {
-      console.error('完成翻译任务失败:', error);
-      throw error;
+      const appError = toAppError(error, '完成翻译任务失败');
+      console.error('[TaskManager]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -333,8 +340,9 @@ class TaskManager {
       // 清空持久化存储
       await localforage.setItem(this.BATCH_TASKS_KEY, { tasks: [] });
     } catch (error) {
-      console.error('清空批处理任务失败:', error);
-      throw error;
+      const appError = toAppError(error, '清空批处理任务失败');
+      console.error('[TaskManager]', appError.message, appError);
+      throw appError;
     }
   }
 
@@ -351,8 +359,9 @@ class TaskManager {
       // 持久化到 localforage
       await localforage.setItem(this.BATCH_TASKS_KEY, this.memoryStore.batch_tasks);
     } catch (error) {
-      console.error('移除任务失败:', error);
-      throw error;
+      const appError = toAppError(error, '移除任务失败');
+      console.error('[TaskManager]', appError.message, appError);
+      throw appError;
     }
   }
 }

@@ -179,7 +179,10 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
         try {
           await dataManager.forcePersistAllData();
         } catch (error) {
-          console.error('翻译完成后持久化数据失败:', error);
+          handleError(error, {
+            context: { operation: '翻译完成后持久化数据' },
+            showToast: false
+          });
         }
       }, 200);
 

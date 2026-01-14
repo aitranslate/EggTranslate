@@ -167,7 +167,10 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
         downloadSubtitleFile(content, filename, extension);
         toast.success('导出成功');
       } catch (error) {
-        console.error('导出失败:', error);
+        handleError(error, {
+          context: { operation: '导出字幕' },
+          showToast: false // 不显示 toast，因为我们显示 toast.error
+        });
         toast.error('导出失败');
       } finally {
         setIsExporting(false);
