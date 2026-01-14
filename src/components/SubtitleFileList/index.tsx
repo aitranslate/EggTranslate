@@ -1,0 +1,389 @@
+import React, { useState, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { useSubtitle } from '@/contexts/SubtitleContext';
+import { useTranslation } from '@/contexts/TranslationContext';
+import { useTranscription } from '@/contexts/TranscriptionContext';
+import { useTerms } from '@/contexts/TermsContext';
+import { useHistory } from '@/contexts/HistoryContext';
+import { SubtitleFile, SubtitleEntry } from '@/types';
+import dataManager from '@/services/dataManager';
+import { SubtitleFileItem } from './components/SubtitleFileItem';
+import { ConfirmDialog } from '../ConfirmDialog';
+import { TranscriptionPromptModal } from '../TranscriptionPromptModal';
+import { SettingsModal } from '../SettingsModal';
+
+interface SubtitleFileListProps {
+  className?: string;
+  onEditFile: (file: SubtitleFile) => void;
+  onCloseEditModal: () => void;
+}
+
+export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
+  className,
+  onEditFile,
+  onCloseEditModal
+}) => {
+  const { files, updateEntry, exportSRT, exportTXT, exportBilingual, clearAllData, removeFile, getTranslationProgress, simulateTranscription } = useSubtitle();
+  const {
+    config,
+    isTranslating: isTranslatingGlobally,
+    progress,
+    tokensUsed,
+    isConfigured,
+    translateBatch,
+    updateProgress,
+    startTranslation,
+    stopTranslation,
+    completeTranslation
+  } = useTranslation();
+  const { modelStatus } = useTranscription();
+  const { getRelevantTerms } = useTerms();
+  const { addHistoryEntry } = useHistory();
+
+  const [isTranslatingGloballyState, setIsTranslatingGlobally] = useState(false);
+  const [currentTranslatingFileId, setCurrentTranslatingFileId] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<SubtitleFile | null>(null);
+
+  // 转录相关状态
+  const [showTranscriptionPrompt, setShowTranscriptionPrompt] = useState(false);
+  const [pendingTranscribeFileId, setPendingTranscribeFileId] = useState<string | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // 处理转录点击
+  const handleTranscribe = useCallback(async (fileId: string) => {
+    if (modelStatus !== 'loaded') {
+      setPendingTranscribeFileId(fileId);
+      setShowTranscriptionPrompt(true);
+      return;
+    }
+    await simulateTranscription(fileId);
+  }, [modelStatus, simulateTranscription]);
+
+  // 模态框操作
+  const handleGoToSettings = useCallback(() => {
+    setShowTranscriptionPrompt(false);
+    setIsSettingsOpen(true);
+  }, []);
+
+  const handleCancelPrompt = useCallback(() => {
+    setShowTranscriptionPrompt(false);
+    setPendingTranscribeFileId(null);
+  }, []);
+
+  const handleSettingsClose = useCallback(() => {
+    setIsSettingsOpen(false);
+    setPendingTranscribeFileId(null);
+  }, []);
+
+  // 获取上下文的辅助函数
+  const getPreviousEntries = useCallback((entries: SubtitleEntry[], currentIndex: number) => {
+    const contextBefore = config.contextBefore || 2;
+    const startIndex = Math.max(0, currentIndex - contextBefore);
+    return entries.slice(startIndex, currentIndex).map(entry => entry.text).join('\n');
+  }, [config.contextBefore]);
+
+  const getNextEntries = useCallback((entries: SubtitleEntry[], currentIndex: number) => {
+    const contextAfter = config.contextAfter || 2;
+    const endIndex = Math.min(entries.length, currentIndex + contextAfter);
+    return entries.slice(currentIndex, endIndex).map(entry => entry.text).join('\n');
+  }, [config.contextAfter]);
+
+  // 单个文件翻译处理
+  const handleStartTranslation = useCallback(async (file: SubtitleFile) => {
+    const controller = await startTranslation();
+    setCurrentTranslatingFileId(file.id);
+
+    const batchTasks = dataManager.getBatchTasks();
+    const task = batchTasks.tasks.find(t => t.taskId === file.currentTaskId);
+    const taskIndex = task?.index ?? 0;
+
+    try {
+      const batchSize = config.batchSize || 10;
+
+      for (let i = 0; i < file.entries.length; i += batchSize) {
+        const batch = file.entries.slice(i, i + batchSize);
+        const texts = batch.map(entry => entry.text);
+
+        const contextBeforeTexts = getPreviousEntries(file.entries, i);
+        const contextAfterTexts = getNextEntries(file.entries, i + batch.length);
+
+        const batchText = texts.join(' ');
+        const relevantTerms = getRelevantTerms(batchText, contextBeforeTexts, contextAfterTexts);
+        const termsString = relevantTerms.map(term => `${term.original} -> ${term.translation}`).join('\n');
+
+        const result = await translateBatch(
+          texts,
+          controller.signal,
+          contextBeforeTexts,
+          contextAfterTexts,
+          termsString
+        );
+
+        for (let j = 0; j < batch.length; j++) {
+          const entry = batch[j];
+          const translatedText = result.translations[`${j + 1}`]?.direct || '';
+
+          if (translatedText) {
+            await updateEntry(file.id, entry.id, entry.text, translatedText);
+          }
+        }
+
+        const task = dataManager.getTaskById(file.currentTaskId);
+        const currentTokens = task?.translation_progress?.tokens || 0;
+        const newTokens = currentTokens + result.tokensUsed;
+
+        const completed = Math.min(i + batch.length, file.entries.length);
+        await updateProgress(completed, file.entries.length, 'direct', 'translating', file.currentTaskId, newTokens);
+      }
+
+      await completeTranslation(file.currentTaskId);
+      setCurrentTranslatingFileId(null);
+
+      // 添加历史记录
+      const batchTasks = dataManager.getBatchTasks();
+      const completedTask = batchTasks.tasks.find(t => t.taskId === file.currentTaskId);
+
+      if (completedTask) {
+        const finalTokens = completedTask.translation_progress?.tokens || 0;
+        const actualCompleted = completedTask.subtitle_entries?.filter((entry) =>
+          entry.translatedText && entry.translatedText.trim() !== ''
+        ).length || 0;
+
+        if (actualCompleted > 0) {
+          await addHistoryEntry({
+            taskId: file.currentTaskId,
+            filename: file.name,
+            completedCount: actualCompleted,
+            totalTokens: finalTokens,
+            current_translation_task: {
+              taskId: completedTask.taskId,
+              subtitle_entries: completedTask.subtitle_entries,
+              subtitle_filename: completedTask.subtitle_filename,
+              translation_progress: completedTask.translation_progress
+            }
+          });
+        }
+      }
+
+      setTimeout(async () => {
+        try {
+          await dataManager.forcePersistAllData();
+        } catch (error) {
+          console.error('翻译完成后持久化数据失败:', error);
+        }
+      }, 200);
+
+      toast.success(`完成翻译文件: ${file.name}`);
+    } catch (error) {
+      if (error.name === 'AbortError' || error.message?.includes('翻译被取消')) {
+        toast.success('翻译已取消');
+      } else {
+        toast.error(`翻译失败: ${error.message}`);
+      }
+      setCurrentTranslatingFileId(null);
+    }
+  }, [getRelevantTerms, startTranslation, translateBatch, updateEntry, addHistoryEntry, completeTranslation, updateProgress, config, getPreviousEntries, getNextEntries]);
+
+  // 批量翻译处理
+  const handleStartAllTranslation = useCallback(async () => {
+    if (files.length === 0 || isTranslatingGloballyState) return;
+
+    const filesToTranslate = files.filter(file => {
+      const progress = getTranslationProgress(file.id);
+      return progress.completed < progress.total;
+    });
+
+    if (filesToTranslate.length === 0) {
+      toast.success('所有文件都已翻译完成');
+      return;
+    }
+
+    setIsTranslatingGlobally(true);
+    toast.success(`开始翻译 ${filesToTranslate.length} 个文件`);
+
+    for (const file of filesToTranslate) {
+      try {
+        await handleStartTranslation(file);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (error) {
+        console.error(`翻译文件 ${file.name} 失败:`, error);
+        toast.error(`翻译文件 ${file.name} 失败: ${error.message}`);
+      }
+    }
+
+    setIsTranslatingGlobally(false);
+  }, [files, isTranslatingGloballyState, getTranslationProgress, handleStartTranslation]);
+
+  const handleClearAll = useCallback(async () => {
+    if (files.length === 0) return;
+    setShowClearConfirm(true);
+  }, [files]);
+
+  const handleConfirmClear = useCallback(async () => {
+    try {
+      await clearAllData();
+      toast.success('所有文件已清空');
+    } catch (error) {
+      console.error('清空所有数据失败:', error);
+      toast.error(`清空失败: ${error.message}`);
+    } finally {
+      setShowClearConfirm(false);
+    }
+  }, [clearAllData]);
+
+  const handleDeleteFile = useCallback(async (file: SubtitleFile) => {
+    setFileToDelete(file);
+    setShowDeleteConfirm(true);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!fileToDelete) return;
+
+    try {
+      await removeFile(fileToDelete.id);
+    } catch (error) {
+      console.error('删除文件失败:', error);
+      toast.error(`删除失败: ${error.message}`);
+    } finally {
+      setFileToDelete(null);
+    }
+  }, [fileToDelete, removeFile]);
+
+  const handleExport = useCallback((file: SubtitleFile, format: 'srt' | 'txt' | 'bilingual') => {
+    let content = '';
+    let extension = '';
+
+    switch (format) {
+      case 'srt':
+        content = exportSRT(file.id, true);
+        extension = 'srt';
+        break;
+      case 'txt':
+        content = exportTXT(file.id, true);
+        extension = 'txt';
+        break;
+      case 'bilingual':
+        content = exportBilingual(file.id);
+        extension = 'srt';
+        break;
+    }
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+
+    const baseName = file.name.replace(/\.srt$/i, '');
+    a.href = url;
+    a.download = `${baseName}_translated.${extension}`;
+    a.click();
+
+    URL.revokeObjectURL(url);
+    toast.success('导出成功');
+  }, [exportSRT, exportTXT, exportBilingual]);
+
+  if (files.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className={className}>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <div className="space-y-6">
+          {/* 列表标题 */}
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-white">
+              文件列表
+            </h3>
+            <div className="flex items-center space-x-3">
+              <div className="text-sm text-white/70">
+                共 {files.length} 个文件
+              </div>
+              <button
+                onClick={handleStartAllTranslation}
+                disabled={files.length === 0 || isTranslatingGloballyState}
+                className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-200 border border-green-500/30 transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span>全部开始</span>
+              </button>
+              <button
+                onClick={handleClearAll}
+                disabled={files.length === 0}
+                className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span>清空</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 文件列表 */}
+          <div className="space-y-4">
+            <AnimatePresence>
+              {files.map((file, index) => (
+                <SubtitleFileItem
+                  key={file.id}
+                  file={file}
+                  index={index}
+                  onEdit={onEditFile}
+                  onStartTranslation={handleStartTranslation}
+                  onExport={handleExport}
+                  onDelete={handleDeleteFile}
+                  onTranscribe={handleTranscribe}
+                  isTranslatingGlobally={isTranslatingGloballyState}
+                  currentTranslatingFileId={currentTranslatingFileId}
+                />
+              ))}
+            </AnimatePresence>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* 清空确认对话框 */}
+      <ConfirmDialog
+        isOpen={showClearConfirm}
+        onClose={() => setShowClearConfirm(false)}
+        onConfirm={handleConfirmClear}
+        title="确认清空"
+        message={`确定要清空所有 ${files.length} 个文件吗？此操作不可恢复。`}
+        confirmText="确认清空"
+        confirmButtonClass="bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30"
+      />
+
+      {/* 删除文件确认对话框 */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setFileToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="确认删除"
+        message={fileToDelete ? `确定要删除文件 "${fileToDelete.name}" 吗？此操作不可恢复。` : ''}
+        confirmText="确认删除"
+        confirmButtonClass="bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30"
+      />
+
+      {/* 转录模型未加载提示模态框 */}
+      <TranscriptionPromptModal
+        isOpen={showTranscriptionPrompt}
+        onGoToSettings={handleGoToSettings}
+        onCancel={handleCancelPrompt}
+      />
+
+      {/* 设置模态框 */}
+      {isSettingsOpen && (
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={handleSettingsClose}
+        />
+      )}
+    </div>
+  );
+};
