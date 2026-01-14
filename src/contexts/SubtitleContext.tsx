@@ -8,6 +8,7 @@ import { useTranscription } from './TranscriptionContext';
 import { getSentenceSegmentationPrompt } from '@/utils/translationPrompts';
 import { getLlmWordsAndSplits, mapLlmSplitsToOriginal, reconstructSentences } from '@/utils/sentenceTools';
 import { jsonrepair } from 'jsonrepair';
+import { callLLM } from '@/utils/llmApi';
 
 const generateTaskId = (): string => {
   return `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -306,32 +307,23 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return;
     }
 
-    // 内部函数：调用 LLM API 进行句子分割
+    // 内部函数：调用 LLM API 进行句子分割（使用统一的 LLM 调用）
     const callLlmApi = async (prompt: string): Promise<string> => {
       if (!isConfigured || !translationConfig.apiKey) {
         throw new Error('请先配置翻译 API');
       }
 
-      const response = await fetch(`${translationConfig.baseURL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${translationConfig.apiKey}`
+      const result = await callLLM(
+        {
+          baseURL: translationConfig.baseURL,
+          apiKey: translationConfig.apiKey,
+          model: translationConfig.model
         },
-        body: JSON.stringify({
-          model: translationConfig.model,
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.3
-        })
-      });
+        [{ role: 'user', content: prompt }],
+        { temperature: 0.3 }
+      );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || `HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data.choices[0]?.message?.content || '';
+      return result.content;
     };
 
     // 检查模型是否已加载
@@ -362,25 +354,132 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const pcm = audioBuffer.getChannelData(0); // Float32Array
       const duration = pcm.length / 16000; // 时长（秒）
 
-      // 切片
+      const SAMPLE_RATE = 16000; // 采样率
+
+      // 切片：基于静音检测智能切分
       dispatch({
         type: 'UPDATE_FILE',
         payload: { fileId, updates: { transcriptionStatus: 'chunking', duration } }
       });
 
-      const CHUNK_DURATION = 60; // 60秒
-      const OVERLAP_DURATION = 5; // 5秒重叠（确保单词不被切断）
-      const chunkStep = (CHUNK_DURATION - OVERLAP_DURATION) * 16000;
-      const chunkSize = CHUNK_DURATION * 16000;
-      const totalChunks = Math.ceil((pcm.length - OVERLAP_DURATION * 16000) / chunkStep);
+      // 静音检测：找到所有可能的静音点
+      const findSilencePoints = (pcmData: Float32Array, sampleRate: number): number[] => {
+        const analysisWindowSize = Math.floor(sampleRate * 0.01); // 10ms 窗口
+        const minSilenceDuration = 0.4; // 静音持续至少 400ms（过滤词之间的短暂停顿）
+        const silenceThresholdRatio = 0.15; // 静音阈值为平均 RMS 的 15%（低于平均音量的 15% 算静音）
+
+        // 计算音频的平均 RMS（均方根）作为基准
+        let sumSquares = 0;
+        for (let i = 0; i < pcmData.length; i++) {
+          sumSquares += pcmData[i] * pcmData[i];
+        }
+        const avgRms = Math.sqrt(sumSquares / pcmData.length);
+
+        const silenceThreshold = avgRms * silenceThresholdRatio;
+        const minSilenceSamples = Math.floor(sampleRate * minSilenceDuration);
+
+        const silencePoints: number[] = [];
+        let silenceStart = -1;
+        let inSilence = false;
+
+        // 扫描整个音频，找到静音段
+        for (let i = 0; i < pcmData.length; i += analysisWindowSize) {
+          // 计算当前窗口的 RMS（均方根）
+          let sumSquares = 0;
+          const windowEnd = Math.min(i + analysisWindowSize, pcmData.length);
+          for (let j = i; j < windowEnd; j++) {
+            sumSquares += pcmData[j] * pcmData[j];
+          }
+          const rms = Math.sqrt(sumSquares / (windowEnd - i));
+
+          // 判断是否为静音
+          const isSilence = rms < silenceThreshold;
+
+          if (isSilence && !inSilence) {
+            // 进入静音区域
+            silenceStart = i;
+            inSilence = true;
+          } else if (!isSilence && inSilence) {
+            // 退出静音区域
+            if (i - silenceStart >= minSilenceSamples) {
+              // 这是一个足够长的静音段，记录其中间位置
+              silencePoints.push(Math.floor((silenceStart + i) / 2));
+            }
+            inSilence = false;
+          }
+        }
+
+        return silencePoints;
+      };
+
+      // 找到所有静音点
+      const silencePoints = findSilencePoints(pcm, SAMPLE_RATE);
+      console.log('[Transcription] 检测到', silencePoints.length, '个静音点');
+
+      // 基于静音点生成分片计划
+      const CHUNK_DURATION = 60; // 目标每片约 60 秒
+      const chunkSizeSamples = CHUNK_DURATION * SAMPLE_RATE;
+      const searchWindow = 5 * SAMPLE_RATE; // 在目标位置前后 5 秒内搜索静音点
+
+      const chunkBoundaries: number[] = [0]; // 分片边界（样本索引）
+      let currentPos = 0;
+
+      while (currentPos < pcm.length) {
+        const targetPos = Math.min(currentPos + chunkSizeSamples, pcm.length);
+        let bestSplitPos = targetPos; // 默认在目标位置切分
+
+        if (targetPos < pcm.length) {
+          // 在目标位置附近的静音点中找到最合适的
+          const searchStart = targetPos - searchWindow;
+          const searchEnd = targetPos + searchWindow;
+
+          // 找到搜索窗口内最接近目标位置的静音点
+          let closestSilencePoint: number | null = null;
+          let minDistance = Infinity;
+
+          for (const silencePoint of silencePoints) {
+            if (silencePoint > searchStart && silencePoint < searchEnd && silencePoint > currentPos) {
+              const distance = Math.abs(silencePoint - targetPos);
+              if (distance < minDistance) {
+                minDistance = distance;
+                closestSilencePoint = silencePoint;
+              }
+            }
+          }
+
+          if (closestSilencePoint !== null) {
+            bestSplitPos = closestSilencePoint;
+            console.log(`[Transcription] 在目标 ${Math.floor(targetPos / SAMPLE_RATE)}s 附近找到静音点: ${Math.floor(bestSplitPos / SAMPLE_RATE)}s`);
+          } else {
+            console.log(`[Transcription] 在 ${Math.floor(targetPos / SAMPLE_RATE)}s 附近未找到静音点，使用目标位置`);
+          }
+        }
+
+        chunkBoundaries.push(bestSplitPos);
+        currentPos = bestSplitPos;
+      }
+
+      // 生成实际的分片
+      const chunks = [];
+      for (let i = 0; i < chunkBoundaries.length - 1; i++) {
+        const start = chunkBoundaries[i];
+        const end = chunkBoundaries[i + 1];
+        chunks.push({
+          start,
+          end,
+          duration: (end - start) / SAMPLE_RATE
+        });
+      }
+
+      const totalChunks = chunks.length;
+      console.log('[Transcription] 分片计划:', chunks.map(c => `${Math.floor(c.duration)}s`).join(', '));
 
       await new Promise(r => setTimeout(r, 500)); // 显示分片信息
 
-      toast(`音频时长: ${Math.floor(duration / 60)}:${(Math.floor(duration % 60)).toString().padStart(2, '0')}，切分成 ${totalChunks} 个片段`);
+      toast(`音频时长: ${Math.floor(duration / 60)}:${(Math.floor(duration % 60)).toString().padStart(2, '0')}，基于静音检测切分成 ${totalChunks} 个片段`);
 
-      // 转录
+      // 转录：使用基于静音检测的分片计划
       const allWords = [];
-      const SAMPLE_RATE = 16000;
       const frameStride = 1;
 
       // 判断是否需要切分
@@ -407,13 +506,11 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           allWords.push(...res.words);
         }
       } else {
-        // 长音频，切分处理
-        for (let i = 0; i < totalChunks; i++) {
-          const start = i * chunkStep;
-          const end = Math.min(start + chunkSize, pcm.length);
-          const chunkPcm = pcm.slice(start, end);
-          const timeOffset = start / SAMPLE_RATE;
-          const isLastChunk = (end >= pcm.length);
+        // 长音频，按静音检测的分片计划处理
+        for (let i = 0; i < chunks.length; i++) {
+          const chunk = chunks[i];
+          const chunkPcm = pcm.slice(chunk.start, chunk.end);
+          const timeOffset = chunk.start / SAMPLE_RATE;
 
           dispatch({
             type: 'UPDATE_FILE',
@@ -422,9 +519,9 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               updates: {
                 transcriptionStatus: 'transcribing',
                 transcriptionProgress: {
-                  percent: Math.floor(10 + (i / totalChunks) * 70), // 10%-80%
+                  percent: Math.floor(10 + (i / chunks.length) * 70), // 10%-80%
                   currentChunk: i + 1,
-                  totalChunks: totalChunks
+                  totalChunks: chunks.length
                 }
               }
             }
@@ -436,43 +533,16 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             frameStride
           });
 
-          // 调整时间偏移并合并 words（去除重叠部分）
+          // 调整时间偏移
           if (chunkRes.words) {
             chunkRes.words.forEach(w => {
               w.start_time += timeOffset;
               w.end_time += timeOffset;
             });
-
-            // 定义有效区域
-            // 保留每个分片的完整内容，重叠区域稍后通过文本去重
-            const effectiveStart = timeOffset;
-            const effectiveEnd = isLastChunk
-              ? timeOffset + (end - start) / SAMPLE_RATE
-              : timeOffset + CHUNK_DURATION;
-
-            // 保留所有单词
             allWords.push(...chunkRes.words);
           }
         }
       }
-
-      // 去重：重叠区域的单词可能重复
-      // 策略：如果两个单词的时间区域重叠，保留较早的（前一个分片的）
-      const deduplicatedWords: typeof allWords = [];
-      const sortedWords = [...allWords].sort((a, b) => a.start_time - b.start_time);
-
-      for (const word of sortedWords) {
-        // 检查这个单词的时间是否与已保留的单词重叠
-        const hasOverlap = deduplicatedWords.some(existing =>
-          word.start_time < existing.end_time && word.end_time > existing.start_time
-        );
-
-        if (!hasOverlap) {
-          deduplicatedWords.push(word);
-        }
-      }
-
-      const finalWords = deduplicatedWords;
 
       // LLM 句子分割（分批并行处理）
       dispatch({
@@ -486,105 +556,205 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       });
 
-      // 按 300 词分批，遇到句号切分
-      const BATCH_SIZE = 300;
-      const batches: Array<{ words: Array<{ text: string; start_time: number; end_time: number; confidence?: number }>; startIdx: number }> = [];
-      let currentBatch: typeof allWords = [];
-      let lastPeriodIndex = -1;  // 最近一个句号在 currentBatch 中的索引
+      // ========== 辅助函数：判断是否可以跳过 LLM ==========
 
-      for (let i = 0; i < allWords.length; i++) {
-        currentBatch.push(allWords[i]);
+      /**
+       * 检查词是否以句子结束标点结尾
+       */
+      const hasEndingPunctuation = (word: string): boolean => {
+        const endings = ['.', '!', '?', '。', '！', '？', '...', '…'];
+        return endings.some(ending => word.endsWith(ending));
+      };
 
-        // 记录句号位置
-        if (allWords[i].text.endsWith('.')) {
-          lastPeriodIndex = currentBatch.length - 1;
-        }
+      /**
+       * 检查批次第一个词前面是否有停顿
+       */
+      const hasPauseBefore = (firstWord: typeof allWords[0], words: typeof allWords, threshold: number): boolean => {
+        const idx = words.indexOf(firstWord);
+        if (idx === 0) return true; // 第一个词，前面默认有停顿
 
-        // 达到批次大小，用最近句号切分
-        if (currentBatch.length >= BATCH_SIZE) {
-          if (lastPeriodIndex >= 0) {
-            // 有句号，在句号处切分
-            batches.push({
-              words: currentBatch.slice(0, lastPeriodIndex + 1),
-              startIdx: allWords.indexOf(currentBatch[0])
-            });
-            currentBatch = currentBatch.slice(lastPeriodIndex + 1);
-            lastPeriodIndex = -1;
-          } else {
-            // 没有句号，强制在 300 词处切分
-            batches.push({
-              words: currentBatch.slice(0, BATCH_SIZE),
-              startIdx: allWords.indexOf(currentBatch[0])
-            });
-            currentBatch = currentBatch.slice(BATCH_SIZE);
-            lastPeriodIndex = -1;
+        const prevWord = words[idx - 1];
+        const gap = firstWord.start_time - prevWord.end_time;
+        return gap > threshold;
+      };
+
+      /**
+       * 判断是否可以跳过 LLM 处理
+       * @param wordsInBatch 批次中的单词
+       * @param pauseFound 是否找到停顿
+       * @param pauseGap 停顿时长
+       * @param startIdx 批次在 allWords 中的起始索引
+       */
+      const shouldSkipLLM = (
+        wordsInBatch: typeof allWords,
+        pauseFound: boolean,
+        pauseGap: number,
+        startIdx: number
+      ): boolean => {
+        const PAUSE_THRESHOLD = 1.0; // 停顿阈值（秒）
+        const wordCount = wordsInBatch.length;
+
+        // 场景 1: 极短片段 (1-2 个词) + 前后都有停顿
+        if (wordCount <= 2 && pauseFound && pauseGap > PAUSE_THRESHOLD) {
+          const hasPause = hasPauseBefore(wordsInBatch[0], allWords, PAUSE_THRESHOLD);
+          if (hasPause) {
+            console.log(`[Transcription] 跳过 LLM：场景1（极短片段 ${wordCount} 词 + 前后停顿）`);
+            return true;
           }
         }
-      }
 
-      // 处理剩余不足 300 的批次
-      if (currentBatch.length > 0) {
+        // 场景 2: 完整句子（以标点结尾）+ 后面有停顿 + 长度不超过 20 词
+        const lastWord = wordsInBatch[wordCount - 1];
+        if (hasEndingPunctuation(lastWord.text) && pauseFound && wordCount <= 20) {
+          console.log(`[Transcription] 跳过 LLM：场景2（完整句子 "${lastWord.text}" + 后有停顿，${wordCount} 词）`);
+          return true;
+        }
+
+        // 场景 3: 短片段 (3-10 个词) + 前后都有长停顿
+        if (wordCount <= 10 && wordCount > 2 && pauseFound && pauseGap > PAUSE_THRESHOLD) {
+          const hasPause = hasPauseBefore(wordsInBatch[0], allWords, PAUSE_THRESHOLD);
+          if (hasPause) {
+            console.log(`[Transcription] 跳过 LLM：场景3（短片段 ${wordCount} 词 + 前后停顿）`);
+            return true;
+          }
+        }
+
+        return false;
+      };
+
+      // ========== 基于时间间隔和句号的混合切分 ==========
+
+      const BATCH_SIZE = 300;
+      const PAUSE_THRESHOLD = 1.0; // 停顿阈值（秒）
+      const batches: Array<{ words: typeof allWords; startIdx: number; skipLLM?: boolean }> = [];
+
+      // 按时间排序（确保单词按时间顺序排列）
+      allWords.sort((a, b) => a.start_time - b.start_time);
+
+      let batchIdx = 0;
+
+      while (batchIdx < allWords.length) {
+        const batchEnd = Math.min(batchIdx + BATCH_SIZE, allWords.length);
+        let endPos = batchEnd; // 默认位置
+        let pauseGap = 0;
+        let pauseFound = false;
+
+        // 步骤 1: 正向找第一个停顿（在 300 词范围内）
+        for (let i = batchIdx; i < batchEnd - 1; i++) {
+          const currentWord = allWords[i];
+          const nextWord = allWords[i + 1];
+          const timeGap = nextWord.start_time - currentWord.end_time;
+
+          if (timeGap > PAUSE_THRESHOLD) {
+            endPos = i + 1;
+            pauseGap = timeGap;
+            pauseFound = true;
+            console.log(`[Transcription] 检测到 ${timeGap.toFixed(2)}s 停顿，在单词 "${currentWord.text}" 后切分`);
+            break;
+          }
+        }
+
+        // 步骤 2: 如果没找到停顿，往回找最后一个句号
+        if (!pauseFound) {
+          for (let i = batchEnd - 1; i > batchIdx; i--) {
+            if (hasEndingPunctuation(allWords[i].text)) {
+              endPos = i + 1;
+              console.log(`[Transcription] 未找到停顿，在句号 "${allWords[i].text}" 处切分`);
+              break;
+            }
+          }
+        }
+
+        // 步骤 3: 取出批次
+        const wordsInBatch = allWords.slice(batchIdx, endPos);
+
+        // 步骤 4: 检查是否可以跳过 LLM
+        const skipLLM = shouldSkipLLM(wordsInBatch, pauseFound, pauseGap, batchIdx);
+
         batches.push({
-          words: currentBatch,
-          startIdx: allWords.indexOf(currentBatch[0])
+          words: wordsInBatch,
+          startIdx: batchIdx,
+          skipLLM
         });
+
+        batchIdx = endPos;
       }
 
-      // 多线程并行调用 LLM，使用序列匹配映射回原始单词
+      console.log(`[Transcription] 共生成 ${batches.length} 个批次，其中 ${batches.filter(b => b.skipLLM).length} 个跳过 LLM`);
+
+      // 多线程并行处理批次
       const allReconstructedSentences: Array<{ sentence: string; startIdx: number; endIdx: number }> = [];
       let completedBatches = 0;
 
       await Promise.all(
         batches.map(async (batch, batchIdx) => {
           try {
-            const wordsList = batch.words.map(w => w.text);
-            const segmentationPrompt = getSentenceSegmentationPrompt(
-              wordsList,
-              20,
-              translationConfig.sourceLanguage
-            );
+            let sentenceMappings: Array<{ sentence: string; startIdx: number; endIdx: number }> = [];
 
-            const llmResponse = await callLlmApi(segmentationPrompt);
-            // 使用 jsonrepair 清理 markdown 代码块等格式问题
-            const repairedJson = jsonrepair(llmResponse);
-            const parsed = JSON.parse(repairedJson);
-            const llmSentences = parsed.sentences || [];
+            // 如果标记为跳过 LLM，直接将单词连接成句子
+            if (batch.skipLLM) {
+              const originalWords = batch.words.map(w => w.text);
+              const sentence = originalWords.join(' ');
+              const startIdx = batch.startIdx;
+              const endIdx = batch.startIdx + batch.words.length - 1;
 
-            // 核心逻辑：用序列匹配将 LLM 分组映射回原始单词
-            const originalCleanWords = batch.words.map(w => w.text.toLowerCase().replace(/[^a-z0-9]/g, ''));
-
-            // 提取 LLM 的清理后单词和分割点
-            const [llmCleanWords, llmSplitIndices] = getLlmWordsAndSplits(llmSentences);
-
-            // 用序列匹配将分割点映射回原始单词
-            const originalSplitIndices = mapLlmSplitsToOriginal(originalCleanWords, llmCleanWords, llmSplitIndices);
-
-            // 用原始单词重建句子（保留原始文本，包括大小写和标点）
-            const originalWords = batch.words.map(w => w.text);
-            const reconstructedSentences = reconstructSentences(originalWords, originalSplitIndices);
-
-            // 直接使用 originalSplitIndices 计算每个句子的索引范围
-            // 确保最后一个分割点包含到数组末尾
-            const completeSplitIndices = [...originalSplitIndices];
-          if (completeSplitIndices.length === 0 || completeSplitIndices[completeSplitIndices.length - 1] !== originalWords.length) {
-            completeSplitIndices.push(originalWords.length);
-          }
-
-          const sentenceMappings: Array<{ sentence: string; startIdx: number; endIdx: number }> = [];
-          let lastSplitIdx = 0;
-          for (let i = 0; i < completeSplitIndices.length; i++) {
-            const splitIdx = completeSplitIndices[i];
-            if (splitIdx > lastSplitIdx) {
-              const startIdx = batch.startIdx + lastSplitIdx;
-              const endIdx = batch.startIdx + splitIdx - 1;
-              sentenceMappings.push({
-                sentence: reconstructedSentences[i] || originalWords.slice(lastSplitIdx, splitIdx).join(' '),
+              sentenceMappings = [{
+                sentence,
                 startIdx,
                 endIdx
-              });
+              }];
+
+              console.log(`[Transcription] 批次 ${batchIdx + 1} 跳过 LLM，直接输出: "${sentence}"`);
+            } else {
+              // 调用 LLM 进行句子分割
+              const wordsList = batch.words.map(w => w.text);
+              const segmentationPrompt = getSentenceSegmentationPrompt(
+                wordsList,
+                20,
+                translationConfig.sourceLanguage
+              );
+
+              const llmResponse = await callLlmApi(segmentationPrompt);
+              // 使用 jsonrepair 清理 markdown 代码块等格式问题
+              const repairedJson = jsonrepair(llmResponse);
+              const parsed = JSON.parse(repairedJson);
+              const llmSentences = parsed.sentences || [];
+
+              // 核心逻辑：用序列匹配将 LLM 分组映射回原始单词
+              const originalCleanWords = batch.words.map(w => w.text.toLowerCase().replace(/[^a-z0-9]/g, ''));
+
+              // 提取 LLM 的清理后单词和分割点
+              const [llmCleanWords, llmSplitIndices] = getLlmWordsAndSplits(llmSentences);
+
+              // 用序列匹配将分割点映射回原始单词
+              const originalSplitIndices = mapLlmSplitsToOriginal(originalCleanWords, llmCleanWords, llmSplitIndices);
+
+              // 用原始单词重建句子（保留原始文本，包括大小写和标点）
+              const originalWords = batch.words.map(w => w.text);
+              const reconstructedSentences = reconstructSentences(originalWords, originalSplitIndices);
+
+              // 直接使用 originalSplitIndices 计算每个句子的索引范围
+              // 确保最后一个分割点包含到数组末尾
+              const completeSplitIndices = [...originalSplitIndices];
+              if (completeSplitIndices.length === 0 || completeSplitIndices[completeSplitIndices.length - 1] !== originalWords.length) {
+                completeSplitIndices.push(originalWords.length);
+              }
+
+              let lastSplitIdx = 0;
+              for (let i = 0; i < completeSplitIndices.length; i++) {
+                const splitIdx = completeSplitIndices[i];
+                if (splitIdx > lastSplitIdx) {
+                  const startIdx = batch.startIdx + lastSplitIdx;
+                  const endIdx = batch.startIdx + splitIdx - 1;
+                  sentenceMappings.push({
+                    sentence: reconstructedSentences[i] || originalWords.slice(lastSplitIdx, splitIdx).join(' '),
+                    startIdx,
+                    endIdx
+                  });
+                }
+                lastSplitIdx = splitIdx;
+              }
             }
-            lastSplitIdx = splitIdx;
-          }
 
             // 按批次顺序存储
             allReconstructedSentences[batchIdx] = sentenceMappings;
