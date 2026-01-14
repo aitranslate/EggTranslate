@@ -3,6 +3,7 @@ import { TranslationConfig, TranslationProgress } from '@/types';
 import translationService from '@/services/TranslationService';
 import dataManager from '@/services/dataManager';
 import { DEFAULT_TRANSLATION_CONFIG } from '@/constants/translationDefaults';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 
 interface TranslationState {
   config: TranslationConfig;
@@ -97,6 +98,9 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const stateRef = useRef(state);
   stateRef.current = state;
 
+  // 使用统一错误处理
+  const { handleError } = useErrorHandler();
+
   // 初始化服务
   useEffect(() => {
     const initializeService = async () => {
@@ -105,12 +109,15 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
         const savedConfig = translationService.getConfig();
         dispatch({ type: 'SET_CONFIG', payload: savedConfig });
       } catch (error) {
-        console.error('初始化翻译服务失败:', error);
+        handleError(error, {
+          context: { operation: '初始化翻译服务' },
+          showToast: false
+        });
       }
     };
 
     initializeService();
-  }, []);
+  }, [handleError]);
 
   // 加载保存的任务状态
   useEffect(() => {
@@ -141,12 +148,15 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
           }
         }
       } catch (error) {
-        console.error('加载保存的任务状态失败:', error);
+        handleError(error, {
+          context: { operation: '加载保存的任务状态' },
+          showToast: false
+        });
       }
     };
 
     loadSavedTaskState();
-  }, []);
+  }, [handleError]);
 
   const updateConfig = useCallback(async (newConfig: Partial<TranslationConfig>) => {
     await translationService.updateConfig(newConfig);
@@ -261,7 +271,10 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
             dispatch({ type: 'SET_TASK_ID', payload: currentTask.taskId });
           }
         } catch (error) {
-          console.error('同步任务状态失败:', error);
+          handleError(error, {
+            context: { operation: '同步任务状态' },
+            showToast: false
+          });
         }
       }, 50);
     };
@@ -280,7 +293,7 @@ export const TranslationProvider: React.FC<{ children: React.ReactNode }> = ({ c
       window.removeEventListener('taskCreated', handleTaskCreated as EventListener);
       window.removeEventListener('taskCleared', handleTaskCleared as EventListener);
     };
-  }, []);
+  }, [handleError]);
 
   const value: TranslationContextValue = useMemo(() => ({
     ...state,

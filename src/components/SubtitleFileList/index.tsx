@@ -15,6 +15,7 @@ import { SubtitleFileItem } from './components/SubtitleFileItem';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { TranscriptionPromptModal } from '../TranscriptionPromptModal';
 import { SettingsModal } from '../SettingsModal';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 
 interface SubtitleFileListProps {
   className?: string;
@@ -43,6 +44,9 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
   const { modelStatus } = useTranscription();
   const { getRelevantTerms } = useTerms();
   const { addHistoryEntry } = useHistory();
+
+  // 使用统一错误处理
+  const { handleError } = useErrorHandler();
 
   const [isTranslatingGloballyState, setIsTranslatingGlobally] = useState(false);
   const [currentTranslatingFileId, setCurrentTranslatingFileId] = useState<string | null>(null);
@@ -181,14 +185,12 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
 
       toast.success(`完成翻译文件: ${file.name}`);
     } catch (error) {
-      if (error.name === 'AbortError' || error.message?.includes('翻译被取消')) {
-        toast.success('翻译已取消');
-      } else {
-        toast.error(`翻译失败: ${error.message}`);
-      }
+      handleError(error, {
+        context: { operation: '翻译', fileName: file.name }
+      });
       setCurrentTranslatingFileId(null);
     }
-  }, [getRelevantTerms, startTranslation, translateBatch, updateEntry, addHistoryEntry, completeTranslation, updateProgress, config, getPreviousEntries, getNextEntries]);
+  }, [getRelevantTerms, startTranslation, translateBatch, updateEntry, addHistoryEntry, completeTranslation, updateProgress, config, getPreviousEntries, getNextEntries, handleError]);
 
   // 批量翻译处理
   const handleStartAllTranslation = useCallback(async () => {
@@ -212,13 +214,14 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
         await handleStartTranslation(file);
         await new Promise(resolve => setTimeout(resolve, API_CONSTANTS.BATCH_TASK_GAP_MS));
       } catch (error) {
-        console.error(`翻译文件 ${file.name} 失败:`, error);
-        toast.error(`翻译文件 ${file.name} 失败: ${error.message}`);
+        handleError(error, {
+          context: { operation: '批量翻译', fileName: file.name }
+        });
       }
     }
 
     setIsTranslatingGlobally(false);
-  }, [files, isTranslatingGloballyState, getTranslationProgress, handleStartTranslation]);
+  }, [files, isTranslatingGloballyState, getTranslationProgress, handleStartTranslation, handleError]);
 
   const handleClearAll = useCallback(async () => {
     if (files.length === 0) return;
@@ -230,12 +233,13 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
       await clearAllData();
       toast.success('所有文件已清空');
     } catch (error) {
-      console.error('清空所有数据失败:', error);
-      toast.error(`清空失败: ${error.message}`);
+      handleError(error, {
+        context: { operation: '清空所有数据' }
+      });
     } finally {
       setShowClearConfirm(false);
     }
-  }, [clearAllData]);
+  }, [clearAllData, handleError]);
 
   const handleDeleteFile = useCallback(async (file: SubtitleFile) => {
     setFileToDelete(file);
@@ -248,12 +252,13 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
     try {
       await removeFile(fileToDelete.id);
     } catch (error) {
-      console.error('删除文件失败:', error);
-      toast.error(`删除失败: ${error.message}`);
+      handleError(error, {
+        context: { operation: '删除文件', fileName: fileToDelete.name }
+      });
     } finally {
       setFileToDelete(null);
     }
-  }, [fileToDelete, removeFile]);
+  }, [fileToDelete, removeFile, handleError]);
 
   const handleExport = useCallback((file: SubtitleFile, format: 'srt' | 'txt' | 'bilingual') => {
     let content = '';

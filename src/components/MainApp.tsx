@@ -20,6 +20,7 @@ import { useHistory } from '@/contexts/HistoryContext';
 import { SubtitleFile } from '@/types';
 import { useTerms } from '@/contexts/TermsContext';
 import dataManager from '@/services/dataManager';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 
 export const MainApp: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -34,6 +35,9 @@ export const MainApp: React.FC = () => {
   const { history } = useHistory();
   const { terms } = useTerms();
 
+  // 使用统一错误处理
+  const { handleError } = useErrorHandler();
+
   const handleEditFile = useCallback((file: SubtitleFile) => {
     setEditingFile(file);
     setIsEditingModalOpen(true);
@@ -45,12 +49,15 @@ export const MainApp: React.FC = () => {
       await dataManager.forcePersistAllData();
       console.log('数据已持久化到localforage');
     } catch (error) {
-      console.error('数据持久化失败:', error);
+      handleError(error, {
+        context: { operation: '数据持久化' },
+        showToast: false
+      });
     } finally {
       setIsEditingModalOpen(false);
       setEditingFile(null);
     }
-  }, []);
+  }, [handleError]);
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 overflow-x-hidden">

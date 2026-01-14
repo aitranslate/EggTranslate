@@ -4,6 +4,7 @@ import { TranscriptionConfig, ModelStatus } from '@/types';
 import dataManager from '@/services/dataManager';
 import toast from 'react-hot-toast';
 import { TRANSCRIPTION_PROGRESS_CONSTANTS, AUDIO_CONSTANTS } from '@/constants/transcription';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 
 interface TranscriptionContextValue {
   // 配置
@@ -110,7 +111,7 @@ async function readCacheInfo(): Promise<Array<{ filename: string; size: number; 
     db.close();
     return cacheEntries;
   } catch (error) {
-    console.warn('[Transcription] Failed to read cache info:', error);
+    // 静默失败，返回空数组
     return [];
   }
 }
@@ -137,6 +138,9 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
   // 进度计算辅助变量
   const progressStartTime = useRef<number>(0);
 
+  // 使用统一错误处理
+  const { handleError } = useErrorHandler();
+
   // 读取 IndexedDB 缓存信息
   const refreshCacheInfo = useCallback(async () => {
     const cacheEntries = await readCacheInfo();
@@ -152,7 +156,6 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
         request.onblocked = () => {
-          console.warn('[Transcription] Delete database blocked, trying again...');
           // 如果被阻塞，稍后重试
           setTimeout(() => {
             const retryRequest = indexedDB.deleteDatabase(PARAKEET_CACHE_DB);
@@ -166,11 +169,12 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
       setCacheInfo([]);
       toast.success('缓存已清空');
     } catch (error) {
-      console.error('[Transcription] Failed to clear cache:', error);
-      toast.error('清空缓存失败');
+      handleError(error, {
+        context: { operation: '清空缓存' }
+      });
       throw error;
     }
-  }, []);
+  }, [handleError]);
 
   // 从本地存储加载配置
   useEffect(() => {
@@ -181,11 +185,14 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
           setConfig(savedConfig);
         }
       } catch (error) {
-        console.error('加载转录配置失败:', error);
+        handleError(error, {
+          context: { operation: '加载转录配置' },
+          showToast: false
+        });
       }
     };
     loadConfig();
-  }, []);
+  }, [handleError]);
 
   // 初始化时加载缓存信息
   useEffect(() => {
@@ -229,7 +236,7 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
           (modelRef.current as any).dispose();
         }
       } catch (e) {
-        console.warn('[Transcription] 释放模型资源时出错:', e);
+        // 静默失败，不需要用户知道
       }
       modelRef.current = null;
     }
@@ -294,14 +301,14 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
       refreshCacheInfo(); // 刷新缓存信息
       toast.success('转录模型加载成功！');
     } catch (error) {
-      console.error('[Transcription] Failed to load model:', error);
+      handleError(error, {
+        context: { operation: '加载转录模型' },
+        showToast: true
+      });
       setModelStatus('error');
       setModelProgress(undefined);
-
-      const errorMessage = error instanceof Error ? error.message : '未知错误';
-      toast.error(`模型加载失败: ${errorMessage}`);
     }
-  }, [config, refreshCacheInfo, disposeModel]);
+  }, [config, refreshCacheInfo, disposeModel, handleError]);
 
   const getModel = useCallback(() => {
     return modelRef.current;
