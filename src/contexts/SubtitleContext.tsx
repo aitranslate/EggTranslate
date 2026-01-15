@@ -244,7 +244,8 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           baseURL: translationConfig.baseURL,
           apiKey: translationConfig.apiKey,
           model: translationConfig.model,
-          sourceLanguage: translationConfig.sourceLanguage
+          sourceLanguage: translationConfig.sourceLanguage,
+          threadCount: translationConfig.threadCount
         },
         {
           onDecoding: () => {

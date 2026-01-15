@@ -26,6 +26,7 @@ export type { TranscriptionWord };
  */
 export interface TranscriptionLLMConfig extends BaseLLMConfig {
   sourceLanguage: string;
+  threadCount?: number;  // LLM 并发线程数，默认 4
 }
 
 /**
@@ -248,13 +249,17 @@ export const runTranscriptionPipeline = async (
   const batches = createBatches(allWords);
   logBatchOverview(batches);
 
-  // 并行处理批次
+  // 按线程数分组处理批次（与翻译流程保持一致）
+  const threadCount = llmConfig.threadCount || 4;
   const allReconstructedSentences: Array<Array<{ sentence: string; startIdx: number; endIdx: number }>> = [];
   let completedBatches = 0;
   let totalTokensUsed = 0;
 
-  await Promise.all(
-    batches.map(async (batch, batchIdx) => {
+  for (let i = 0; i < batches.length; i += threadCount) {
+    const currentBatchGroup = batches.slice(i, i + threadCount);
+
+    const batchPromises = currentBatchGroup.map(async (batch) => {
+      const batchIdx = batches.indexOf(batch);
       try {
         const { sentences, tokensUsed } = await processBatch(batch, llmConfig);
         allReconstructedSentences[batchIdx] = sentences;
@@ -277,8 +282,10 @@ export const runTranscriptionPipeline = async (
         // 抛出错误，停止转录流程
         throw new Error(`LLM 句子分割失败（批次 ${batchIdx + 1}）: ${appError.message}`);
       }
-    })
-  );
+    });
+
+    await Promise.all(batchPromises);
+  }
 
   // 5. 生成字幕条目
   const entries: SubtitleEntry[] = [];
