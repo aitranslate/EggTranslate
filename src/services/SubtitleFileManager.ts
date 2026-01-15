@@ -71,6 +71,8 @@ export async function loadFromFile(
       filename: file.name,
       currentTaskId: taskId,
       type: fileType,
+      fileType: 'audio-video', // 统一文件类型
+      fileSize: file.size,
       fileRef: file, // 保存原始文件引用用于后续转录
       transcriptionStatus: 'idle'
     };

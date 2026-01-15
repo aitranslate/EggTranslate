@@ -19,10 +19,23 @@ interface FileActionButtonsProps {
 
 // Helper function to determine if a file can be re-transcribed
 const canRetranscribe = (file: SubtitleFile): boolean => {
-  // Can only re-transcribe SRT files or incomplete audio-video files
-  const fileType = file.fileType || file.type;
-  return fileType === 'srt' ||
-         (fileType === 'audio-video' && file.transcriptionStatus !== 'completed');
+  // SRT files: don't need transcription
+  if (file.fileType === 'srt' || file.type === 'srt') {
+    return false;
+  }
+
+  // Audio-video files (new unified type): disable if completed
+  if (file.fileType === 'audio-video') {
+    return file.transcriptionStatus !== 'completed';
+  }
+
+  // Legacy audio/video types (file.type = 'audio' | 'video'): can transcribe
+  if (file.type === 'audio' || file.type === 'video') {
+    return true;
+  }
+
+  // Default: allow transcription
+  return true;
 };
 
 export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
@@ -60,7 +73,7 @@ export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
         }`}
         title={
           !canRetranscribe(file)
-            ? (file.fileType || file.type) === 'audio-video' && file.transcriptionStatus === 'completed'
+            ? file.transcriptionStatus === 'completed' && (file.fileType === 'audio-video' || file.type === 'audio' || file.type === 'video')
               ? '音频数据未缓存，需重新上传'
               : 'SRT文件无需转录'
             : '转录'
