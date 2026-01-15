@@ -53,7 +53,7 @@ export interface ProgressCallbacks {
   onChunking?: (duration: number) => void;
   onTranscribing?: (current: number, total: number, percent: number) => void;
   onLLMMerging?: () => void;
-  onLLMProgress?: (completed: number, total: number, percent: number) => void;
+  onLLMProgress?: (completed: number, total: number, percent: number, tokens: number) => void;
 }
 
 /**
@@ -265,7 +265,8 @@ export const runTranscriptionPipeline = async (
         callbacks.onLLMProgress?.(
           completedBatches,
           batches.length,
-          Math.floor(TRANSCRIPTION_PROGRESS.LLM_PROGRESS_START + (completedBatches / batches.length) * TRANSCRIPTION_PROGRESS.LLM_PROGRESS_RANGE)
+          Math.floor(TRANSCRIPTION_PROGRESS.LLM_PROGRESS_START + (completedBatches / batches.length) * TRANSCRIPTION_PROGRESS.LLM_PROGRESS_RANGE),
+          totalTokensUsed
         );
       } catch (error) {
         const reasonText = batch.reason === 'pause'

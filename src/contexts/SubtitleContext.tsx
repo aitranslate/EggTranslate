@@ -278,7 +278,10 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               }
             });
           },
-          onLLMProgress: (completed, total, percent) => {
+          onLLMProgress: (completed, total, percent, tokens) => {
+            // 实时更新 tokens 到 TaskManager（不持久化，避免频繁写入 IndexedDB）
+            dataManager.updateTaskTranslationProgressInMemory(file.currentTaskId, { tokens });
+
             dispatch({
               type: 'UPDATE_FILE',
               payload: {
