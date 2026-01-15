@@ -51,24 +51,27 @@ export async function loadFromFile(
       transcriptionStatus: 'completed'
     };
   } else {
-    // 音视频文件：只存储在内存中，不创建数据库任务
-    // 转录完成后才会创建任务并保存到数据库
-    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // ✅ 音视频文件：也立即创建任务（空条目），转录完成后更新
+    const index = options.existingFilesCount;
+    const taskId = await dataManager.createNewTask(file.name, [], index, {
+      fileType: 'audio-video',
+      fileSize: file.size
+    });
+    const fileId = generateStableFileId(taskId);
 
     return {
-      id: tempId,
+      id: fileId,
       name: file.name,
       size: file.size,
       lastModified: file.lastModified,
-      entries: [], // 音视频文件初始没有字幕
+      entries: [], // 初始为空，转录完成后更新
       filename: file.name,
-      currentTaskId: tempId, // 临时 ID，转录后会替换为真正的 taskId
+      currentTaskId: taskId, // ✅ 直接使用正式 taskId
       type: fileType,
       fileType: 'audio-video',
       fileSize: file.size,
       fileRef: file, // 保存原始文件引用用于后续转录
-      transcriptionStatus: 'idle',
-      isTemp: true // 标记为临时文件，不持久化
+      transcriptionStatus: 'idle'
     };
   }
 }
@@ -106,7 +109,7 @@ export async function removeFile(file: SubtitleFile): Promise<void> {
 
 /**
  * 从 dataManager 恢复文件列表
- * 只恢复已完成的 SRT 字幕文件，不恢复未转录的音视频文件
+ * 恢复所有任务（包括已转录和未转录的音视频文件）
  */
 export async function restoreFiles(): Promise<SubtitleFile[]> {
   const batchTasks = dataManager.getBatchTasks();
@@ -114,26 +117,20 @@ export async function restoreFiles(): Promise<SubtitleFile[]> {
     return [];
   }
 
-  return batchTasks.tasks
-    .filter(task => {
-      // 只恢复有字幕条目的文件（已转录完成的 SRT 文件）
-      return task.subtitle_entries && task.subtitle_entries.length > 0;
-    })
-    .map((task) => ({
-      id: generateStableFileId(task.taskId),
-      name: task.subtitle_filename,
-      size: task.fileSize || 0,
-      lastModified: Date.now(),
-      entries: task.subtitle_entries,
-      filename: task.subtitle_filename,
-      currentTaskId: task.taskId,
-      type: 'srt', // 从数据库恢复的都是已完成的 SRT 文件
-      fileType: 'srt',
-      fileSize: task.fileSize,
-      duration: task.duration,
-      fileRef: undefined, // File对象无法持久化，恢复时为undefined
-      transcriptionStatus: 'completed' as const
-    }));
+  return batchTasks.tasks.map((task) => ({
+    id: generateStableFileId(task.taskId),
+    name: task.subtitle_filename,
+    size: task.fileSize || 0,
+    lastModified: Date.now(),
+    entries: task.subtitle_entries || [],
+    filename: task.subtitle_filename,
+    currentTaskId: task.taskId,
+    type: task.fileType === 'srt' ? 'srt' : undefined,
+    fileType: task.fileType,
+    fileSize: task.fileSize,
+    duration: task.duration,
+    transcriptionStatus: (task.subtitle_entries && task.subtitle_entries.length > 0) ? 'completed' : 'idle' as const
+  }));
 }
 
 /**

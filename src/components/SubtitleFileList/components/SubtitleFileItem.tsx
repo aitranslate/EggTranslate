@@ -32,7 +32,21 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
   isTranslatingGlobally,
   currentTranslatingFileId
 }) => {
-  const [isTranslating, setIsTranslating] = useState(false);
+  // ✅ 派生状态：从 file.transcriptionStatus 计算，不单独存储
+  const isTranscribing = useMemo(() =>
+    file.transcriptionStatus === 'transcribing' ||
+    file.transcriptionStatus === 'llm_merging' ||
+    file.transcriptionStatus === 'decoding' ||
+    file.transcriptionStatus === 'chunking' ||
+    file.transcriptionStatus === 'loading_model',
+    [file.transcriptionStatus]
+  );
+
+  // ✅ 派生状态：当前文件是否正在翻译
+  const isTranslating = useMemo(() =>
+    currentTranslatingFileId === file.id,
+    [currentTranslatingFileId, file.id]
+  );
 
   // 使用统一错误处理
   const { handleError } = useErrorHandler();
@@ -44,6 +58,15 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
     const task = file.currentTaskId ? batchTasks.tasks.find(t => t.taskId === file.currentTaskId) : null;
     const tokens = task?.translation_progress?.tokens || 0;
 
+    // 调试日志
+    if (tokens > 0) {
+      console.log('[SubtitleFileItem] translationStats updated:', {
+        taskId: file.currentTaskId,
+        tokens,
+        from: 'dataManager'
+      });
+    }
+
     return {
       total: file.entries.length,
       translated,
@@ -51,22 +74,7 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
       percentage: file.entries.length > 0 ? Math.round((translated / file.entries.length) * 100) : 0,
       tokens: tokens
     };
-  }, [file.entries, file.currentTaskId, file.transcriptionProgress]);  // ✅ 添加 transcriptionProgress 依赖
-
-  const handleStartTranslationLocal = useCallback(async () => {
-    if (isTranslating) return;
-
-    setIsTranslating(true);
-    try {
-      await onStartTranslation(file);
-    } catch (error) {
-      handleError(error, {
-        context: { operation: '翻译', fileName: file.name }
-      });
-    } finally {
-      setIsTranslating(false);
-    }
-  }, [file, onStartTranslation, isTranslating, handleError]);
+  }, [file.entries, file.currentTaskId, file.transcriptionProgress?.tokens]);  // ✅ 监听 transcriptionProgress.tokens 变化
 
   const handleExport = useCallback((format: 'srt' | 'txt' | 'bilingual') => {
     onExport(file, format);
@@ -150,7 +158,7 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
             isTranslatingGlobally={isTranslatingGlobally}
             currentTranslatingFileId={currentTranslatingFileId}
             onTranscribe={() => onTranscribe(file.id)}
-            onStartTranslation={handleStartTranslationLocal}
+            onStartTranslation={() => onStartTranslation(file)}
             onEdit={() => onEdit(file)}
             onExport={handleExport}
             onDelete={handleDelete}
@@ -181,6 +189,15 @@ export const SubtitleFileItemMemo = memo(SubtitleFileItem, (prevProps, nextProps
     if (prevProps.file[key] !== nextProps.file[key]) {
       return false; // 有变化，需要重渲染
     }
+  }
+
+  // 检查 transcriptionProgress 是否变化（转录进度、tokens）
+  const prevProgress = prevProps.file.transcriptionProgress;
+  const nextProgress = nextProps.file.transcriptionProgress;
+  if (prevProgress?.percent !== nextProgress?.percent ||
+      prevProgress?.tokens !== nextProgress?.tokens ||
+      prevProgress?.llmBatch !== nextProgress?.llmBatch) {
+    return false;
   }
 
   // 检查 entries 数量是否变化（快速检查）

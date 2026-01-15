@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Languages, Mic, Edit3, Download, Trash2 } from 'lucide-react';
 import { SubtitleFile } from '@/types';
 import { canRetranscribe } from '@/utils/fileUtils';
@@ -32,6 +32,16 @@ export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
 }) => {
   const [isExporting, setIsExporting] = useState(false);
 
+  // ✅ 派生状态：从 file.transcriptionStatus 计算
+  const isTranscribing = useMemo(() =>
+    file.transcriptionStatus === 'transcribing' ||
+    file.transcriptionStatus === 'llm_merging' ||
+    file.transcriptionStatus === 'decoding' ||
+    file.transcriptionStatus === 'chunking' ||
+    file.transcriptionStatus === 'loading_model',
+    [file.transcriptionStatus]
+  );
+
   const handleExport = (format: 'srt' | 'txt' | 'bilingual') => {
     onExport(format);
     setIsExporting(false);
@@ -45,21 +55,27 @@ export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
           e.stopPropagation();
           onTranscribe();
         }}
-        disabled={!canRetranscribe(file)}
+        disabled={!canRetranscribe(file) || isTranscribing}
         className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 ${
-          !canRetranscribe(file)
+          !canRetranscribe(file) || isTranscribing
             ? 'bg-gray-500/10 text-gray-500/30 border border-gray-500/20 cursor-not-allowed opacity-50'
             : 'bg-teal-500/20 hover:bg-teal-500/30 text-teal-200 border border-teal-500/30 hover:scale-110'
         }`}
         title={
-          !canRetranscribe(file)
+          isTranscribing
+            ? '转录中...'
+            : !canRetranscribe(file)
             ? file.transcriptionStatus === 'completed' && (file.fileType === 'audio-video' || file.type === 'audio' || file.type === 'video')
               ? '音频数据未缓存，需重新上传'
               : 'SRT文件无需转录'
             : '转录'
         }
       >
-        <Mic className="h-4 w-4" />
+        {isTranscribing ? (
+          <div className="animate-spin h-4 w-4 border-2 border-teal-300 border-t-transparent rounded-full" />
+        ) : (
+          <Mic className="h-4 w-4" />
+        )}
       </button>
 
       {/* 翻译按钮 */}

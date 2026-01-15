@@ -64,7 +64,7 @@ export const TRANSCRIPTION_BATCH_CONSTANTS = {
   SHORT_WORD_COUNT: 10,
 
   /** 默认批次大小 */
-  DEFAULT_BATCH_SIZE: 300,
+  DEFAULT_BATCH_SIZE: 150,
 
   /** LLM 句子分割最大词数 */
   LLM_MAX_WORDS: 20,

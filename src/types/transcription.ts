@@ -64,15 +64,11 @@ export interface TranscriptionProgressInfo {
   totalChunks?: number;      // 总块数
   llmBatch?: number;         // LLM 合并批次 (2/10)
   totalLlmBatches?: number;  // LLM 总批次数
+  tokens?: number;           // LLM 组句消耗的 tokens
 }
 
 /**
  * 字幕文件类型（用于文件管理）
- *
- * Migration notes:
- * - Legacy fields: `type` (FileType), `size` (number) - used by existing code
- * - New unified fields: `fileType` ('srt' | 'audio-video'), `fileSize` (number) - use these in new code
- * - TODO: Gradually migrate from `type` to `fileType`, then remove legacy fields
  */
 export interface SubtitleFile {
   id: string;
@@ -89,5 +85,4 @@ export interface SubtitleFile {
   duration?: number;                  // 音视频时长（秒）
   transcriptionStatus?: TranscriptionStatus;
   transcriptionProgress?: TranscriptionProgressInfo;
-  isTemp?: boolean;                   // 标记是否为临时文件（未转录的音视频）
 }

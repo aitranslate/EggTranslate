@@ -236,38 +236,7 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return;
     }
 
-    // 如果是临时文件（未转录），先创建正式的数据库任务
-    if ((file as any).isTemp) {
-      try {
-        const existingFilesCount = state.files.length;
-        const realTaskId = await dataManager.createNewTask(file.name, [], existingFilesCount, {
-          fileType: 'audio-video',
-          fileSize: file.size
-        });
-
-        // 更新文件状态，替换临时 ID 为正式 ID
-        dispatch({
-          type: 'UPDATE_FILE',
-          payload: {
-            fileId,
-            updates: {
-              currentTaskId: realTaskId,
-              id: generateStableFileId(realTaskId),
-              isTemp: false
-            }
-          }
-        });
-
-        // 更新本地引用，后续使用新的 ID
-        fileId = generateStableFileId(realTaskId);
-      } catch (error) {
-        handleError(error, {
-          context: { operation: '创建转录任务' }
-        });
-        return;
-      }
-    }
-
+    // ✅ 不再需要临时文件转换，所有文件都已经有正式 taskId
     try {
       let totalChunks = 0;
       const result = await runTranscriptionPipeline(
@@ -316,6 +285,9 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             // 实时更新 tokens 到 TaskManager（不持久化，避免频繁写入 IndexedDB）
             dataManager.updateTaskTranslationProgressInMemory(file.currentTaskId, { tokens });
 
+            // 调试日志
+            console.log('[SubtitleContext] onLLMProgress:', { fileId, completed, total, percent, tokens });
+
             dispatch({
               type: 'UPDATE_FILE',
               payload: {
@@ -326,7 +298,8 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                     currentChunk: totalChunks,
                     totalChunks: totalChunks,
                     llmBatch: completed,
-                    totalLlmBatches: total
+                    totalLlmBatches: total,
+                    tokens
                   }
                 }
               }
@@ -337,9 +310,8 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       // 持久化转录结果到 TaskManager（包含字幕条目、时长和 tokens）
       try {
-        // 注意：这里必须使用新的 fileId（正式 taskId），而不是旧的 file.currentTaskId（临时 ID）
-        const realTaskId = (file as any).isTemp ? fileId : file.currentTaskId;
-        await dataManager.updateTaskWithTranscription(realTaskId, result.entries, result.duration, result.tokensUsed);
+        // ✅ 直接使用 file.currentTaskId，所有文件都已经有正式 taskId
+        await dataManager.updateTaskWithTranscription(file.currentTaskId, result.entries, result.duration, result.tokensUsed);
       } catch (persistError) {
         const appError = toAppError(persistError, '持久化转录结果失败');
         console.error('[SubtitleContext]', appError.message, appError);
@@ -353,7 +325,7 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           fileId,
           updates: {
             transcriptionStatus: 'completed',
-            transcriptionProgress: { percent: 100, totalChunks: result.totalChunks, currentChunk: result.totalChunks },
+            transcriptionProgress: { percent: 100, totalChunks: result.totalChunks, currentChunk: result.totalChunks, tokens: result.tokensUsed },
             entries: result.entries,
             duration: result.duration
           }

@@ -2,14 +2,14 @@
 
 > 🚀 **音视频转录 + 字幕翻译，一站式解决方案**
 
-[![在线体验](https://img.shields.io/badge/🌐_在线体验-立即使用-blue?style=for-the-badge&color=4285f4)](https://egg-translate.vercel.app/)
-[![GitHub Stars](https://img.shields.io/github/stars/aitranslate/EggTranslate?style=for-the-badge)](https://github.com/aitranslate/EggTranslate)
+[![在线体验](https://img.shields.io/badge/🌐_在线体验-立即使用-blue?style=for-the-badge&color=4285f4)](https://eggtranslate.pages.dev/)
+[![GitHub Stars](https://img.shields.io/github/stars/aitranslate/eggtranslate?style=for-the-badge)](https://github.com/aitranslate/eggtranslate)
 
 ---
 
 ## ✨ 在线体验
 
-**🎯 无需安装，打开即用：[https://egg-translate.vercel.app/](https://egg-translate.vercel.app/)**
+**🎯 无需安装，打开即用：[https://eggtranslate.pages.dev/](https://eggtranslate.pages.dev/)**
 
 - 🌐 **纯浏览器运行** - 无需下载安装任何软件
 - 🔒 **隐私安全** - 所有处理在本地完成，文件不上传服务器
@@ -162,5 +162,5 @@ A: 首次使用需下载约 2.3 GB，根据网速一般需要 5-15 分钟。下�
 
 ## 📞 联系方式
 
-- **在线体验**：[https://egg-translate.vercel.app/](https://egg-translate.vercel.app/)
-- **问题反馈**：[GitHub Issues](https://github.com/aitranslate/EggTranslate/issues)
+- **在线体验**：[https://eggtranslate.pages.dev/](https://eggtranslate.pages.dev/)
+- **问题反馈**：[GitHub Issues](https://github.com/aitranslate/eggtranslate/issues)

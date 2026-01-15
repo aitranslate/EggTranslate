@@ -5,7 +5,7 @@ import sourceIdentifierPlugin from 'vite-plugin-source-info'
 
 const isProd = process.env.BUILD_MODE === 'prod'
 
-// 部署到 Vercel，使用根路径
+// 部署到 Cloudflare Pages，使用根路径
 const base = '/'
 
 export default defineConfig({

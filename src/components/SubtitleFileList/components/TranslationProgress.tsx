@@ -94,11 +94,17 @@ export const TranslationProgress: React.FC<TranslationProgressProps> = ({
     return { progressTitle, progressPercent, progressColor, progressDetail };
   }, [isTranscribing, isTranslationPhase, file.transcriptionStatus, file.transcriptionProgress, translationStats]);
 
-  // 右下角 tokens（使用 useMemo 优化）
-  const tokensDisplay = useMemo(() =>
-    `${(translationStats?.tokens ?? 0).toLocaleString()} tokens`,
-    [translationStats?.tokens]
-  );
+  // 右下角 tokens（统一从 translationStats 读取，由 dataManager 实时更新）
+  const tokensDisplay = useMemo(() => {
+    const tokens = translationStats?.tokens ?? 0;
+
+    // 调试日志
+    if (tokens > 0) {
+      console.log('[TranslationProgress] tokens:', tokens, 'from dataManager');
+    }
+
+    return `${tokens.toLocaleString()} tokens`;
+  }, [translationStats?.tokens]);
 
   return (
     <div className="flex-grow relative">
