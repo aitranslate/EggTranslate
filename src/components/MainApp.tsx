@@ -14,8 +14,8 @@ import { ProgressDisplay } from './ProgressDisplay';
 import { SettingsModal } from './SettingsModal';
 import { TermsManager } from './TermsManager';
 import { HistoryModal } from './HistoryModal';
-import { useSubtitle, useSingleSubtitle } from '@/contexts/SubtitleContext';
-import { useTranslation } from '@/contexts/TranslationContext';
+import { useFiles } from '@/stores/subtitleStore';
+import { useIsTranslationConfigured } from '@/stores/translationConfigStore';
 import { useHistory } from '@/contexts/HistoryContext';
 import { SubtitleFile } from '@/types';
 import { useTerms } from '@/contexts/TermsContext';
@@ -28,10 +28,8 @@ export const MainApp: React.FC = () => {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [editingFile, setEditingFile] = useState<SubtitleFile | null>(null);
   const [isEditingModalOpen, setIsEditingModalOpen] = useState(false);
-  const { files, getAllFiles } = useSubtitle();
-  const singleSubtitle = useSingleSubtitle();
-  const { entries, filename } = singleSubtitle;
-  const { isTranslating, isConfigured } = useTranslation();
+  const files = useFiles();
+  const isConfigured = useIsTranslationConfigured();
   const { history } = useHistory();
   const { terms } = useTerms();
 
