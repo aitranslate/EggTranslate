@@ -4,7 +4,7 @@ import { useTranscription } from '@/contexts/TranscriptionContext';
 import { TranslationSettings } from './SettingsModal/TranslationSettings';
 import { TranscriptionSettings } from './TranscriptionSettings';
 import { motion } from 'framer-motion';
-import { X, Save } from 'lucide-react';
+import { X, Save, TestTube } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useErrorHandler } from '@/hooks/useErrorHandler';
 
@@ -15,8 +15,17 @@ interface SettingsModalProps {
 
 type TabType = 'translation' | 'transcription';
 
+interface TestResult {
+  success: boolean;
+  message: string;
+}
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const { config, updateConfig } = useTranslation();
+
+  // 测试连接相关状态
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
   const {
     config: transcriptionConfig,
     updateConfig: updateTranscriptionConfig,
@@ -42,8 +51,57 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     if (isOpen) {
       setFormData(config);
       setActiveTab('transcription');
+      setTestResult(null); // 重置测试结果
     }
   }, [isOpen, config]);
+
+  // 测试 API 连接
+  const onTestConnection = useCallback(async () => {
+    const currentApiKey = formData.apiKey?.trim();
+
+    if (!currentApiKey || currentApiKey === '') {
+      setTestResult({ success: false, message: '请先输入API密钥' });
+      return;
+    }
+
+    setIsTesting(true);
+    setTestResult(null);
+
+    try {
+      // 获取第一个 API Key
+      const apiKey = currentApiKey.split('|').map(key => key.trim()).filter(key => key.length > 0)[0];
+
+      const response = await fetch(`${formData.baseURL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: formData.model,
+          messages: [{ role: 'user', content: 'Hello' }],
+          max_tokens: 10
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+      }
+
+      await response.json();
+      setTestResult({ success: true, message: '连接成功！API配置正常' });
+    } catch (error) {
+      handleError(error, {
+        context: { operation: 'API 连接测试' },
+        showToast: false
+      });
+      const message = error instanceof Error ? error.message : '连接失败';
+      setTestResult({ success: false, message });
+    } finally {
+      setIsTesting(false);
+    }
+  }, [formData, handleError]);
 
   const onSave = useCallback(async () => {
     try {
@@ -114,23 +172,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         <div className="space-y-6">
           {activeTab === 'translation' ? (
             <>
-              <TranslationSettings config={formData} onConfigChange={onInputChange} />
+              <TranslationSettings
+                config={formData}
+                onConfigChange={onInputChange}
+                testResult={testResult}
+              />
 
               {/* 操作按钮 */}
-              <div className="flex justify-end space-x-3 pt-4 border-t border-white/20">
+              <div className="flex justify-between items-center pt-4 border-t border-white/20">
+                {/* 左侧：测试连接按钮 */}
                 <button
-                  onClick={onClose}
-                  className="px-6 py-3 bg-gray-500/20 hover:bg-gray-500/30 text-gray-200 border border-gray-500/30 rounded-lg transition-colors"
+                  onClick={onTestConnection}
+                  disabled={isTesting || !formData.apiKey}
+                  className="flex items-center space-x-2 px-6 py-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  取消
+                  <TestTube className={`h-4 w-4 ${isTesting ? 'animate-spin' : ''}`} />
+                  <span>{isTesting ? '测试中...' : '测试连接'}</span>
                 </button>
-                <button
-                  onClick={onSave}
-                  className="flex items-center space-x-2 px-6 py-3 bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 rounded-lg transition-colors"
-                >
-                  <Save className="h-4 w-4" />
-                  <span>保存设置</span>
-                </button>
+
+                {/* 右侧：取消和保存按钮 */}
+                <div className="flex space-x-3">
+                  <button
+                    onClick={onClose}
+                    className="px-6 py-3 bg-gray-500/20 hover:bg-gray-500/30 text-gray-200 border border-gray-500/30 rounded-lg transition-colors"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={onSave}
+                    className="flex items-center space-x-2 px-6 py-3 bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 rounded-lg transition-colors"
+                  >
+                    <Save className="h-4 w-4" />
+                    <span>保存设置</span>
+                  </button>
+                </div>
               </div>
             </>
           ) : (

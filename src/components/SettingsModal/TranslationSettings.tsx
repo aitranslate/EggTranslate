@@ -6,11 +6,13 @@ import { ApiTestForm } from './ApiTestForm';
 interface TranslationSettingsProps {
   config: TranslationConfig;
   onConfigChange: (field: keyof TranslationConfig, value: any) => void;
+  testResult: { success: boolean; message: string } | null;
 }
 
 export const TranslationSettings: React.FC<TranslationSettingsProps> = ({
   config,
-  onConfigChange
+  onConfigChange,
+  testResult
 }) => {
   return (
     <>
@@ -21,7 +23,7 @@ export const TranslationSettings: React.FC<TranslationSettingsProps> = ({
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <ApiTestForm config={config} onConfigChange={onConfigChange} />
+          <ApiTestForm config={config} onConfigChange={onConfigChange} testResult={testResult} />
         </div>
       </div>
 

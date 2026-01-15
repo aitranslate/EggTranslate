@@ -1,82 +1,16 @@
-import React, { useState, useCallback } from 'react';
-import { TestTube, AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import React, { useState } from 'react';
+import { AlertCircle, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { TranslationConfig } from '@/types';
-import { useErrorHandler } from '@/hooks/useErrorHandler';
 
 interface ApiTestFormProps {
   config: TranslationConfig;
   onConfigChange: (field: keyof TranslationConfig, value: any) => void;
+  testResult: { success: boolean; message: string } | null;
 }
 
-interface TestResult {
-  success: boolean;
-  message: string;
-}
-
-export const ApiTestForm: React.FC<ApiTestFormProps> = ({ config, onConfigChange }) => {
-  const [isTesting, setIsTesting] = useState(false);
-  const [testResult, setTestResult] = useState<TestResult | null>(null);
+export const ApiTestForm: React.FC<ApiTestFormProps> = ({ config, onConfigChange, testResult }) => {
   const [showApiKey, setShowApiKey] = useState(false);
-
-  // 使用统一错误处理（但保留测试结果显示）
-  const { handleError } = useErrorHandler();
-
-  // 获取下一个API Key的函数
-  const getNextApiKey = useCallback((apiKeyStr: string): string => {
-    const apiKeys = apiKeyStr.split('|').map(key => key.trim()).filter(key => key.length > 0);
-    if (apiKeys.length === 0) {
-      throw new Error('未配置有效的API密钥');
-    }
-    return apiKeys[0];
-  }, []);
-
-  const onTest = useCallback(async () => {
-    const currentApiKey = config.apiKey?.trim();
-
-    if (!currentApiKey || currentApiKey === '') {
-      setTestResult({ success: false, message: '请先输入API密钥' });
-      return;
-    }
-
-    setIsTesting(true);
-    setTestResult(null);
-
-    try {
-      const apiKey = getNextApiKey(config.apiKey);
-
-      const response = await fetch(`${config.baseURL}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: config.model,
-          messages: [{ role: 'user', content: 'Hello' }],
-          max_tokens: 10
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || `HTTP ${response.status}`);
-      }
-
-      await response.json();
-      setTestResult({ success: true, message: '连接成功！API配置正常' });
-    } catch (error) {
-      // 记录错误到统一错误处理系统
-      handleError(error, {
-        context: { operation: 'API 连接测试' },
-        showToast: false // 不显示 toast，因为我们显示测试结果
-      });
-      const message = error instanceof Error ? error.message : '连接失败';
-      setTestResult({ success: false, message });
-    } finally {
-      setIsTesting(false);
-    }
-  }, [config, getNextApiKey, handleError]);
 
   return (
     <>
@@ -149,18 +83,6 @@ export const ApiTestForm: React.FC<ApiTestFormProps> = ({ config, onConfigChange
           <span>{testResult.message}</span>
         </motion.div>
       )}
-
-      {/* 测试按钮 */}
-      <div className="md:col-span-2">
-        <button
-          onClick={onTest}
-          disabled={isTesting || !config.apiKey}
-          className="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <TestTube className={`h-4 w-4 ${isTesting ? 'animate-spin' : ''}`} />
-          <span>{isTesting ? '测试中...' : '测试连接'}</span>
-        </button>
-      </div>
     </>
   );
 };
