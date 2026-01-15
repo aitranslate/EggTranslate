@@ -138,12 +138,9 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
           }
         }
 
-        const task = dataManager.getTaskById(file.currentTaskId);
-        const currentTokens = task?.translation_progress?.tokens || 0;
-        const newTokens = currentTokens + result.tokensUsed;
-
         const completed = Math.min(i + batch.length, file.entries.length);
-        await updateProgress(completed, file.entries.length, 'direct', 'translating', file.currentTaskId, newTokens);
+        // 传递新增的 tokens，updateProgress 内部会累加
+        await updateProgress(completed, file.entries.length, 'direct', 'translating', file.currentTaskId, result.tokensUsed);
       }
 
       await completeTranslation(file.currentTaskId);

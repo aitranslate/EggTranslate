@@ -184,6 +184,7 @@ class TranslationService {
 
   /**
    * 更新翻译进度
+   * @param newTokens - 新增的 tokens（会累加到现有值）
    */
   async updateProgress(
     current: number,
@@ -195,14 +196,18 @@ class TranslationService {
   ): Promise<void> {
     try {
       if (taskId) {
+        const task = dataManager.getTaskById(taskId);
+        const currentTokens = task?.translation_progress?.tokens || 0;
+
         const updateObj: Parameters<typeof dataManager.updateTaskTranslationProgressInMemory>[1] = {
           completed: current,
           total: total,
           status: phase === 'completed' ? 'completed' : 'translating',
         };
 
-        if (newTokens !== undefined) {
-          updateObj.tokens = newTokens;
+        // 累加 tokens（而不是覆盖）
+        if (newTokens !== undefined && newTokens > 0) {
+          updateObj.tokens = currentTokens + newTokens;
         }
 
         dataManager.updateTaskTranslationProgressInMemory(taskId, updateObj);
