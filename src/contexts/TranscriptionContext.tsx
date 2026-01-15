@@ -3,7 +3,7 @@ import { ParakeetModel, getParakeetModel } from 'parakeet.js';
 import { TranscriptionConfig, ModelStatus } from '@/types';
 import dataManager from '@/services/dataManager';
 import toast from 'react-hot-toast';
-import { TRANSCRIPTION_PROGRESS_CONSTANTS, AUDIO_CONSTANTS } from '@/constants/transcription';
+import { TRANSCRIPTION_PROGRESS_CONSTANTS, AUDIO_CONSTANTS, WEBGPU_CONSTANTS } from '@/constants/transcription';
 import { useErrorHandler } from '@/hooks/useErrorHandler';
 import { loadModelFromCache } from '@/utils/loadModelFromCache';
 
@@ -250,7 +250,7 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
       try {
         modelCleanupRef.current();
       } catch (e) {
-        // 静默失败 (empty catch)
+        // 清理函数抛出错误时忽略，确保后续清理逻辑执行
       }
       modelCleanupRef.current = null;
     }
@@ -259,7 +259,7 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
     modelRef.current = null;
 
     // 等待一小段时间，确保 WebGPU 完成所有待处理的释放操作
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, WEBGPU_CONSTANTS.RELEASE_DELAY_MS));
   }, []);
 
   // 下载模型到 IndexedDB

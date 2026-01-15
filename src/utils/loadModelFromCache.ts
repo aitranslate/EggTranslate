@@ -18,16 +18,24 @@ export interface LoadModelProgress {
 }
 
 /**
+ * 加载模型结果
+ */
+export interface LoadModelResult {
+  model: ParakeetModel;
+  cleanup: () => void;
+}
+
+/**
  * 从 IndexedDB 缓存加载 Parakeet 模型
  * @param config - 转录配置
  * @param onProgress - 可选的进度回调
- * @returns { model: ParakeetModel, cleanup: () => void } 模型和清理函数
+ * @returns 模型和清理函数
  * @throws 如果缓存文件不存在则抛出错误
  */
 export async function loadModelFromCache(
   config: TranscriptionConfig,
   onProgress?: (progress: LoadModelProgress) => void
-): Promise<{ model: ParakeetModel; cleanup: () => void }> {
+): Promise<LoadModelResult> {
   const { repoId, encoderQuant, decoderQuant, backend } = config;
 
   // WebGPU 要求 encoder 必须是 fp32

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Languages, Mic, Edit3, Download, Trash2 } from 'lucide-react';
 import { SubtitleFile } from '@/types';
+import { canRetranscribe } from '@/utils/fileUtils';
 
 interface FileActionButtonsProps {
   file: SubtitleFile;
@@ -16,27 +17,6 @@ interface FileActionButtonsProps {
   onExport: (format: 'srt' | 'txt' | 'bilingual') => void;
   onDelete: () => void;
 }
-
-// Helper function to determine if a file can be re-transcribed
-const canRetranscribe = (file: SubtitleFile): boolean => {
-  // SRT files: don't need transcription
-  if (file.fileType === 'srt' || file.type === 'srt') {
-    return false;
-  }
-
-  // Audio-video files (new unified type): disable if completed
-  if (file.fileType === 'audio-video') {
-    return file.transcriptionStatus !== 'completed';
-  }
-
-  // Legacy audio/video types (file.type = 'audio' | 'video'): can transcribe
-  if (file.type === 'audio' || file.type === 'video') {
-    return true;
-  }
-
-  // Default: allow transcription
-  return true;
-};
 
 export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
   file,

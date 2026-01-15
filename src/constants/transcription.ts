@@ -103,3 +103,11 @@ export const ID_GENERATION_CONSTANTS = {
   /** 随机字符串长度 */
   RANDOM_LENGTH: 9,
 } as const;
+
+/**
+ * WebGPU 常量
+ */
+export const WEBGPU_CONSTANTS = {
+  /** 释放模型后的延迟（毫秒），确保 WebGPU 完成所有待处理的释放操作 */
+  RELEASE_DELAY_MS: 100,
+} as const;

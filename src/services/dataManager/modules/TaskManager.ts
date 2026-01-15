@@ -383,13 +383,12 @@ class TaskManager {
     duration: number,
     tokensUsed?: number
   ): Promise<void> {
-    try {
-      const task = this.memoryStore.batch_tasks.tasks.find(t => t.taskId === taskId);
-      if (!task) {
-        console.warn('[TaskManager] Task not found:', taskId);
-        return;
-      }
+    const task = this.memoryStore.batch_tasks.tasks.find(t => t.taskId === taskId);
+    if (!task) {
+      throw new Error(`Task not found: ${taskId}`);
+    }
 
+    try {
       // 更新内存中的任务数据
       const updatedTask = {
         ...task,
