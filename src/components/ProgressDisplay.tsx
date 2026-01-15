@@ -1,26 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from '@/contexts/TranslationContext';
-import { useSingleSubtitle } from '@/contexts/SubtitleContext';
 import { motion } from 'framer-motion';
 import { Clock, Zap } from 'lucide-react';
+import { SubtitleEntry } from '@/types';
+import {
+  useTranslationConfigStore,
+  useTranslationProgress,
+  useTranslationTokensUsed
+} from '@/stores/translationConfigStore';
 
 interface ProgressDisplayProps {
   className?: string;
+  entries: SubtitleEntry[];
 }
 
-export const ProgressDisplay: React.FC<ProgressDisplayProps> = ({ className }) => {
-  const { isTranslating, progress, tokensUsed } = useTranslation();
-  const { entries } = useSingleSubtitle();
+export const ProgressDisplay: React.FC<ProgressDisplayProps> = ({ className, entries }) => {
+  const progress = useTranslationProgress();
+  const tokensUsed = useTranslationTokensUsed();
+  const isTranslating = useTranslationConfigStore((state) => state.isTranslating);
 
   // 计算字幕条目进度
   const [subtitleProgress, setSubtitleProgress] = useState({ current: 0, total: 0 });
-  
+
   useEffect(() => {
     if (entries.length > 0) {
-      const completedCount = entries.filter(entry => 
+      const completedCount = entries.filter(entry =>
         entry.translatedText && entry.translatedText.trim() !== ''
       ).length;
-      
+
       setSubtitleProgress({
         current: completedCount,
         total: entries.length
