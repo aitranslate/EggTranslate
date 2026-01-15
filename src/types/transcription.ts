@@ -66,16 +66,25 @@ export interface TranscriptionProgressInfo {
   totalLlmBatches?: number;  // LLM 总批次数
 }
 
-// 字幕文件类型（用于文件管理）
+/**
+ * 字幕文件类型（用于文件管理）
+ *
+ * Migration notes:
+ * - Legacy fields: `type` (FileType), `size` (number) - used by existing code
+ * - New unified fields: `fileType` ('srt' | 'audio-video'), `fileSize` (number) - use these in new code
+ * - TODO: Gradually migrate from `type` to `fileType`, then remove legacy fields
+ */
 export interface SubtitleFile {
   id: string;
   name: string;
-  size: number;
+  size: number;                       // Legacy: File size in bytes - use fileSize in new code
   lastModified: number;
   entries: SubtitleEntry[];
   filename: string;
   currentTaskId: string;
-  type?: FileType;                    // 文件类型：srt, audio, video
+  type?: FileType;                    // Legacy: 'srt' | 'audio' | 'video' - TODO: migrate to fileType
+  fileType?: 'srt' | 'audio-video';   // Unified type: use this field in new code
+  fileSize?: number;                  // Unified size (bytes): use this field in new code
   fileRef?: File;                     // 原始文件引用（用于音视频转录）
   duration?: number;                  // 音视频时长（秒）
   transcriptionStatus?: TranscriptionStatus;
