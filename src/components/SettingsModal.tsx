@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { useTranslation } from '@/contexts/TranslationContext';
-import { useTranscription } from '@/contexts/TranscriptionContext';
+import { useTranslationConfigStore, useTranslationConfig } from '@/stores/translationConfigStore';
+import { useTranscriptionStore, useTranscriptionConfig, useModelStatus, useIsDownloading, useCacheInfo } from '@/stores/transcriptionStore';
 import { TranslationSettings } from './SettingsModal/TranslationSettings';
 import { TranscriptionSettings } from './TranscriptionSettings';
 import { motion } from 'framer-motion';
@@ -21,24 +21,30 @@ interface TestResult {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-  const { config, updateConfig } = useTranslation();
+  // Translation config
+  const config = useTranslationConfig();
+  const updateConfig = useTranslationConfigStore((state) => state.updateConfig);
+
+  // Transcription config and state
+  const transcriptionConfig = useTranscriptionConfig();
+  const updateTranscriptionConfig = useTranscriptionStore((state) => state.updateConfig);
+  const modelStatus = useModelStatus();
+  const isDownloading = useIsDownloading();
+  const cacheInfo = useCacheInfo();
+
+  // Get modelProgress and downloadProgress directly from store
+  const modelProgress = useTranscriptionStore((state) => state.modelProgress);
+  const downloadProgress = useTranscriptionStore((state) => state.downloadProgress);
+
+  // Get action methods
+  const downloadModel = useTranscriptionStore((state) => state.downloadModel);
+  const loadModel = useTranscriptionStore((state) => state.loadModel);
+  const refreshCacheInfo = useTranscriptionStore((state) => state.refreshCacheInfo);
+  const clearCache = useTranscriptionStore((state) => state.clearCache);
 
   // 测试连接相关状态
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
-  const {
-    config: transcriptionConfig,
-    updateConfig: updateTranscriptionConfig,
-    modelStatus,
-    modelProgress,
-    isDownloading,
-    downloadProgress,
-    cacheInfo,
-    refreshCacheInfo,
-    clearCache,
-    downloadModel,
-    loadModel
-  } = useTranscription();
 
   // 使用统一错误处理
   const { handleError } = useErrorHandler();
