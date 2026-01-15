@@ -81,13 +81,13 @@ export const TRANSCRIPTION_PROGRESS = {
   LONG_AUDIO_PROGRESS_START: 10,
 
   /** 长音频转录进度范围 */
-  LONG_AUDIO_PROGRESS_RANGE: 70,
+  LONG_AUDIO_PROGRESS_RANGE: 40,
 
   /** LLM 合并进度起始百分比 */
-  LLM_PROGRESS_START: 80,
+  LLM_PROGRESS_START: 50,
 
   /** LLM 合并进度范围 */
-  LLM_PROGRESS_RANGE: 20,
+  LLM_PROGRESS_RANGE: 50,
 } as const;
 
 /**

@@ -51,7 +51,7 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
       percentage: file.entries.length > 0 ? Math.round((translated / file.entries.length) * 100) : 0,
       tokens: tokens
     };
-  }, [file.entries, file.currentTaskId]);
+  }, [file.entries, file.currentTaskId, file.transcriptionProgress]);  // ✅ 添加 transcriptionProgress 依赖
 
   const handleStartTranslationLocal = useCallback(async () => {
     if (isTranslating) return;

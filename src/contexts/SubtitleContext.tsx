@@ -16,6 +16,7 @@ import { exportSRT, exportTXT, exportBilingual, getTranslationProgress } from '@
 import { generateTaskId, generateStableFileId } from '@/utils/taskIdGenerator';
 import { useErrorHandler } from '@/hooks/useErrorHandler';
 import { toAppError } from '@/utils/errors';
+import { TRANSCRIPTION_PROGRESS } from '@/constants/transcription';
 import dataManager from '@/services/dataManager';
 
 interface SubtitleState {
@@ -274,7 +275,7 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 fileId,
                 updates: {
                   transcriptionStatus: 'llm_merging',
-                  transcriptionProgress: { percent: 80, llmBatch: 0, totalLlmBatches: 0 }
+                  transcriptionProgress: { percent: TRANSCRIPTION_PROGRESS.LLM_PROGRESS_START, llmBatch: 0, totalLlmBatches: 0 }
                 }
               }
             });
