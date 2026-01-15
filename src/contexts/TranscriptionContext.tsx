@@ -74,12 +74,33 @@ function cleanCacheFilename(key: string): string {
 }
 
 /**
+ * 检查 IndexedDB 数据库是否存在（不创建数据库）
+ */
+async function databaseExists(dbName: string): Promise<boolean> {
+  try {
+    // 使用 indexedDB.databases() API 列出所有数据库
+    const databases = await indexedDB.databases();
+    return databases?.some(db => db.name === dbName) ?? false;
+  } catch {
+    // 如果浏览器不支持 databases() API，回退到旧方法
+    return false;
+  }
+}
+
+/**
  * 读取 IndexedDB 缓存信息
+ * 如果数据库不存在，不创建数据库，返回空数组
  */
 async function readCacheInfo(): Promise<Array<{ filename: string; size: number; date: number }>> {
   try {
+    // 先检测数据库是否存在，如果不存在直接返回空数组
+    const exists = await databaseExists(PARAKEET_CACHE_DB);
+    if (!exists) {
+      return [];
+    }
+
+    // 数据库存在，安全地打开
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      // 不指定版本号，打开当前存在的版本
       const request = indexedDB.open(PARAKEET_CACHE_DB);
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve(request.result);
@@ -165,7 +186,7 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
   // 清空 IndexedDB 缓存
   const clearCache = useCallback(async () => {
     try {
-      // 删除整个数据库
+      // 直接删除整个数据库，让 parakeet.js 重新创建
       await new Promise<void>((resolve, reject) => {
         const request = indexedDB.deleteDatabase(PARAKEET_CACHE_DB);
         request.onsuccess = () => resolve();

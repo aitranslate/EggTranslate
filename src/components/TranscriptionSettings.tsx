@@ -242,8 +242,7 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
             <div className="flex gap-3">
               <button
                 onClick={onDownloadModel}
-                disabled={cacheInfo.length === 0}
-                className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 rounded-lg transition-colors"
               >
                 <Download className="h-4 w-4" />
                 <span>{cacheInfo.length > 0 ? '重新下载' : '下载模型'}</span>
