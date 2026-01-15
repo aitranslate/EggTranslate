@@ -15,6 +15,7 @@ import {
 import { exportSRT, exportTXT, exportBilingual, getTranslationProgress } from '@/services/SubtitleExporter';
 import { generateTaskId, generateStableFileId } from '@/utils/taskIdGenerator';
 import { useErrorHandler } from '@/hooks/useErrorHandler';
+import dataManager from '@/services/dataManager';
 
 interface SubtitleState {
   files: SubtitleFile[];
@@ -312,7 +313,6 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       // 持久化转录结果到 TaskManager（包含字幕条目和时长）
       try {
-        const { default: dataManager } = await import('@/services/dataManager');
         await dataManager.updateTaskWithTranscription(file.currentTaskId, result.entries, result.duration);
       } catch (persistError) {
         console.error('[SubtitleContext] 持久化转录结果失败:', persistError);
