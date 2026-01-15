@@ -78,22 +78,9 @@ self.addEventListener('fetch', event => {
   }
 
   // 根据资源类型选择缓存策略
-  if (isStaticAsset(request.url)) {
-    // 静态资源：缓存优先
-    event.respondWith(cacheFirst(request));
-  } else if (isHTMLRequest(request)) {
-    // HTML文件：网络优先
-    event.respondWith(networkFirst(request));
-  } else {
-    // 其他资源：缓存优先
-    event.respondWith(cacheFirst(request));
-  }
+  // 全部使用缓存优先策略，确保快速加载
+  event.respondWith(cacheFirst(request));
 });
-
-// 判断是否为静态资源
-function isStaticAsset(url) {
-  return /\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)(\?.*)?$/.test(url);
-}
 
 // 判断是否为HTML请求
 function isHTMLRequest(request) {
@@ -101,13 +88,26 @@ function isHTMLRequest(request) {
          (request.headers.get('accept') || '').includes('text/html');
 }
 
-// 缓存优先策略
+// 缓存优先策略（Stale While Revalidate）
 async function cacheFirst(request) {
+  const cache = await caches.open(RUNTIME_CACHE);
+
   try {
-    // 先查缓存
+    // 先查缓存，立即返回
     const cachedResponse = await caches.match(request);
     if (cachedResponse) {
       console.log('[SW] 缓存命中:', request.url);
+
+      // 后台更新缓存（不阻塞响应）
+      fetch(request).then(networkResponse => {
+        if (networkResponse.ok) {
+          cache.put(request, networkResponse.clone());
+          console.log('[SW] 后台更新缓存:', request.url);
+        }
+      }).catch(() => {
+        // 后台更新失败，忽略
+      });
+
       return addIsolationHeaders(cachedResponse);
     }
 
@@ -117,7 +117,6 @@ async function cacheFirst(request) {
 
     // 缓存成功的响应
     if (networkResponse.ok) {
-      const cache = await caches.open(RUNTIME_CACHE);
       cache.put(request, networkResponse.clone());
       console.log('[SW] 已缓存:', request.url);
     }
@@ -139,34 +138,6 @@ async function cacheFirst(request) {
       if (offlineResponse) {
         return addIsolationHeaders(offlineResponse);
       }
-    }
-
-    throw error;
-  }
-}
-
-// 网络优先策略
-async function networkFirst(request) {
-  try {
-    console.log('[SW] 网络优先请求:', request.url);
-    const networkResponse = await fetch(request);
-
-    // 缓存成功的响应
-    if (networkResponse.ok) {
-      const cache = await caches.open(RUNTIME_CACHE);
-      cache.put(request, networkResponse.clone());
-      console.log('[SW] 已更新缓存:', request.url);
-    }
-
-    return addIsolationHeaders(networkResponse);
-  } catch (error) {
-    console.error('[SW] 网络请求失败:', request.url, error);
-
-    // 网络失败时返回缓存
-    const cachedResponse = await caches.match(request);
-    if (cachedResponse) {
-      console.log('[SW] 网络失败，返回缓存:', request.url);
-      return addIsolationHeaders(cachedResponse);
     }
 
     throw error;
