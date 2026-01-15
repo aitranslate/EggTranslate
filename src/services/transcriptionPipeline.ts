@@ -89,7 +89,6 @@ const callLlmApi = async (prompt: string, config: TranscriptionLLMConfig): Promi
  */
 const processBatch = async (
   batch: BatchInfo,
-  batchIdx: number,
   llmConfig: TranscriptionLLMConfig
 ): Promise<{
   sentences: Array<{ sentence: string; startIdx: number; endIdx: number }>;
@@ -122,8 +121,9 @@ const processBatch = async (
 
   const { content: llmResponse, tokensUsed } = await callLlmApi(segmentationPrompt, llmConfig);
 
-  // 🔍 调试日志：记录 LLM 原始响应
-  console.log(`[TranscriptionPipeline] Batch ${batchIdx + 1} LLM response:`, {
+  // 🔍 调试日志：记录 LLM 原始响应（使用 startIdx 标识批次）
+  console.log(`[TranscriptionPipeline] Batch [${batch.startIdx}] LLM response:`, {
+    wordCount: batch.words.length,
     responseLength: llmResponse.length,
     responsePreview: llmResponse.substring(0, 500),
     isEmpty: !llmResponse,
@@ -135,7 +135,7 @@ const processBatch = async (
   const repairedJson = jsonrepair(llmResponse);
 
   // 🔍 调试日志：记录修复后的 JSON
-  console.log(`[TranscriptionPipeline] Batch ${batchIdx + 1} Repaired JSON:`, {
+  console.log(`[TranscriptionPipeline] Batch [${batch.startIdx}] Repaired JSON:`, {
     repairedLength: repairedJson.length,
     repairedPreview: repairedJson.substring(0, 500),
     isEmpty: !repairedJson,
@@ -287,7 +287,7 @@ export const runTranscriptionPipeline = async (
     const batchPromises = currentBatchGroup.map(async (batch) => {
       const batchIdx = batches.indexOf(batch);
       try {
-        const { sentences, tokensUsed } = await processBatch(batch, batchIdx, llmConfig);
+        const { sentences, tokensUsed } = await processBatch(batch, llmConfig);
         allReconstructedSentences[batchIdx] = sentences;
         totalTokensUsed += tokensUsed;
 
@@ -304,9 +304,9 @@ export const runTranscriptionPipeline = async (
           ? `pause ${batch.pauseGap?.toFixed(1)}s`
           : batch.reason === 'punctuation' ? 'punctuation' : 'limit';
         const appError = toAppError(error);
-        console.error(`[TranscriptionPipeline] Batch ${batchIdx + 1} (${batch.words.length} words, ${reasonText}) 处理失败:`, appError.message);
+        console.error(`[TranscriptionPipeline] Batch [${batch.startIdx}] (${batch.words.length} words, ${reasonText}) 处理失败:`, appError.message);
         // 抛出错误，停止转录流程
-        throw new Error(`LLM 句子分割失败（批次 ${batchIdx + 1}）: ${appError.message}`);
+        throw new Error(`LLM 句子分割失败（批次 [${batch.startIdx}]）: ${appError.message}`);
       }
     });
 
