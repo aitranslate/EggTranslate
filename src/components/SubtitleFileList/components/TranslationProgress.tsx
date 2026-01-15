@@ -17,47 +17,70 @@ export const TranslationProgress: React.FC<TranslationProgressProps> = ({
   file,
   translationStats
 }) => {
-  // 判断当前状态：转录中/翻译中
+  // 判断当前状态
   const isTranscribing = file.transcriptionStatus === 'transcribing' ||
                         file.transcriptionStatus === 'llm_merging' ||
                         file.transcriptionStatus === 'loading_model' ||
                         file.transcriptionStatus === 'decoding' ||
                         file.transcriptionStatus === 'chunking';
 
-  const isTranslating = translationStats.percentage > 0 && translationStats.percentage < 100;
+  // SRT 文件或已开始翻译
+  const isTranslationPhase = file.type === 'srt' || translationStats.percentage > 0;
 
-  // 进度标题：左上方
-  const progressTitle = isTranscribing ? '转录进度' :
-                       translationStats.percentage > 0 ? '翻译进度' :
-                       file.transcriptionStatus === 'completed' ? '翻译进度' : '转录进度';
+  // 计算进度标题
+  let progressTitle: string;
+  if (isTranscribing) {
+    progressTitle = '转录进度';
+  } else if (isTranslationPhase) {
+    progressTitle = '翻译进度';
+  } else if (file.transcriptionStatus === 'completed') {
+    progressTitle = '转录完成';
+  } else {
+    progressTitle = '转录进度';
+  }
 
-  // 进度百分比：右上角
-  const progressPercent = isTranscribing
-    ? (file.transcriptionProgress?.percent ?? 0)
-    : translationStats.percentage;
+  // 计算进度百分比
+  let progressPercent: number;
+  if (isTranscribing) {
+    progressPercent = file.transcriptionProgress?.percent ?? 0;
+  } else if (isTranslationPhase) {
+    progressPercent = translationStats.percentage;
+  } else if (file.transcriptionStatus === 'completed') {
+    progressPercent = 100; // 转录完成
+  } else {
+    progressPercent = 0; // 未开始
+  }
 
   // 进度条颜色
-  const progressColor = translationStats.percentage === 100
+  const progressColor = progressPercent === 100
     ? 'from-green-400 to-emerald-400'
-    : isTranslating
-    ? 'from-purple-400 to-blue-400'
     : isTranscribing
     ? 'from-teal-400 to-cyan-400'
-    : 'from-green-400 to-emerald-400';
+    : 'from-purple-400 to-blue-400';
 
   // 左下角进度详情
-  const progressDetail = isTranscribing
-    ? (() => {
-        if (file.transcriptionStatus === 'transcribing') {
-          return `转录 ${file.transcriptionProgress?.currentChunk || 0} / ${file.transcriptionProgress?.totalChunks || 0}`;
-        } else if (file.transcriptionStatus === 'llm_merging') {
-          const batch = file.transcriptionProgress?.llmBatch || 0;
-          const total = file.transcriptionProgress?.totalLlmBatches || 0;
-          return batch > 0 ? `LLM组句 ${batch} / ${total}` : '准备LLM组句...';
-        }
-        return '处理中...';
-      })()
-    : `${translationStats.translated} / ${translationStats.total} 已翻译`;
+  let progressDetail: string;
+  if (isTranscribing) {
+    // 转录中
+    if (file.transcriptionStatus === 'transcribing') {
+      progressDetail = `转录 ${file.transcriptionProgress?.currentChunk || 0} / ${file.transcriptionProgress?.totalChunks || 0}`;
+    } else if (file.transcriptionStatus === 'llm_merging') {
+      const batch = file.transcriptionProgress?.llmBatch || 0;
+      const total = file.transcriptionProgress?.totalLlmBatches || 0;
+      progressDetail = batch > 0 ? `LLM组句 ${batch} / ${total}` : '准备LLM组句...';
+    } else {
+      progressDetail = '处理中...';
+    }
+  } else if (isTranslationPhase) {
+    // 翻译阶段
+    progressDetail = `${translationStats.translated} / ${translationStats.total} 已翻译`;
+  } else if (file.transcriptionStatus === 'completed') {
+    // 转录完成但未翻译
+    progressDetail = `转录完成 ${translationStats.total} 条`;
+  } else {
+    // 未开始
+    progressDetail = '等待转录';
+  }
 
   // 右下角 tokens
   const tokensDisplay = `${translationStats.tokens.toLocaleString()} tokens`;
