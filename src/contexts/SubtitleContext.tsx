@@ -236,6 +236,38 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return;
     }
 
+    // 如果是临时文件（未转录），先创建正式的数据库任务
+    if ((file as any).isTemp) {
+      try {
+        const existingFilesCount = state.files.length;
+        const realTaskId = await dataManager.createNewTask(file.name, [], existingFilesCount, {
+          fileType: 'audio-video',
+          fileSize: file.size
+        });
+
+        // 更新文件状态，替换临时 ID 为正式 ID
+        dispatch({
+          type: 'UPDATE_FILE',
+          payload: {
+            fileId,
+            updates: {
+              currentTaskId: realTaskId,
+              id: generateStableFileId(realTaskId),
+              isTemp: false
+            }
+          }
+        });
+
+        // 更新本地引用，后续使用新的 ID
+        fileId = generateStableFileId(realTaskId);
+      } catch (error) {
+        handleError(error, {
+          context: { operation: '创建转录任务' }
+        });
+        return;
+      }
+    }
+
     try {
       let totalChunks = 0;
       const result = await runTranscriptionPipeline(

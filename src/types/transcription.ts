@@ -89,4 +89,5 @@ export interface SubtitleFile {
   duration?: number;                  // 音视频时长（秒）
   transcriptionStatus?: TranscriptionStatus;
   transcriptionProgress?: TranscriptionProgressInfo;
+  isTemp?: boolean;                   // 标记是否为临时文件（未转录的音视频）
 }
