@@ -2,13 +2,13 @@
 
 > 🚀 **基于大语言模型的智能字幕翻译工具**
 
-[![在线体验](https://img.shields.io/badge/🌐_在线体验-立即使用-blue?style=for-the-badge&color=4285f4)](https://aitranslate.github.io/EggTranslate/)
+[![在线体验](https://img.shields.io/badge/🌐_在线体验-立即使用-blue?style=for-the-badge&color=4285f4)](https://egg-translate.vercel.app/)
 [![GitHub Stars](https://img.shields.io/github/stars/aitranslate/EggTranslate?style=for-the-badge)](https://github.com/aitranslate/EggTranslate)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
 ## ✨ 在线体验
 
-**🎯 无需安装，打开即用：[https://aitranslate.github.io/EggTranslate/](https://aitranslate.github.io/EggTranslate/)**
+**🎯 无需安装，打开即用：[https://egg-translate.vercel.app/](https://egg-translate.vercel.app/)**
 
 - 🌐 **纯浏览器运行**：无需下载安装任何软件
 - 🔒 **隐私安全**：所有处理在本地完成，文件不上传服务器
@@ -39,7 +39,7 @@
 
 ### 在线使用（推荐）
 
-1. **访问网站**：[https://aitranslate.github.io/EggTranslate/](https://aitranslate.github.io/EggTranslate/)
+1. **访问网站**：[https://egg-translate.vercel.app/](https://egg-translate.vercel.app/)
 2. **配置 API**：设置兼容 OpenAI API 的大模型服务（DeepSeek、通义千问、智谱、豆包等）
 3. **上传字幕**：拖拽或点击上传 SRT 字幕文件
 4. **设置语言**：选择源语言和目标语言
@@ -116,6 +116,6 @@
 
 ## 📞 联系方式
 
-- **在线体验**：[https://aitranslate.github.io/EggTranslate/](https://aitranslate.github.io/EggTranslate/)
+- **在线体验**：[https://egg-translate.vercel.app/](https://egg-translate.vercel.app/)
 - **GitHub Issues**：[提交问题](https://github.com/aitranslate/EggTranslate/issues)
 - **项目主页**：[GitHub Repository](https://github.com/aitranslate/EggTranslate)
