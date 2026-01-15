@@ -111,31 +111,7 @@ export async function callLLM(
       }
 
       const data = await response.json();
-
-      // 🔍 调试日志：记录 API 原始响应
-      console.log('[LLM API] Raw response:', {
-        hasChoices: !!data.choices,
-        choicesLength: data.choices?.length,
-        firstChoice: data.choices?.[0],
-        usage: data.usage
-      });
-
       const content = data.choices[0]?.message?.content || '';
-
-      // 🔍 调试日志：记录提取的内容
-      if (!content) {
-        console.error('[LLM API] ⚠️ Empty content detected!', {
-          fullResponse: data,
-          choices: data.choices,
-          hasMessage: !!data.choices?.[0]?.message
-        });
-      } else {
-        console.log('[LLM API] ✅ Content extracted:', {
-          length: content.length,
-          preview: content.substring(0, 200),
-          isJson: content.trim().startsWith('{')
-        });
-      }
 
       // 计算 token 消耗（粗略估计，实际应该使用 usage.total_tokens）
       const tokensUsed = data.usage?.total_tokens || 0;

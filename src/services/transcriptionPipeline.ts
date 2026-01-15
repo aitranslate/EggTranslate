@@ -121,34 +121,8 @@ const processBatch = async (
 
   const { content: llmResponse, tokensUsed } = await callLlmApi(segmentationPrompt, llmConfig);
 
-  // 🔍 调试日志：记录 LLM 原始响应（使用 startIdx 标识批次）
-  console.log(`[TranscriptionPipeline] Batch [${batch.startIdx}] LLM response:`, {
-    wordCount: batch.words.length,
-    responseLength: llmResponse.length,
-    responsePreview: llmResponse.substring(0, 500),
-    isEmpty: !llmResponse,
-    startsWithBrace: llmResponse.trim().startsWith('{'),
-    startsWithCodeBlock: llmResponse.trim().startsWith('```')
-  });
-
   // 使用 jsonrepair 清理 markdown 代码块等格式问题
   const repairedJson = jsonrepair(llmResponse);
-
-  // 🔍 调试日志：记录修复后的 JSON
-  console.log(`[TranscriptionPipeline] Batch [${batch.startIdx}] Repaired JSON:`, {
-    repairedLength: repairedJson.length,
-    repairedPreview: repairedJson.substring(0, 500),
-    isEmpty: !repairedJson,
-    isValidJson: (() => {
-      try {
-        JSON.parse(repairedJson);
-        return true;
-      } catch {
-        return false;
-      }
-    })()
-  });
-
   const parsed = JSON.parse(repairedJson);
   const llmSentences = parsed.sentences || [];
 
