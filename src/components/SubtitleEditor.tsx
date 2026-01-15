@@ -1,11 +1,10 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { useSingleSubtitle } from '@/contexts/SubtitleContext';
-import { useTranslation } from '@/contexts/TranslationContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Edit3, Save, X, Search, Filter, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { SubtitleFile, SubtitleEntry } from '@/types';
 import { useErrorHandler } from '@/hooks/useErrorHandler';
+import { useSubtitleStore } from '@/stores/subtitleStore';
 
 interface SubtitleEditorProps {
   isOpen: boolean;
@@ -18,8 +17,9 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   onClose,
   file
 }) => {
-  const { entries, updateEntry, clearAllData } = useSingleSubtitle(file?.id);
-  const { resetProgress } = useTranslation();
+  // 从 file prop 直接获取数据
+  const entries = file?.entries || [];
+  const updateEntry = useSubtitleStore((state) => state.updateEntry);
 
   // 使用统一错误处理
   const { handleError } = useErrorHandler();
@@ -30,7 +30,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'translated' | 'untranslated'>('all');
   
-  // 直接使用 context 中的 entries，确保获取最新数据
+  // 直接使用 file prop 中的 entries
   const fileEntries = useMemo(() => {
     return entries || [];
   }, [entries]);
@@ -65,10 +65,10 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   }, []);
 
   const onSaveEdit = useCallback(async () => {
-    if (editingId === null) return;
+    if (editingId === null || !file?.id) return;
 
     try {
-      await updateEntry(editingId, editText, editTranslation);
+      await updateEntry(file.id, editingId, editText, editTranslation);
       setEditingId(null);
       setEditText('');
       setEditTranslation('');
@@ -78,7 +78,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
         context: { operation: '保存字幕编辑' }
       });
     }
-  }, [editingId, editText, editTranslation, updateEntry, handleError]);
+  }, [editingId, editText, editTranslation, updateEntry, handleError, file]);
 
   const onCancelEdit = useCallback(() => {
     setEditingId(null);
