@@ -179,6 +179,10 @@ class DataManager {
     return this.taskManager.removeTask(taskId);
   }
 
+  async updateTaskWithTranscription(taskId: string, entries: SubtitleEntry[], duration: number): Promise<void> {
+    return this.taskManager.updateTaskWithTranscription(taskId, entries, duration);
+  }
+
   // ===== 术语管理模块 (委托给 TermsManager) =====
 
   getTerms(): Term[] {

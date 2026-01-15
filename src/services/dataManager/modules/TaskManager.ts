@@ -372,6 +372,50 @@ class TaskManager {
       throw appError;
     }
   }
+
+  /**
+   * 更新指定任务的转录完成数据（包含字幕条目和时长）
+   * 用于音视频转录完成后保存结果
+   */
+  async updateTaskWithTranscription(
+    taskId: string,
+    entries: SubtitleEntry[],
+    duration: number
+  ): Promise<void> {
+    try {
+      const task = this.memoryStore.batch_tasks.tasks.find(t => t.taskId === taskId);
+      if (!task) {
+        console.warn('[TaskManager] Task not found:', taskId);
+        return;
+      }
+
+      // 更新内存中的任务数据
+      const updatedTask = {
+        ...task,
+        subtitle_entries: entries,
+        duration,
+        translation_progress: {
+          ...task.translation_progress,
+          total: entries.length,
+          completed: 0,
+          status: 'idle' as const
+        }
+      };
+
+      // 替换任务列表中的任务
+      const taskIndex = this.memoryStore.batch_tasks.tasks.findIndex(t => t.taskId === taskId);
+      if (taskIndex !== -1) {
+        this.memoryStore.batch_tasks.tasks[taskIndex] = updatedTask;
+      }
+
+      // 持久化到 localforage
+      await localforage.setItem(this.BATCH_TASKS_KEY, this.memoryStore.batch_tasks);
+    } catch (error) {
+      const appError = toAppError(error, '更新转录完成数据失败');
+      console.error('[TaskManager]', appError.message, appError);
+      throw appError;
+    }
+  }
 }
 
 export default TaskManager;

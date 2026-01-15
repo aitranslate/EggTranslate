@@ -310,6 +310,15 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       });
 
+      // 持久化转录结果到 TaskManager（包含字幕条目和时长）
+      try {
+        const { default: dataManager } = await import('@/services/dataManager');
+        await dataManager.updateTaskWithTranscription(file.currentTaskId, result.entries, result.duration);
+      } catch (persistError) {
+        console.error('[SubtitleContext] 持久化转录结果失败:', persistError);
+        // 不影响用户体验，数据已在内存中
+      }
+
       toast.success(`转录完成！生成 ${result.entries.length} 条字幕`);
     } catch (error) {
       handleError(error, {
