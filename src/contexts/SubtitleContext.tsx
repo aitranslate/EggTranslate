@@ -337,7 +337,9 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       // 持久化转录结果到 TaskManager（包含字幕条目、时长和 tokens）
       try {
-        await dataManager.updateTaskWithTranscription(file.currentTaskId, result.entries, result.duration, result.tokensUsed);
+        // 注意：这里必须使用新的 fileId（正式 taskId），而不是旧的 file.currentTaskId（临时 ID）
+        const realTaskId = (file as any).isTemp ? fileId : file.currentTaskId;
+        await dataManager.updateTaskWithTranscription(realTaskId, result.entries, result.duration, result.tokensUsed);
       } catch (persistError) {
         const appError = toAppError(persistError, '持久化转录结果失败');
         console.error('[SubtitleContext]', appError.message, appError);
