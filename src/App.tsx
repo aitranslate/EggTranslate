@@ -1,13 +1,25 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
-import { SubtitleProvider } from '@/contexts/SubtitleContext';
-import { TranslationProvider } from '@/contexts/TranslationContext';
 import { TermsProvider } from '@/contexts/TermsContext';
 import { HistoryProvider } from '@/contexts/HistoryContext';
-import { TranscriptionProvider } from '@/contexts/TranscriptionContext';
 import { MainApp } from '@/components/MainApp';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useSubtitleStore } from '@/stores/subtitleStore';
 import '@/index.css';
+
+/**
+ * 应用初始化组件
+ * 负责在应用启动时加载数据
+ */
+const AppInitializer = () => {
+  const loadFiles = useSubtitleStore((state) => state.loadFiles);
+
+  useEffect(() => {
+    loadFiles();
+  }, [loadFiles]);
+
+  return null;
+};
 
 function App() {
   return (
@@ -20,40 +32,35 @@ function App() {
     >
       <HistoryProvider>
         <TermsProvider>
-          <TranslationProvider>
-            <TranscriptionProvider>
-              <SubtitleProvider>
-                <MainApp />
-                <Toaster
-                position="top-right"
-                toastOptions={{
-                  duration: 4000,
-                  style: {
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    backdropFilter: 'blur(10px)',
-                    color: '#fff',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    borderRadius: '12px',
-                  },
-                  success: {
-                    iconTheme: {
-                      primary: '#10B981',
-                      secondary: '#fff',
-                    },
-                  },
-                  error: {
-                    iconTheme: {
-                      primary: '#EF4444',
-                      secondary: '#fff',
-                    },
-                  },
-                }}
-              />
-            </SubtitleProvider>
-          </TranscriptionProvider>
-        </TranslationProvider>
-      </TermsProvider>
-    </HistoryProvider>
+          <AppInitializer />
+          <MainApp />
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: 'rgba(255, 255, 255, 0.1)',
+                backdropFilter: 'blur(10px)',
+                color: '#fff',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                borderRadius: '12px',
+              },
+              success: {
+                iconTheme: {
+                  primary: '#10B981',
+                  secondary: '#fff',
+                },
+              },
+              error: {
+                iconTheme: {
+                  primary: '#EF4444',
+                  secondary: '#fff',
+                },
+              },
+            }}
+          />
+        </TermsProvider>
+      </HistoryProvider>
     </ErrorBoundary>
   );
 }
