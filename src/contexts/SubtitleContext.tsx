@@ -299,11 +299,7 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       // 持久化转录结果到 TaskManager（包含字幕条目、时长和 tokens）
       try {
-        console.log('[SubtitleContext] 转录完成，tokensUsed:', result.tokensUsed);
         await dataManager.updateTaskWithTranscription(file.currentTaskId, result.entries, result.duration, result.tokensUsed);
-        // 验证是否保存成功
-        const updatedTask = dataManager.getTaskById(file.currentTaskId);
-        console.log('[SubtitleContext] 保存后 tokens:', updatedTask?.translation_progress?.tokens);
       } catch (persistError) {
         console.error('[SubtitleContext] 持久化转录结果失败:', persistError);
         // 不影响用户体验，数据已在内存中
