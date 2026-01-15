@@ -4,8 +4,8 @@ const RUNTIME_CACHE = 'srt-translator-runtime-v1';
 
 // 需要预缓存的核心资源
 const PRECACHE_URLS = [
-  '/EggTranslate/',
-  '/EggTranslate/index.html'
+  '/',
+  '/index.html'
 ];
 
 // 增强响应头，开启跨源隔离（支持 SharedArrayBuffer）
@@ -72,13 +72,8 @@ self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // 只处理同源请求和正确的路径
+  // 只处理同源请求
   if (url.origin !== location.origin) {
-    return;
-  }
-
-  // 只处理 EggTranslate 路径下的请求
-  if (!url.pathname.startsWith('/EggTranslate/')) {
     return;
   }
 
@@ -140,7 +135,7 @@ async function cacheFirst(request) {
 
     // 如果是HTML请求且无缓存，返回离线页面
     if (isHTMLRequest(request)) {
-      const offlineResponse = await caches.match('/EggTranslate/');
+      const offlineResponse = await caches.match('/');
       if (offlineResponse) {
         return addIsolationHeaders(offlineResponse);
       }
