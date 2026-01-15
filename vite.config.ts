@@ -5,9 +5,9 @@ import sourceIdentifierPlugin from 'vite-plugin-source-info'
 
 const isProd = process.env.BUILD_MODE === 'prod'
 
-// GitHub Pages 的 base 路径配置
-// 根据你的 GitHub Pages URL: https://aitranslate.github.io/EggTranslate/
-const base = '/EggTranslate/'
+// 部署到 Vercel 使用根路径
+// 如果部署到 GitHub Pages，改为 '/EggTranslate/'
+const base = '/'
 
 export default defineConfig({
   base: base,
