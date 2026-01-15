@@ -390,6 +390,9 @@ class TaskManager {
         return;
       }
 
+      console.log('[TaskManager] 更新前 - taskId:', taskId, 'tokensUsed:', tokensUsed);
+      console.log('[TaskManager] 更新前 - task.translation_progress:', task.translation_progress);
+
       // 更新内存中的任务数据
       const updatedTask = {
         ...task,
@@ -400,15 +403,19 @@ class TaskManager {
           total: entries.length,
           completed: 0,
           status: 'idle' as const,
-          tokens: (task.translation_progress.tokens || 0) + (tokensUsed || 0)
+          tokens: (task.translation_progress?.tokens || 0) + (tokensUsed || 0)
         }
       };
+
+      console.log('[TaskManager] 更新后 - updatedTask.translation_progress.tokens:', updatedTask.translation_progress.tokens);
 
       // 替换任务列表中的任务
       const taskIndex = this.memoryStore.batch_tasks.tasks.findIndex(t => t.taskId === taskId);
       if (taskIndex !== -1) {
         this.memoryStore.batch_tasks.tasks[taskIndex] = updatedTask;
       }
+
+      console.log('[TaskManager] 保存到内存后 - memoryStore.tasks[taskIndex].translation_progress.tokens:', this.memoryStore.batch_tasks.tasks[taskIndex]?.translation_progress?.tokens);
 
       // 持久化到 localforage
       await localforage.setItem(this.BATCH_TASKS_KEY, this.memoryStore.batch_tasks);
