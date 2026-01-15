@@ -63,12 +63,13 @@ export interface TranscriptionResult {
   entries: SubtitleEntry[];
   duration: number;
   totalChunks: number;
+  tokensUsed: number; // LLM 组句消耗的 tokens
 }
 
 /**
  * 调用 LLM 进行句子分割
  */
-const callLlmApi = async (prompt: string, config: TranscriptionLLMConfig): Promise<string> => {
+const callLlmApi = async (prompt: string, config: TranscriptionLLMConfig): Promise<{ content: string; tokensUsed: number }> => {
   const result = await callLLM(
     {
       baseURL: config.baseURL,
@@ -79,7 +80,7 @@ const callLlmApi = async (prompt: string, config: TranscriptionLLMConfig): Promi
     { temperature: API_CONSTANTS.DEFAULT_TEMPERATURE }
   );
 
-  return result.content;
+  return { content: result.content, tokensUsed: result.tokensUsed };
 };
 
 /**
@@ -88,7 +89,10 @@ const callLlmApi = async (prompt: string, config: TranscriptionLLMConfig): Promi
 const processBatch = async (
   batch: BatchInfo,
   llmConfig: TranscriptionLLMConfig
-): Promise<Array<{ sentence: string; startIdx: number; endIdx: number }>> => {
+): Promise<{
+  sentences: Array<{ sentence: string; startIdx: number; endIdx: number }>;
+  tokensUsed: number;
+}> => {
   // 如果标记为跳过 LLM，直接将单词连接成句子
   if (batch.skipLLM) {
     const originalWords = batch.words.map(w => w.text);
@@ -96,11 +100,14 @@ const processBatch = async (
     const startIdx = batch.startIdx;
     const endIdx = batch.startIdx + batch.words.length - 1;
 
-    return [{
-      sentence,
-      startIdx,
-      endIdx
-    }];
+    return {
+      sentences: [{
+        sentence,
+        startIdx,
+        endIdx
+      }],
+      tokensUsed: 0
+    };
   }
 
   // 调用 LLM 进行句子分割
@@ -111,7 +118,7 @@ const processBatch = async (
     llmConfig.sourceLanguage
   );
 
-  const llmResponse = await callLlmApi(segmentationPrompt, llmConfig);
+  const { content: llmResponse, tokensUsed } = await callLlmApi(segmentationPrompt, llmConfig);
 
   // 使用 jsonrepair 清理 markdown 代码块等格式问题
   const repairedJson = jsonrepair(llmResponse);
@@ -153,7 +160,10 @@ const processBatch = async (
     lastSplitIdx = splitIdx;
   }
 
-  return sentenceMappings;
+  return {
+    sentences: sentenceMappings,
+    tokensUsed
+  };
 };
 
 /**
@@ -241,12 +251,14 @@ export const runTranscriptionPipeline = async (
   // 并行处理批次
   const allReconstructedSentences: Array<Array<{ sentence: string; startIdx: number; endIdx: number }>> = [];
   let completedBatches = 0;
+  let totalTokensUsed = 0;
 
   await Promise.all(
     batches.map(async (batch, batchIdx) => {
       try {
-        const sentenceMappings = await processBatch(batch, llmConfig);
-        allReconstructedSentences[batchIdx] = sentenceMappings;
+        const { sentences, tokensUsed } = await processBatch(batch, llmConfig);
+        allReconstructedSentences[batchIdx] = sentences;
+        totalTokensUsed += tokensUsed;
 
         // 更新进度
         completedBatches++;
@@ -294,6 +306,7 @@ export const runTranscriptionPipeline = async (
   return {
     entries,
     duration,
-    totalChunks
+    totalChunks,
+    tokensUsed: totalTokensUsed
   };
 };

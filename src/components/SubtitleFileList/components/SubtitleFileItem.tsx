@@ -138,13 +138,6 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
 
       {/* 进度条和操作按钮 */}
       <div className="mb-4">
-        {/* 进度标题 */}
-        <div className="text-sm text-white/70 mb-2">
-          {file.type === 'srt' ? '翻译进度' :
-           file.transcriptionStatus === 'completed' ? (translationStats.percentage > 0 ? '翻译进度' : '转录完成') :
-           '转录进度'}
-        </div>
-
         <div className="flex items-center space-x-3">
           {/* 进度显示 */}
           <TranslationProgress file={file} translationStats={translationStats} />

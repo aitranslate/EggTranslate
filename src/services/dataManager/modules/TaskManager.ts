@@ -380,7 +380,8 @@ class TaskManager {
   async updateTaskWithTranscription(
     taskId: string,
     entries: SubtitleEntry[],
-    duration: number
+    duration: number,
+    tokensUsed?: number
   ): Promise<void> {
     try {
       const task = this.memoryStore.batch_tasks.tasks.find(t => t.taskId === taskId);
@@ -398,7 +399,8 @@ class TaskManager {
           ...task.translation_progress,
           total: entries.length,
           completed: 0,
-          status: 'idle' as const
+          status: 'idle' as const,
+          tokens: (task.translation_progress.tokens || 0) + (tokensUsed || 0)
         }
       };
 

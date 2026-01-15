@@ -311,9 +311,9 @@ export const SubtitleProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       });
 
-      // 持久化转录结果到 TaskManager（包含字幕条目和时长）
+      // 持久化转录结果到 TaskManager（包含字幕条目、时长和 tokens）
       try {
-        await dataManager.updateTaskWithTranscription(file.currentTaskId, result.entries, result.duration);
+        await dataManager.updateTaskWithTranscription(file.currentTaskId, result.entries, result.duration, result.tokensUsed);
       } catch (persistError) {
         console.error('[SubtitleContext] 持久化转录结果失败:', persistError);
         // 不影响用户体验，数据已在内存中
