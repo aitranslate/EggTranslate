@@ -5,6 +5,7 @@ import dataManager from '@/services/dataManager';
 import toast from 'react-hot-toast';
 import { TRANSCRIPTION_PROGRESS_CONSTANTS, AUDIO_CONSTANTS } from '@/constants/transcription';
 import { useErrorHandler } from '@/hooks/useErrorHandler';
+import { loadModelFromCache } from '@/utils/loadModelFromCache';
 
 interface TranscriptionContextValue {
   // 配置
@@ -14,6 +15,13 @@ interface TranscriptionContextValue {
   // 模型状态
   modelStatus: ModelStatus;
   modelProgress?: {
+    percent: number;
+    filename?: string;
+  };
+
+  // 下载状态
+  isDownloading: boolean;
+  downloadProgress?: {
     percent: number;
     filename?: string;
     loaded: number;
@@ -31,7 +39,8 @@ interface TranscriptionContextValue {
   clearCache: () => Promise<void>;
 
   // 操作
-  loadModel: () => Promise<void>;
+  downloadModel: () => Promise<void>;  // 下载到 IndexedDB
+  loadModel: () => Promise<void>;      // 从 IndexedDB 加载到内存
   getModel: () => ParakeetModel | null;
 }
 
@@ -122,6 +131,11 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
   const [modelProgress, setModelProgress] = useState<{
     percent: number;
     filename?: string;
+  }>();
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<{
+    percent: number;
+    filename?: string;
     loaded: number;
     total: number;
     remainingTime?: number;
@@ -132,8 +146,9 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
     date: number;
   }>>([]);
 
-  // 模型实例引用（使用 ref 避免触发重渲染）
+  // 模型实例引用和清理函数引用
   const modelRef = useRef<ParakeetModel | null>(null);
+  const modelCleanupRef = useRef<(() => void) | null>(null);
 
   // 进度计算辅助变量
   const progressStartTime = useRef<number>(0);
@@ -228,30 +243,32 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
     await dataManager.saveTranscriptionConfig(updated);
   }, [config]);
 
-  // 清理函数：释放模型资源
-  const disposeModel = useCallback(() => {
-    if (modelRef.current) {
+  // 清理函数：释放模型资源和 blob URLs
+  const disposeModel = useCallback(async () => {
+    // 先调用 cleanup 函数释放 blob URLs 和 sessions
+    if (modelCleanupRef.current) {
       try {
-        if (typeof (modelRef.current as any).dispose === 'function') {
-          (modelRef.current as any).dispose();
-        }
+        modelCleanupRef.current();
       } catch (e) {
-        // 静默失败，不需要用户知道
+        // 静默失败 (empty catch)
       }
-      modelRef.current = null;
+      modelCleanupRef.current = null;
     }
+
+    // 清空模型引用
+    modelRef.current = null;
+
+    // 等待一小段时间，确保 WebGPU 完成所有待处理的释放操作
+    await new Promise(resolve => setTimeout(resolve, 100));
   }, []);
 
-  const loadModel = useCallback(async () => {
-    // 如果已有模型，先释放
-    disposeModel();
-
-    setModelStatus('loading');
-    setModelProgress({ percent: 0, loaded: 0, total: 0 });
+  // 下载模型到 IndexedDB
+  const downloadModel = useCallback(async () => {
+    setIsDownloading(true);
+    setDownloadProgress({ percent: 0, loaded: 0, total: 0 });
     progressStartTime.current = Date.now();
 
     try {
-      // 进度回调
       const progressCallback = ({ loaded, total, file }: { loaded: number; total: number; file: string }) => {
         const percent = total > 0 ? Math.round((loaded / total) * 100) : 0;
 
@@ -259,7 +276,7 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
         const elapsed = Date.now() - progressStartTime.current;
         const remainingTime = loaded > 0 ? ((total - loaded) / loaded) * (elapsed / 1000) : undefined;
 
-        setModelProgress({
+        setDownloadProgress({
           percent: Math.min(percent, TRANSCRIPTION_PROGRESS_CONSTANTS.DOWNLOAD_CAP),
           filename: file,
           loaded,
@@ -268,47 +285,67 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
         });
       };
 
-      // 使用 parakeet.js 自带的下载功能
-      const modelUrls = await getParakeetModel(config.repoId, {
+      // 只下载到 IndexedDB，不加载模型
+      await getParakeetModel(config.repoId, {
         encoderQuant: config.encoderQuant,
         decoderQuant: config.decoderQuant,
         preprocessor: 'nemo128',
         progress: progressCallback,
       });
 
-      // 创建编译会话
-      setModelProgress(prev => prev ? { ...prev, percent: 95, filename: '编译模型...', loaded: 0, total: 0 } : { percent: 95, filename: '编译模型...', loaded: 0, total: 0 });
+      setIsDownloading(false);
+      setDownloadProgress(undefined);
+      refreshCacheInfo();
+      toast.success('模型下载完成！点击"加载模型"按钮使用');
+    } catch (error) {
+      handleError(error, {
+        context: { operation: '下载模型' },
+        showToast: true
+      });
+      setIsDownloading(false);
+      setDownloadProgress(undefined);
+    }
+  }, [config, handleError, refreshCacheInfo]);
 
-      const maxCores = navigator.hardwareConcurrency || 8;
-      const cpuThreads = Math.max(1, maxCores - 2);
+  // 从 IndexedDB 加载模型到内存（纯离线）
+  const loadModel = useCallback(async () => {
+    // 如果已有模型，先释放（await 因为 disposeModel 现在是 async）
+    await disposeModel();
 
-      modelRef.current = await ParakeetModel.fromUrls({
-        ...modelUrls.urls,
-        filenames: modelUrls.filenames,
-        backend: config.backend,
-        verbose: false,
-        cpuThreads,
+    setModelStatus('loading');
+    setModelProgress({ percent: 0, filename: '准备加载...' });
+
+    try {
+      // 使用工具函数从缓存加载模型（不访问 HuggingFace）
+      const { model, cleanup } = await loadModelFromCache(config, (progress) => {
+        setModelProgress(progress);
       });
 
-      // 验证模型
-      setModelProgress(prev => prev ? { ...prev, percent: 98, filename: '预热验证...', loaded: 0, total: 0 } : { percent: 98, filename: '预热验证...', loaded: 0, total: 0 });
+      // 保存模型和清理函数
+      modelRef.current = model;
+      modelCleanupRef.current = cleanup;
+
+      // 验证模型（80% - 100%）
+      setModelProgress({ percent: 80, filename: '预热验证...' });
 
       const warmupPcm = new Float32Array(AUDIO_CONSTANTS.SAMPLE_RATE);
       await modelRef.current.transcribe(warmupPcm, AUDIO_CONSTANTS.SAMPLE_RATE);
 
       setModelStatus('loaded');
       setModelProgress(undefined);
-      refreshCacheInfo(); // 刷新缓存信息
       toast.success('转录模型加载成功！');
     } catch (error) {
       handleError(error, {
-        context: { operation: '加载转录模型' },
+        context: { operation: '加载模型' },
         showToast: true
       });
       setModelStatus('error');
       setModelProgress(undefined);
+      // 加载失败时清理资源
+      modelCleanupRef.current = null;
+      modelRef.current = null;
     }
-  }, [config, refreshCacheInfo, disposeModel, handleError]);
+  }, [config, disposeModel, handleError]);
 
   const getModel = useCallback(() => {
     return modelRef.current;
@@ -327,9 +364,12 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
     updateConfig,
     modelStatus,
     modelProgress,
+    isDownloading,
+    downloadProgress,
     cacheInfo,
     refreshCacheInfo,
     clearCache,
+    downloadModel,
     loadModel,
     getModel,
   }), [
@@ -337,9 +377,12 @@ export const TranscriptionProvider: React.FC<{ children: React.ReactNode }> = ({
     updateConfig,
     modelStatus,
     modelProgress,
+    isDownloading,
+    downloadProgress,
     cacheInfo,
     refreshCacheInfo,
     clearCache,
+    downloadModel,
     loadModel,
     getModel,
   ]);

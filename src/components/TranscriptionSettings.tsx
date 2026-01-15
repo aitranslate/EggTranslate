@@ -9,6 +9,11 @@ interface TranscriptionSettingsProps {
   modelProgress?: {
     percent: number;
     filename?: string;
+  };
+  isDownloading: boolean;
+  downloadProgress?: {
+    percent: number;
+    filename?: string;
     loaded: number;
     total: number;
     remainingTime?: number;
@@ -20,6 +25,7 @@ interface TranscriptionSettingsProps {
   }>;
   onRefreshCacheInfo: () => Promise<void>;
   onClearCache: () => Promise<void>;
+  onDownloadModel: () => void;
   onLoadModel: () => void;
 }
 
@@ -28,9 +34,12 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
   onConfigChange,
   modelStatus,
   modelProgress,
+  isDownloading,
+  downloadProgress,
   cacheInfo,
   onRefreshCacheInfo,
   onClearCache,
+  onDownloadModel,
   onLoadModel
 }) => {
   const [isAnimating, setIsAnimating] = useState(false);
@@ -44,7 +53,8 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
-  const handleLoadModel = () => {
+  // 带动画的加载模型处理
+  const handleLoadWithAnimation = () => {
     setIsAnimating(true);
     onLoadModel();
     setTimeout(() => setIsAnimating(false), 1000);
@@ -149,61 +159,112 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
           模型状态
         </h3>
 
-        {modelStatus === 'loading' && modelProgress ? (
-          <div className="bg-white/10 border border-white/20 rounded-lg p-6 space-y-3">
+        {/* 下载进度 */}
+        {isDownloading && downloadProgress ? (
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-6 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-white/80">📥 正在加载... {modelProgress.percent}%</span>
+              <span className="text-white/80">📥 正在下载... {downloadProgress.percent}%</span>
               <span className="text-sm text-white/60">
-                {formatTime(modelProgress.remainingTime)}
+                {formatTime(downloadProgress.remainingTime)}
               </span>
             </div>
             <div className="w-full bg-white/10 rounded-full h-3 overflow-hidden">
               <div
-                className="bg-gradient-to-r from-purple-500 to-blue-500 h-full transition-all duration-300"
-                style={{ width: `${modelProgress.percent}%` }}
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 h-full transition-all duration-300"
+                style={{ width: `${downloadProgress.percent}%` }}
               />
             </div>
-            {modelProgress.filename && (
+            {downloadProgress.filename && (
               <p className="text-sm text-white/60">
-                {modelProgress.total > 0
-                  ? `正在下载: ${modelProgress.filename} (${(modelProgress.loaded / 1024 / 1024).toFixed(0)}/${(modelProgress.total / 1024 / 1024).toFixed(0)} MB)`
-                  : modelProgress.filename
+                {downloadProgress.total > 0
+                  ? `正在下载: ${downloadProgress.filename} (${(downloadProgress.loaded / 1024 / 1024).toFixed(0)}/${(downloadProgress.total / 1024 / 1024).toFixed(0)} MB)`
+                  : downloadProgress.filename
                 }
               </p>
             )}
           </div>
-        ) : modelStatus === 'loaded' ? (
-          <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="h-5 w-5 text-green-400" />
-              <span className="text-green-200">已加载</span>
+        ) : null}
+
+        {/* 加载进度 */}
+        {modelStatus === 'loading' && modelProgress ? (
+          <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-white/80">⚙️ 正在加载... {modelProgress.percent}%</span>
             </div>
-            <button
-              onClick={handleLoadModel}
-              className={`flex items-center space-x-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg transition-colors ${isAnimating ? 'animate-pulse' : ''}`}
-            >
-              <RefreshCw className={`h-4 w-4 ${isAnimating ? 'animate-spin' : ''}`} />
-              <span>重新加载</span>
-            </button>
+            <div className="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-purple-500 to-pink-500 h-full transition-all duration-300"
+                style={{ width: `${modelProgress.percent}%` }}
+              />
+            </div>
+            <p className="text-sm text-white/60">
+              {modelProgress.filename}
+            </p>
           </div>
-        ) : (
-          <div className="bg-white/5 border border-white/10 rounded-lg p-6 space-y-4">
+        ) : null}
+
+        {/* 已加载状态 */}
+        {modelStatus === 'loaded' && !isDownloading ? (
+          <div className="space-y-3">
+            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <CheckCircle className="h-5 w-5 text-green-400" />
+                <span className="text-green-200">已加载到内存</span>
+              </div>
+            </div>
+
+            {/* 两个按钮 */}
+            <div className="flex gap-3">
+              <button
+                onClick={onDownloadModel}
+                className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 rounded-lg transition-colors"
+              >
+                <Download className="h-4 w-4" />
+                <span>重新下载</span>
+              </button>
+              <button
+                onClick={handleLoadWithAnimation}
+                className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 rounded-lg transition-colors ${isAnimating ? 'animate-pulse' : ''}`}
+              >
+                <RefreshCw className={`h-4 w-4 ${isAnimating ? 'animate-spin' : ''}`} />
+                <span>重新加载</span>
+              </button>
+            </div>
+          </div>
+        ) : modelStatus === 'not_loaded' && !isDownloading ? (
+          <div className="space-y-3">
             <div className="flex items-center space-x-2">
               <Circle className="h-5 w-5 text-white/40" />
               <span className="text-white/60">● 未加载</span>
             </div>
-            <p className="text-sm text-white/60">
-              首次加载需要下载约 2.3 GB
-            </p>
-            <button
-              onClick={handleLoadModel}
-              className="flex items-center justify-center space-x-2 w-full px-6 py-3 bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 rounded-lg transition-colors"
-            >
-              <Download className="h-4 w-4" />
-              <span>加载模型</span>
-            </button>
+
+            {/* 两个按钮 */}
+            <div className="flex gap-3">
+              <button
+                onClick={onDownloadModel}
+                disabled={cacheInfo.length === 0}
+                className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Download className="h-4 w-4" />
+                <span>{cacheInfo.length > 0 ? '重新下载' : '下载模型'}</span>
+              </button>
+              <button
+                onClick={handleLoadWithAnimation}
+                disabled={cacheInfo.length === 0}
+                className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className={`h-4 w-4 ${isAnimating ? 'animate-spin' : ''}`} />
+                <span>加载模型</span>
+              </button>
+            </div>
+
+            {cacheInfo.length === 0 && (
+              <p className="text-sm text-white/60 text-center">
+                首次使用请先点击"下载模型"（约 2.3 GB）
+              </p>
+            )}
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* 缓存信息 */}

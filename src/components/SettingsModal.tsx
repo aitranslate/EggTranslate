@@ -22,9 +22,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     updateConfig: updateTranscriptionConfig,
     modelStatus,
     modelProgress,
+    isDownloading,
+    downloadProgress,
     cacheInfo,
     refreshCacheInfo,
     clearCache,
+    downloadModel,
     loadModel
   } = useTranscription();
 
@@ -136,9 +139,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               onConfigChange={updateTranscriptionConfig}
               modelStatus={modelStatus}
               modelProgress={modelProgress}
+              isDownloading={isDownloading}
+              downloadProgress={downloadProgress}
               cacheInfo={cacheInfo}
               onRefreshCacheInfo={refreshCacheInfo}
               onClearCache={clearCache}
+              onDownloadModel={downloadModel}
               onLoadModel={loadModel}
             />
           )}
