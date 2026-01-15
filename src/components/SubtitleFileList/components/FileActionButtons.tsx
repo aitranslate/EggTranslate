@@ -17,6 +17,14 @@ interface FileActionButtonsProps {
   onDelete: () => void;
 }
 
+// Helper function to determine if a file can be re-transcribed
+const canRetranscribe = (file: SubtitleFile): boolean => {
+  // Can only re-transcribe SRT files or incomplete audio-video files
+  const fileType = file.fileType || file.type;
+  return fileType === 'srt' ||
+         (fileType === 'audio-video' && file.transcriptionStatus !== 'completed');
+};
+
 export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
   file,
   isTranslating,
@@ -38,19 +46,25 @@ export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
 
   return (
     <div className="flex items-center space-x-2">
-      {/* 转录按钮 - SRT文件禁用 */}
+      {/* 转录按钮 - SRT文件禁用, 已完成的音视频文件禁用 */}
       <button
         onClick={(e) => {
           e.stopPropagation();
           onTranscribe();
         }}
-        disabled={file.type === 'srt'}
+        disabled={!canRetranscribe(file)}
         className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 ${
-          file.type === 'srt'
-            ? 'bg-gray-500/10 text-gray-500/30 border border-gray-500/20 cursor-not-allowed'
+          !canRetranscribe(file)
+            ? 'bg-gray-500/10 text-gray-500/30 border border-gray-500/20 cursor-not-allowed opacity-50'
             : 'bg-teal-500/20 hover:bg-teal-500/30 text-teal-200 border border-teal-500/30 hover:scale-110'
         }`}
-        title={file.type === 'srt' ? 'SRT文件无需转录' : '转录'}
+        title={
+          !canRetranscribe(file)
+            ? (file.fileType || file.type) === 'audio-video' && file.transcriptionStatus === 'completed'
+              ? '音频数据未缓存，需重新上传'
+              : 'SRT文件无需转录'
+            : '转录'
+        }
       >
         <Mic className="h-4 w-4" />
       </button>
