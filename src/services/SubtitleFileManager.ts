@@ -52,15 +52,13 @@ export async function loadFromFile(
     };
   } else {
     // 音视频文件：只存储元数据和文件引用
-    const taskId = generateTaskId();
-    const fileId = generateStableFileId(taskId);
-
     // 创建空任务用于音视频文件（转录后会有条目）
-    await dataManager.createNewTask(file.name, [], options.existingFilesCount, {
+    const taskId = await dataManager.createNewTask(file.name, [], options.existingFilesCount, {
       fileType: 'audio-video',
       fileSize: file.size
       // duration 将在转录后设置
     });
+    const fileId = generateStableFileId(taskId);
 
     return {
       id: fileId,
