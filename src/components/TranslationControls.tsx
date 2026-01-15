@@ -1,7 +1,5 @@
 import React, { useState, useCallback } from 'react';
 import { Play, Download, Settings } from 'lucide-react';
-import { useSingleSubtitle } from '@/contexts/SubtitleContext';
-import { useTranslation } from '@/contexts/TranslationContext';
 import { useTerms } from '@/contexts/TermsContext';
 import { useHistory } from '@/contexts/HistoryContext';
 import { motion } from 'framer-motion';
@@ -13,27 +11,27 @@ import {
   saveTranslationHistory,
   type TranslationConfig
 } from '@/services/TranslationOrchestrator';
+import { exportSRT, exportTXT, exportBilingual } from '@/services/SubtitleExporter';
 import { API_CONSTANTS } from '@/constants/api';
 import { useErrorHandler } from '@/hooks/useErrorHandler';
+import type { SubtitleEntry } from '@/types';
+import { useTranslationConfigStore, useSubtitleStore } from '@/stores';
 
 interface TranslationControlsProps {
   className?: string;
   onOpenSettings?: () => void;
+  entries: SubtitleEntry[];
+  filename: string;
+  fileId: string;
 }
 
 export const TranslationControls: React.FC<TranslationControlsProps> = ({
   className,
-  onOpenSettings
+  onOpenSettings,
+  entries,
+  filename,
+  fileId
 }) => {
-  const {
-    entries,
-    filename,
-    updateEntry,
-    exportSRT,
-    exportTXT,
-    exportBilingual
-  } = useSingleSubtitle();
-
   const {
     config,
     isTranslating,
@@ -45,7 +43,9 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
     startTranslation,
     stopTranslation,
     completeTranslation
-  } = useTranslation();
+  } = useTranslationConfigStore();
+
+  const { updateEntry: updateEntryInStore } = useSubtitleStore();
 
   const { getRelevantTerms } = useTerms();
   const { addHistoryEntry } = useHistory();
@@ -54,6 +54,11 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
   const { handleError } = useErrorHandler();
 
   const [isExporting, setIsExporting] = useState(false);
+
+  // Local wrapper for updateEntry to match the expected signature
+  const updateEntry = useCallback(async (id: number, text: string, translatedText: string) => {
+    await updateEntryInStore(fileId, id, text, translatedText);
+  }, [fileId, updateEntryInStore]);
 
   const onStartTranslation = useCallback(async () => {
     if (!entries.length) {
@@ -151,15 +156,15 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
 
         switch (format) {
           case 'srt':
-            content = exportSRT(true);
+            content = exportSRT(entries, true);
             extension = 'srt';
             break;
           case 'txt':
-            content = exportTXT(true);
+            content = exportTXT(entries, true);
             extension = 'txt';
             break;
           case 'bilingual':
-            content = exportBilingual();
+            content = exportBilingual(entries);
             extension = 'srt';
             break;
         }
@@ -176,7 +181,7 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
         setIsExporting(false);
       }
     },
-    [entries, filename, exportSRT, exportTXT, exportBilingual]
+    [entries, filename, handleError]
   );
 
   if (!entries.length) {

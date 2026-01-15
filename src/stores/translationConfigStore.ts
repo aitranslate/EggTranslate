@@ -22,13 +22,32 @@ interface TranslationConfigStore {
   progress: TranslationProgress;
   tokensUsed: number;
   currentTaskId: string;
+  abortController: AbortController | null;
 
   // Actions
   updateConfig: (updates: Partial<TranslationConfig>) => Promise<void>;
   testConnection: () => Promise<boolean>;
-  startTranslation: () => void;
+  startTranslation: () => Promise<AbortController>;
   stopTranslation: () => void;
   resetProgress: () => Promise<void>;
+
+  // Translation flow methods
+  translateBatch: (
+    texts: string[],
+    signal?: AbortSignal,
+    contextBefore?: string,
+    contextAfter?: string,
+    terms?: string
+  ) => Promise<{ translations: Record<string, any>; tokensUsed: number }>;
+  updateProgress: (
+    current: number,
+    total: number,
+    phase: 'direct' | 'completed',
+    status: string,
+    taskId: string,
+    newTokens?: number
+  ) => Promise<void>;
+  completeTranslation: (taskId: string) => Promise<void>;
 }
 
 // ============================================
@@ -67,6 +86,7 @@ export const useTranslationConfigStore = create<TranslationConfigStore>()(
       progress: DEFAULT_PROGRESS,
       tokensUsed: 0,
       currentTaskId: '',
+      abortController: null,
 
       // ========================================
       // Actions
@@ -116,20 +136,28 @@ export const useTranslationConfigStore = create<TranslationConfigStore>()(
       /**
        * 开始翻译
        */
-      startTranslation: () => {
+      startTranslation: async () => {
+        const controller = new AbortController();
         set({
+          abortController: controller,
           isTranslating: true,
           progress: { ...DEFAULT_PROGRESS, status: '翻译中...' }
         });
+        return controller;
       },
 
       /**
        * 停止翻译
        */
       stopTranslation: () => {
+        const controller = get().abortController;
+        if (controller) {
+          controller.abort();
+        }
         set({
           isTranslating: false,
-          progress: DEFAULT_PROGRESS
+          progress: DEFAULT_PROGRESS,
+          abortController: null
         });
       },
 
@@ -141,7 +169,8 @@ export const useTranslationConfigStore = create<TranslationConfigStore>()(
           isTranslating: false,
           progress: DEFAULT_PROGRESS,
           tokensUsed: 0,
-          currentTaskId: ''
+          currentTaskId: '',
+          abortController: null
         });
 
         try {
@@ -150,6 +179,56 @@ export const useTranslationConfigStore = create<TranslationConfigStore>()(
           const appError = toAppError(error, '重置进度失败');
           console.error('[translationConfigStore]', appError.message, appError);
         }
+      },
+
+      /**
+       * 批量翻译
+       */
+      translateBatch: async (
+        texts: string[],
+        signal?: AbortSignal,
+        contextBefore = '',
+        contextAfter = '',
+        terms = ''
+      ) => {
+        return translationService.translateBatch(texts, signal, contextBefore, contextAfter, terms);
+      },
+
+      /**
+       * 更新翻译进度
+       */
+      updateProgress: async (
+        current: number,
+        total: number,
+        phase: 'direct' | 'completed',
+        status: string,
+        taskId: string,
+        newTokens?: number
+      ) => {
+        // 更新 store 状态
+        set({
+          progress: { current, total, phase, status }
+        });
+
+        // 更新服务层
+        await translationService.updateProgress(current, total, phase, status, taskId, newTokens);
+
+        // 更新 tokens
+        if (newTokens !== undefined) {
+          set((state) => ({
+            tokensUsed: state.tokensUsed + newTokens
+          }));
+        }
+      },
+
+      /**
+       * 完成翻译
+       */
+      completeTranslation: async (taskId: string) => {
+        await translationService.completeTranslation(taskId);
+        set({
+          isTranslating: false
+        });
       }
     }),
     {
