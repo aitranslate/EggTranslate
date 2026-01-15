@@ -1,7 +1,7 @@
 import React, { useCallback, useState, useRef } from 'react';
-import { Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react';
-import { useSubtitle } from '@/contexts/SubtitleContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Upload, FileText, CheckCircle } from 'lucide-react';
+import { useSubtitleStore } from '@/stores/subtitleStore';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useErrorHandler } from '@/hooks/useErrorHandler';
 
@@ -10,7 +10,7 @@ interface BatchFileUploadProps {
 }
 
 export const BatchFileUpload: React.FC<BatchFileUploadProps> = ({ className }) => {
-  const { loadFromFile, isLoading, error, files } = useSubtitle();
+  const addFile = useSubtitleStore((state) => state.addFile);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -31,9 +31,9 @@ export const BatchFileUpload: React.FC<BatchFileUploadProps> = ({ className }) =
 
     try {
       setIsUploading(true);
-      await loadFromFile(file);
+      await addFile(file);
 
-      // 文件由Context管理，不需要本地状态
+      // 文件由Store管理，不需要本地状态
 
       toast.success(`成功加载 ${file.name}`);
     } catch (err) {
@@ -43,7 +43,7 @@ export const BatchFileUpload: React.FC<BatchFileUploadProps> = ({ className }) =
     } finally {
       setIsUploading(false);
     }
-  }, [loadFromFile, handleError]);
+  }, [addFile, handleError]);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -130,19 +130,6 @@ export const BatchFileUpload: React.FC<BatchFileUploadProps> = ({ className }) =
             </div>
           </div>
         </div>
-        
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-4 p-4 rounded-lg bg-red-500/20 border border-red-500/30 backdrop-blur-sm"
-          >
-            <div className="flex items-center space-x-2 text-red-200">
-              <AlertCircle className="h-4 w-4" />
-              <span>{error}</span>
-            </div>
-          </motion.div>
-        )}
 
         </motion.div>
     </div>
