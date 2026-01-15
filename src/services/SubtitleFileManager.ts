@@ -120,12 +120,15 @@ export async function restoreFiles(): Promise<SubtitleFile[]> {
   return batchTasks.tasks.map((task) => ({
     id: generateStableFileId(task.taskId),
     name: task.subtitle_filename,
-    size: 0,
+    size: task.fileSize || 0,
     lastModified: Date.now(),
     entries: task.subtitle_entries,
     filename: task.subtitle_filename,
     currentTaskId: task.taskId,
     type: detectFileType(task.subtitle_filename) as FileType,
+    fileType: task.fileType,
+    fileSize: task.fileSize,
+    duration: task.duration,
     fileRef: undefined, // File对象无法持久化，恢复时为undefined
     transcriptionStatus: 'completed' as const
   }));
