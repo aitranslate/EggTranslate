@@ -89,6 +89,7 @@ const callLlmApi = async (prompt: string, config: TranscriptionLLMConfig): Promi
  */
 const processBatch = async (
   batch: BatchInfo,
+  batchIdx: number,
   llmConfig: TranscriptionLLMConfig
 ): Promise<{
   sentences: Array<{ sentence: string; startIdx: number; endIdx: number }>;
@@ -286,7 +287,7 @@ export const runTranscriptionPipeline = async (
     const batchPromises = currentBatchGroup.map(async (batch) => {
       const batchIdx = batches.indexOf(batch);
       try {
-        const { sentences, tokensUsed } = await processBatch(batch, llmConfig);
+        const { sentences, tokensUsed } = await processBatch(batch, batchIdx, llmConfig);
         allReconstructedSentences[batchIdx] = sentences;
         totalTokensUsed += tokensUsed;
 
