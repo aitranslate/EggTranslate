@@ -64,6 +64,11 @@ export interface SingleTask {
     current_index?: number;
   };
   index: number; // 在列表中的位置
+
+  // NEW: Audio-video transcription cache fields
+  fileType?: 'srt' | 'audio-video';   // Unified file type
+  fileSize?: number;                  // File size in bytes
+  duration?: number;                  // Audio duration in seconds
 }
 
 // 批量任务列表类型

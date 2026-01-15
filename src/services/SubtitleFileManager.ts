@@ -33,7 +33,10 @@ export async function loadFromFile(
 
     // 创建批处理任务
     const index = options.existingFilesCount;
-    const taskId = await dataManager.createNewTask(file.name, entries, index);
+    const taskId = await dataManager.createNewTask(file.name, entries, index, {
+      fileType: 'srt',
+      fileSize: file.size
+    });
     const fileId = generateStableFileId(taskId);
 
     return {
@@ -51,6 +54,13 @@ export async function loadFromFile(
     // 音视频文件：只存储元数据和文件引用
     const taskId = generateTaskId();
     const fileId = generateStableFileId(taskId);
+
+    // 创建空任务用于音视频文件（转录后会有条目）
+    await dataManager.createNewTask(file.name, [], options.existingFilesCount, {
+      fileType: 'audio-video',
+      fileSize: file.size
+      // duration 将在转录后设置
+    });
 
     return {
       id: fileId,

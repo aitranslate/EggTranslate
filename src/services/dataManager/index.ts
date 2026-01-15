@@ -134,8 +134,17 @@ class DataManager {
     return this.taskManager.getTaskById(taskId);
   }
 
-  async createNewTask(filename: string, entries: SubtitleEntry[], index: number): Promise<string> {
-    return this.taskManager.createNewTask(filename, entries, index, () => this.generateTaskId());
+  async createNewTask(
+    filename: string,
+    entries: SubtitleEntry[],
+    index: number,
+    options?: {
+      fileType?: 'srt' | 'audio-video';
+      fileSize?: number;
+      duration?: number;
+    }
+  ): Promise<string> {
+    return this.taskManager.createNewTask(filename, entries, index, () => this.generateTaskId(), options);
   }
 
   async updateTaskSubtitleEntry(taskId: string, entryId: number, text: string, translatedText?: string): Promise<void> {

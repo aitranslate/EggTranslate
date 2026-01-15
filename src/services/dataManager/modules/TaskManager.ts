@@ -37,7 +37,12 @@ class TaskManager {
     filename: string,
     entries: SubtitleEntry[],
     index: number,
-    generateTaskId: () => string
+    generateTaskId: () => string,
+    options?: {
+      fileType?: 'srt' | 'audio-video';
+      fileSize?: number;
+      duration?: number;
+    }
   ): Promise<string> {
     try {
       const taskId = generateTaskId();
@@ -51,7 +56,10 @@ class TaskManager {
           tokens: 0,
           status: 'idle'
         },
-        index
+        index,
+        fileType: options?.fileType,
+        fileSize: options?.fileSize,
+        duration: options?.duration
       };
 
       // 更新内存中的数据
