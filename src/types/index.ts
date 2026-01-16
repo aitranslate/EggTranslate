@@ -39,6 +39,7 @@ export interface TranslationProgress {
 export interface Term {
   original: string;
   translation: string;
+  notes?: string;  // 新增：可选的说明字段
 }
 
 // 翻译任务状态类型
