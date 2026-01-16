@@ -52,29 +52,21 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
   const { handleError } = useErrorHandler();
 
   const translationStats = useMemo(() => {
-    const translated = file.entries.filter((entry) => entry.translatedText).length;
+    // ✅ Phase 3: 直接使用缓存的统计信息
+    const entryCount = file.entryCount ?? 0;
+    const translatedCount = file.translatedCount ?? 0;
 
-    const batchTasks = dataManager.getBatchTasks();
-    const task = file.currentTaskId ? batchTasks.tasks.find(t => t.taskId === file.currentTaskId) : null;
-    const tokens = task?.translation_progress?.tokens || 0;
-
-    // 调试日志
-    if (tokens > 0) {
-      console.log('[SubtitleFileItem] translationStats updated:', {
-        taskId: file.currentTaskId,
-        tokens,
-        from: 'dataManager'
-      });
-    }
+    // ✅ Phase 3: 从 Store 的 transcriptionProgress 读取 tokens（实时更新）
+    const tokens = file.transcriptionProgress?.tokens ?? 0;
 
     return {
-      total: file.entries.length,
-      translated,
-      untranslated: file.entries.length - translated,
-      percentage: file.entries.length > 0 ? Math.round((translated / file.entries.length) * 100) : 0,
+      total: entryCount,
+      translated: translatedCount,
+      untranslated: entryCount - translatedCount,
+      percentage: entryCount > 0 ? Math.round((translatedCount / entryCount) * 100) : 0,
       tokens: tokens
     };
-  }, [file.entries, file.currentTaskId, file.transcriptionProgress?.tokens]);  // ✅ 监听 transcriptionProgress.tokens 变化
+  }, [file.entryCount, file.translatedCount, file.transcriptionProgress?.tokens]);
 
   const handleExport = useCallback((format: 'srt' | 'txt' | 'bilingual') => {
     onExport(file, format);
@@ -100,9 +92,9 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
             <h4 className="font-medium text-white truncate max-w-xs" title={file.name}>{file.name}</h4>
             <div className="text-xs text-white/60 mt-1">
               {file.type === 'srt' ? (
-                <>{file.entries.length} 条字幕</>
+                <>{file.entryCount ?? 0} 条字幕</>
               ) : (
-                <>{formatFileSize(file.size)}</>
+                <>{formatFileSize(file.fileSize ?? 0)}</>
               )}
             </div>
           </div>
@@ -179,9 +171,9 @@ export const SubtitleFileItemMemo = memo(SubtitleFileItem, (prevProps, nextProps
     'id',
     'name',
     'type',
-    'size',
+    'fileSize',
     'transcriptionStatus',
-    'currentTaskId'
+    'taskId'
   ];
 
   // 检查 file 对象的关键属性是否变化
@@ -201,13 +193,17 @@ export const SubtitleFileItemMemo = memo(SubtitleFileItem, (prevProps, nextProps
   }
 
   // 检查 entries 数量是否变化（快速检查）
-  if (prevProps.file.entries.length !== nextProps.file.entries.length) {
+  // ✅ Phase 3: 直接使用 entryCount
+  const prevEntryCount = prevProps.file.entryCount ?? 0;
+  const nextEntryCount = nextProps.file.entryCount ?? 0;
+  if (prevEntryCount !== nextEntryCount) {
     return false;
   }
 
   // 检查已翻译数量是否变化（影响进度显示）
-  const prevTranslated = prevProps.file.entries.filter(e => e.translatedText).length;
-  const nextTranslated = nextProps.file.entries.filter(e => e.translatedText).length;
+  // ✅ Phase 3: 直接使用 translatedCount
+  const prevTranslated = prevProps.file.translatedCount ?? 0;
+  const nextTranslated = nextProps.file.translatedCount ?? 0;
   if (prevTranslated !== nextTranslated) {
     return false;
   }

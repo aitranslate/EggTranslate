@@ -60,9 +60,11 @@ const DEFAULT_CONFIG: TranslationConfig = {
   model: 'gpt-4o-mini',
   sourceLanguage: 'en',
   targetLanguage: 'zh',
-  batchSize: 10,
+  batchSize: 20,
   threadCount: 4,
-  enableReflection: false
+  contextBefore: 5,
+  contextAfter: 3,
+  enableReflection: true
 };
 
 const DEFAULT_PROGRESS: TranslationProgress = {
@@ -191,6 +193,17 @@ export const useTranslationConfigStore = create<TranslationConfigStore>()(
         contextAfter = '',
         terms = ''
       ) => {
+        // 同步配置到 TranslationService（确保单例的 config 是最新的）
+        const currentConfig = get().config;
+        const serviceConfig = translationService.getConfig();
+
+        // 只在配置不同时才更新（避免不必要的写入）
+        if (serviceConfig.apiKey !== currentConfig.apiKey ||
+            serviceConfig.baseURL !== currentConfig.baseURL ||
+            serviceConfig.model !== currentConfig.model) {
+          await translationService.updateConfig(currentConfig);
+        }
+
         return translationService.translateBatch(texts, signal, contextBefore, contextAfter, terms);
       },
 

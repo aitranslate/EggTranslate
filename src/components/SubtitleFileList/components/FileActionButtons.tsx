@@ -135,7 +135,7 @@ export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
             e.stopPropagation();
             setIsExporting(!isExporting);
           }}
-          disabled={file.entries.length === 0 || isTranslating}
+          disabled={(file.entryCount ?? 0) === 0 || isTranslating}
           className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 transition-all duration-200 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
           title="导出"
         >

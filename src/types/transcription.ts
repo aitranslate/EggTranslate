@@ -68,7 +68,30 @@ export interface TranscriptionProgressInfo {
 }
 
 /**
- * 字幕文件类型（用于文件管理）
+ * 字幕文件元数据（轻量级，用于 subtitleStore）
+ * 不包含完整的 entries 数组，仅存储统计信息和状态
+ */
+export interface SubtitleFileMetadata {
+  id: string;
+  taskId: string;                      // 链接到 DataManager 的 taskId
+  name: string;
+  fileType: 'srt' | 'audio-video';
+  fileSize: number;
+  lastModified: number;
+  duration?: number;
+
+  // 缓存的统计信息（从 DataManager 计算后缓存）
+  entryCount: number;                  // 字幕条目总数
+  translatedCount: number;             // 已翻译数量
+
+  // 转录状态和进度
+  transcriptionStatus: TranscriptionStatus;
+  transcriptionProgress?: TranscriptionProgressInfo;
+}
+
+/**
+ * 字幕文件类型（用于文件管理，包含完整数据）
+ * @deprecated DataManager 层使用 SingleTask，Store 层使用 SubtitleFileMetadata
  */
 export interface SubtitleFile {
   id: string;
@@ -85,4 +108,9 @@ export interface SubtitleFile {
   duration?: number;                  // 音视频时长（秒）
   transcriptionStatus?: TranscriptionStatus;
   transcriptionProgress?: TranscriptionProgressInfo;
+
+  // 渐进式迁移：添加缓存的统计信息（Phase 2）
+  // Phase 3 会移除 entries 数组，只保留这些统计信息
+  entryCount?: number;                // 字幕条目总数（缓存）
+  translatedCount?: number;           // 已翻译数量（缓存）
 }

@@ -26,7 +26,7 @@ export const MainApp: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [editingFile, setEditingFile] = useState<SubtitleFile | null>(null);
+  const [editingFileId, setEditingFileId] = useState<string | null>(null);  // ✅ 改为保存 ID
   const [isEditingModalOpen, setIsEditingModalOpen] = useState(false);
   const files = useFiles();
   const isConfigured = useIsTranslationConfigured();
@@ -37,7 +37,7 @@ export const MainApp: React.FC = () => {
   const { handleError } = useErrorHandler();
 
   const handleEditFile = useCallback((file: SubtitleFile) => {
-    setEditingFile(file);
+    setEditingFileId(file.id);  // ✅ 只保存 ID，让 SubtitleEditor 从 Store 实时订阅
     setIsEditingModalOpen(true);
   }, []);
 
@@ -53,7 +53,7 @@ export const MainApp: React.FC = () => {
       });
     } finally {
       setIsEditingModalOpen(false);
-      setEditingFile(null);
+      setEditingFileId(null);  // ✅ 改为 setEditingFileId
     }
   }, [handleError]);
 
@@ -159,7 +159,7 @@ export const MainApp: React.FC = () => {
       <SubtitleEditor
         isOpen={isEditingModalOpen}
         onClose={handleCloseEditModal}
-        file={editingFile}
+        fileId={editingFileId || ''}
       />
     </div>
   );

@@ -9,16 +9,21 @@ import { useSubtitleStore } from '@/stores/subtitleStore';
 interface SubtitleEditorProps {
   isOpen: boolean;
   onClose: () => void;
-  file: SubtitleFile;
+  fileId: string;  // 改为传递 ID，从 Store 实时订阅
 }
 
 export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   isOpen,
   onClose,
-  file
+  fileId
 }) => {
-  // 从 file prop 直接获取数据
-  const entries = file?.entries || [];
+  // ✅ 从 Store 获取文件元数据
+  const file = useSubtitleStore((state) => state.getFile(fileId));
+
+  // ✅ 使用 getFileEntries 从 DataManager 延迟加载完整字幕条目
+  const getFileEntries = useSubtitleStore((state) => state.getFileEntries);
+  const entries = getFileEntries(fileId);
+
   const updateEntry = useSubtitleStore((state) => state.updateEntry);
 
   // 使用统一错误处理
@@ -29,8 +34,8 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   const [editTranslation, setEditTranslation] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'translated' | 'untranslated'>('all');
-  
-  // 直接使用 file prop 中的 entries
+
+  // ✅ entries 来自 Store 订阅，会实时更新
   const fileEntries = useMemo(() => {
     return entries || [];
   }, [entries]);

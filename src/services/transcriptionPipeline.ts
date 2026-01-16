@@ -54,7 +54,7 @@ export interface ProgressCallbacks {
   onChunking?: (duration: number) => void;
   onTranscribing?: (current: number, total: number, percent: number) => void;
   onLLMMerging?: () => void;
-  onLLMProgress?: (completed: number, total: number, percent: number, tokens: number) => void;
+  onLLMProgress?: (completed: number, total: number, percent: number, cumulativeTokens: number) => void;
 }
 
 /**
@@ -249,43 +249,64 @@ export const runTranscriptionPipeline = async (
   const batches = createBatches(allWords);
   logBatchOverview(batches);
 
+  // 统计需要 LLM 处理的批次（跳过 skipLLM 的批次）
+  const llmBatches = batches.filter(b => !b.skipLLM);
+  const totalLlmBatches = llmBatches.length;
+
   // 按线程数分组处理批次（与翻译流程保持一致）
   const threadCount = llmConfig.threadCount || 4;
-  const allReconstructedSentences: Array<Array<{ sentence: string; startIdx: number; endIdx: number }>> = [];
-  let completedBatches = 0;
-  let totalTokensUsed = 0;
+  const allReconstructedSentences: Array<Array<{ sentence: string; startIdx: number; endIdx: number }>> = new Array(batches.length);
+
+  // 记录 tokens 使用量
+  const tokensMap = new Map<number, number>();
 
   for (let i = 0; i < batches.length; i += threadCount) {
     const currentBatchGroup = batches.slice(i, i + threadCount);
 
-    const batchPromises = currentBatchGroup.map(async (batch) => {
-      const batchIdx = batches.indexOf(batch);
+    const batchPromises = currentBatchGroup.map(async (batch, groupIndex) => {
+      const batchIdx = i + groupIndex;
       try {
         const { sentences, tokensUsed } = await processBatch(batch, llmConfig);
         allReconstructedSentences[batchIdx] = sentences;
-        totalTokensUsed += tokensUsed;
+        tokensMap.set(batchIdx, tokensUsed);
 
-        // 更新进度
-        completedBatches++;
-        callbacks.onLLMProgress?.(
-          completedBatches,
-          batches.length,
-          Math.floor(TRANSCRIPTION_PROGRESS.LLM_PROGRESS_START + (completedBatches / batches.length) * TRANSCRIPTION_PROGRESS.LLM_PROGRESS_RANGE),
-          totalTokensUsed
-        );
+        // 只有需要 LLM 处理的批次才更新进度
+        if (!batch.skipLLM) {
+          // 计算当前累积的 tokens 总量
+          const cumulativeTokens = Array.from(tokensMap.values()).reduce((sum, tokens) => sum + tokens, 0);
+
+          // 统计已完成 LLM 处理的批次数
+          const completedLlmBatches = Array.from(tokensMap.entries())
+            .filter(([idx]) => !batches[idx].skipLLM).length;
+
+          // 更新进度（传递累积总量）
+          const percent = Math.floor(
+            TRANSCRIPTION_PROGRESS.LLM_PROGRESS_START +
+            (completedLlmBatches / totalLlmBatches) * TRANSCRIPTION_PROGRESS.LLM_PROGRESS_RANGE
+          );
+          callbacks.onLLMProgress?.(
+            completedLlmBatches,
+            totalLlmBatches,
+            percent,
+            cumulativeTokens // ✅ 传递累积总量
+          );
+        }
       } catch (error) {
         const reasonText = batch.reason === 'pause'
           ? `pause ${batch.pauseGap?.toFixed(1)}s`
           : batch.reason === 'punctuation' ? 'punctuation' : 'limit';
         const appError = toAppError(error);
-        console.error(`[TranscriptionPipeline] Batch [${batch.startIdx}] (${batch.words.length} words, ${reasonText}) 处理失败:`, appError.message);
+        console.error(`[TranscriptionPipeline] Batch #${batch.startIdx} (${batch.words.length} words, ${reasonText}) 处理失败:`, appError.message);
         // 抛出错误，停止转录流程
-        throw new Error(`LLM 句子分割失败（批次 [${batch.startIdx}]）: ${appError.message}`);
+        throw new Error(`LLM 句子分割失败（批次 #${batch.startIdx}）: ${appError.message}`);
       }
     });
 
     await Promise.all(batchPromises);
   }
+
+  // 计算总 tokens 使用量
+  const totalTokensUsed = Array.from(tokensMap.values()).reduce((sum, tokens) => sum + tokens, 0);
 
   // 5. 生成字幕条目
   const entries: SubtitleEntry[] = [];

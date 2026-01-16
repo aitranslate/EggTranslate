@@ -85,7 +85,7 @@ export const TranslationProgress: React.FC<TranslationProgressProps> = ({
       progressDetail = `${translationStats?.translated ?? 0} / ${translationStats?.total ?? 0} 已翻译`;
     } else if (file.transcriptionStatus === 'completed') {
       // 转录完成但未翻译
-      progressDetail = `转录完成 ${translationStats?.total ?? 0} 条`;
+      progressDetail = `字幕 ${translationStats?.total ?? 0} 条`;
     } else {
       // 未开始
       progressDetail = '等待转录';

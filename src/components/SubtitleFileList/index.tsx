@@ -4,7 +4,7 @@ import { Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { downloadSubtitleFile } from '@/utils/fileExport';
 import { useSubtitleStore } from '@/stores/subtitleStore';
-import { useTranslationConfigStore, useTranslationConfig, useIsTranslating } from '@/stores/translationConfigStore';
+import { useTranslationConfigStore, useTranslationConfig } from '@/stores/translationConfigStore';
 import { useTranscriptionStore, useModelStatus } from '@/stores/transcriptionStore';
 import { useTerms } from '@/contexts/TermsContext';
 import { useHistory } from '@/contexts/HistoryContext';
@@ -45,7 +45,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
       ...e,
       text: e.translatedText || e.text
     })) : file.entries;
-    return entries.map((e, i) => `${i + 1}\n${formatTime(e.start)} --> ${formatTime(e.end)}\n${e.text}\n`).join('\n');
+    return entries.map((e, i) => `${i + 1}\n${e.startTime} --> ${e.endTime}\n${e.text}\n`).join('\n');
   };
 
   const exportTXT = (fileId: string, useTranslation = true) => {
@@ -69,6 +69,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
   const { getRelevantTerms } = useTerms();
   const { addHistoryEntry } = useHistory();
   const { handleError } = useErrorHandler();
+  const startTranslationFromStore = useSubtitleStore((state) => state.startTranslation);
 
   const [isTranslatingGloballyState, setIsTranslatingGlobally] = useState(false);
   const [currentTranslatingFileId, setCurrentTranslatingFileId] = useState<string | null>(null);
@@ -104,68 +105,13 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
     setPendingTranscribeFileId(null);
   }, []);
 
-  const getPreviousEntries = useCallback((entries: SubtitleEntry[], currentIndex: number) => {
-    const contextBefore = config.contextBefore || 2;
-    const startIndex = Math.max(0, currentIndex - contextBefore);
-    return entries.slice(startIndex, currentIndex).map(entry => entry.text).join('\n');
-  }, [config.contextBefore]);
-
-  const getNextEntries = useCallback((entries: SubtitleEntry[], currentIndex: number) => {
-    const contextAfter = config.contextAfter || 2;
-    const endIndex = Math.min(entries.length, currentIndex + contextAfter);
-    return entries.slice(currentIndex, endIndex).map(entry => entry.text).join('\n');
-  }, [config.contextAfter]);
-
   // 单个文件翻译处理
   const handleStartTranslation = useCallback(async (file: SubtitleFile) => {
     setCurrentTranslatingFileId(file.id);
 
-    const batchTasks = dataManager.getBatchTasks();
-    const task = batchTasks.tasks.find(t => t.taskId === file.currentTaskId);
-
     try {
-      const batchSize = config.batchSize || 10;
-      let tokensUsed = 0;
-
-      for (let i = 0; i < file.entries.length; i += batchSize) {
-        const batch = file.entries.slice(i, i + batchSize);
-        const texts = batch.map(entry => entry.text);
-
-        const contextBeforeTexts = getPreviousEntries(file.entries, i);
-        const contextAfterTexts = getNextEntries(file.entries, i + batch.length);
-
-        const batchText = texts.join(' ');
-        const relevantTerms = getRelevantTerms(batchText, contextBeforeTexts, contextAfterTexts);
-        const termsString = relevantTerms.map(term => `${term.original} -> ${term.translation}`).join('\n');
-
-        // 调用翻译服务
-        const result = await dataManager.config.translation_config?.apiKey ? // 简化检查
-          fetch(`${config.baseURL}/chat/completions`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${config.apiKey}`
-            },
-            body: JSON.stringify({
-              model: config.model,
-              messages: [{ role: 'user', content: `Translate:\n${texts.join('\n')}` }]
-            })
-          }).then(r => r.json()) : { translations: {}, tokensUsed: 0 };
-
-        for (let j = 0; j < batch.length; j++) {
-          const entry = batch[j];
-          const translatedText = result.translations[`${j + 1}`]?.direct || '';
-
-          if (translatedText) {
-            await updateEntry(file.id, entry.id, entry.text, translatedText);
-          }
-        }
-
-        tokensUsed += result.tokensUsed || 0;
-      }
-
-      await dataManager.completeTask(file.currentTaskId, tokensUsed);
-      setCurrentTranslatingFileId(null);
+      // 调用 Store 的翻译方法（包含重试机制和错误处理）
+      await startTranslationFromStore(file.id);
 
       // 添加历史记录
       const batchTasks = dataManager.getBatchTasks();
@@ -209,9 +155,10 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
       handleError(error, {
         context: { operation: '翻译', fileName: file.name }
       });
+    } finally {
       setCurrentTranslatingFileId(null);
     }
-  }, [getRelevantTerms, updateEntry, addHistoryEntry, config, getPreviousEntries, getNextEntries, handleError]);
+  }, [startTranslationFromStore, addHistoryEntry, handleError]);
 
   // 批量翻译处理
   const handleStartAllTranslation = useCallback(async () => {

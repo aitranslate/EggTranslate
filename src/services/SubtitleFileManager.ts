@@ -3,7 +3,7 @@
  * 负责文件加载、更新、删除等CRUD操作
  */
 
-import { SubtitleEntry, FileType } from '@/types';
+import { SubtitleEntry, FileType, SubtitleFileMetadata, TranscriptionStatus, SingleTask } from '@/types';
 import type { SubtitleFile } from '@/types/transcription';
 import { parseSRT } from '@/utils/srtParser';
 import { detectFileType } from '@/utils/fileFormat';
@@ -19,11 +19,14 @@ export interface LoadFileOptions {
 
 /**
  * 从 File 对象加载字幕文件
+ * Phase 3: 返回 SubtitleFileMetadata（元数据）
+ *
+ * 注意：音视频文件需要保留 fileRef，所以返回类型是联合
  */
 export async function loadFromFile(
   file: File,
   options: LoadFileOptions
-): Promise<SubtitleFile> {
+): Promise<SubtitleFileMetadata & { fileRef?: File }> {
   const fileType = detectFileType(file.name);
 
   if (fileType === 'srt') {
@@ -39,15 +42,16 @@ export async function loadFromFile(
     });
     const fileId = generateStableFileId(taskId);
 
+    // ✅ Phase 3: 返回元数据
     return {
       id: fileId,
+      taskId,
       name: file.name,
-      size: file.size,
+      fileType: 'srt',
+      fileSize: file.size,
       lastModified: file.lastModified,
-      entries,
-      filename: file.name,
-      currentTaskId: taskId,
-      type: 'srt',
+      entryCount: entries.length,
+      translatedCount: entries.filter(e => e.translatedText).length,
       transcriptionStatus: 'completed'
     };
   } else {
@@ -59,25 +63,25 @@ export async function loadFromFile(
     });
     const fileId = generateStableFileId(taskId);
 
+    // ✅ Phase 3: 返回元数据（fileRef 作为额外属性保留）
     return {
       id: fileId,
+      taskId,
       name: file.name,
-      size: file.size,
-      lastModified: file.lastModified,
-      entries: [], // 初始为空，转录完成后更新
-      filename: file.name,
-      currentTaskId: taskId, // ✅ 直接使用正式 taskId
-      type: fileType,
       fileType: 'audio-video',
       fileSize: file.size,
-      fileRef: file, // 保存原始文件引用用于后续转录
-      transcriptionStatus: 'idle'
+      lastModified: file.lastModified,
+      entryCount: 0,
+      translatedCount: 0,
+      transcriptionStatus: 'idle',
+      fileRef: file // 保留原始文件引用用于后续转录
     };
   }
 }
 
 /**
  * 更新字幕条目（内存更新，不持久化）
+ * @deprecated 直接使用 dataManager.updateTaskSubtitleEntryInMemory
  */
 export function updateEntryInMemory(
   files: SubtitleFile[],
@@ -102,35 +106,56 @@ export function updateEntryInMemory(
 
 /**
  * 删除文件
+ * Phase 3: 接收 SubtitleFileMetadata（但需要 taskId）
  */
-export async function removeFile(file: SubtitleFile): Promise<void> {
-  await dataManager.removeTask(file.currentTaskId);
+export async function removeFile(file: SubtitleFileMetadata | SubtitleFile): Promise<void> {
+  const taskId = 'taskId' in file ? file.taskId : file.currentTaskId;
+  await dataManager.removeTask(taskId);
 }
 
 /**
- * 从 dataManager 恢复文件列表
- * 恢复所有任务（包括已转录和未转录的音视频文件）
+ * 从 dataManager 恢复文件列表（返回元数据，不包含完整 entries）
+ * Phase 3: 改为返回轻量级元数据数组
  */
-export async function restoreFiles(): Promise<SubtitleFile[]> {
+export async function restoreFiles(): Promise<SubtitleFileMetadata[]> {
   const batchTasks = dataManager.getBatchTasks();
   if (!batchTasks || batchTasks.tasks.length === 0) {
     return [];
   }
 
-  return batchTasks.tasks.map((task) => ({
-    id: generateStableFileId(task.taskId),
-    name: task.subtitle_filename,
-    size: task.fileSize || 0,
-    lastModified: Date.now(),
-    entries: task.subtitle_entries || [],
-    filename: task.subtitle_filename,
-    currentTaskId: task.taskId,
-    type: task.fileType === 'srt' ? 'srt' : undefined,
-    fileType: task.fileType,
-    fileSize: task.fileSize,
-    duration: task.duration,
-    transcriptionStatus: (task.subtitle_entries && task.subtitle_entries.length > 0) ? 'completed' : 'idle' as const
-  }));
+  // ✅ Phase 3: 使用 convertTaskToMetadata 转换为轻量级元数据
+  return batchTasks.tasks.map(task => convertTaskToMetadata(task));
+}
+
+/**
+ * 从 dataManager 恢复完整文件列表（包含 entries）
+ * @deprecated 使用 restoreFiles() 获取元数据，通过 subtitleStore.getFileEntries() 获取完整数据
+ */
+export async function restoreFilesWithEntries(): Promise<SubtitleFile[]> {
+  const batchTasks = dataManager.getBatchTasks();
+  if (!batchTasks || batchTasks.tasks.length === 0) {
+    return [];
+  }
+
+  return batchTasks.tasks.map((task) => {
+    const entries = task.subtitle_entries || [];
+    return {
+      id: generateStableFileId(task.taskId),
+      name: task.subtitle_filename,
+      size: task.fileSize || 0,
+      lastModified: Date.now(),
+      entries,
+      filename: task.subtitle_filename,
+      currentTaskId: task.taskId,
+      type: task.fileType === 'srt' ? 'srt' : undefined,
+      fileType: task.fileType,
+      fileSize: task.fileSize,
+      duration: task.duration,
+      transcriptionStatus: (task.subtitle_entries && task.subtitle_entries.length > 0) ? 'completed' : 'idle' as const,
+      entryCount: entries.length,
+      translatedCount: entries.filter(e => e.translatedText).length
+    };
+  });
 }
 
 /**
@@ -138,4 +163,52 @@ export async function restoreFiles(): Promise<SubtitleFile[]> {
  */
 export async function clearAllData(): Promise<void> {
   await dataManager.clearBatchTasks();
+}
+
+// ============================================
+// 辅助方法：Phase 1 - 元数据转换
+// ============================================
+
+/**
+ * 将 DataManager 的 SingleTask 转换为轻量级的 SubtitleFileMetadata
+ * 用于 Phase 3：只存储元数据，不存储完整的 entries 数组
+ *
+ * @param task - DataManager 中的 SingleTask 对象
+ * @returns 轻量级的 SubtitleFileMetadata
+ */
+export function convertTaskToMetadata(task: SingleTask): SubtitleFileMetadata {
+  const fileId = generateStableFileId(task.taskId);
+  const entries = task.subtitle_entries || [];
+
+  // 计算统计信息
+  const entryCount = entries.length;
+  const translatedCount = entries.filter(e => e.translatedText).length;
+
+  // 确定转录状态
+  const hasEntries = entries.length > 0;
+  const transcriptionStatus: TranscriptionStatus = hasEntries ? 'completed' : 'idle';
+
+  // 获取转录进度
+  const transcriptionProgress = task.translation_progress
+    ? {
+        percent: task.translation_progress.total > 0
+          ? Math.round((task.translation_progress.completed / task.translation_progress.total) * 100)
+          : 0,
+        tokens: task.translation_progress.tokens
+      }
+    : undefined;
+
+  return {
+    id: fileId,
+    taskId: task.taskId,
+    name: task.subtitle_filename,
+    fileType: task.fileType || 'srt',
+    fileSize: task.fileSize || 0,
+    lastModified: Date.now(),
+    duration: task.duration,
+    entryCount,
+    translatedCount,
+    transcriptionStatus,
+    transcriptionProgress
+  };
 }
