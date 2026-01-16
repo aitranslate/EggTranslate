@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Edit3, Save, X, Search, Filter, FileText, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { SubtitleFile, SubtitleEntry } from '@/types';
+import { SubtitleFile, SubtitleEntry, Term } from '@/types';
 import { useErrorHandler } from '@/hooks/useErrorHandler';
 import { useSubtitleStore } from '@/stores/subtitleStore';
 
@@ -123,10 +123,32 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
         .map(e => e.text)
         .join('\n');
 
-      // 获取术语
-      const dataManager = await import('@/services/dataManager');
-      const terms = dataManager.default.getTerms();
-      const termsText = terms.map(t => `${t.original} -> ${t.translation}`).join('\n');
+      // 获取相关术语（使用 getRelevantTerms 逻辑）
+      const { default: dataManager } = await import('@/services/dataManager');
+      const allTerms = dataManager.getTerms();
+
+      // 合并所有文本
+      const fullText = `${beforeTexts} ${entry.text} ${afterTexts}`;
+      const cleanedFullText = fullText.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+
+      // 预处理术语
+      const processedTerms = allTerms.map((term: Term) => ({
+        ...term,
+        cleanedOriginal: term.original.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
+      }));
+
+      // 筛选出在清洗后文本中出现的术语
+      const relevantTerms = processedTerms
+        .filter(term => term.cleanedOriginal && cleanedFullText.includes(term.cleanedOriginal))
+        .map(({ original, translation, notes }) => ({ original, translation, notes }));
+
+      // 格式化为提示词格式
+      const termsText = relevantTerms.map(term => {
+        if (term.notes) {
+          return `${term.original} -> ${term.translation} // ${term.notes}`;
+        }
+        return `${term.original} -> ${term.translation}`;
+      }).join('\n');
 
       // 调用翻译 API
       const result = await useTranslationConfigStore.getState().translateBatch(
