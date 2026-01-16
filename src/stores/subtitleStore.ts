@@ -524,16 +524,13 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
       )
     }));
 
-    // 同步到 DataManager（异步，不阻塞）
+    // 同步到 DataManager
     const file = get().getFile(fileId);
     if (file) {
-      const newTokens = get().getTokens(fileId);
       dataManager.updateTaskTranslationProgressInMemory(
         file.taskId,
-        { tokens: newTokens }
-      ).catch((error) => {
-        console.error('[subtitleStore] 同步 tokens 到 DataManager 失败:', error);
-      });
+        { tokens: file.tokensUsed + tokens }
+      );
     }
   },
 
