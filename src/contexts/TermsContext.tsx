@@ -10,13 +10,14 @@ interface TermsState {
 }
 
 interface TermsContextValue extends TermsState {
-  addTerm: (original: string, translation: string) => Promise<void>;
+  addTerm: (original: string, translation: string, notes?: string) => Promise<void>;
   removeTerm: (index: number) => Promise<void>;
-  updateTerm: (index: number, original: string, translation: string) => Promise<void>;
+  updateTerm: (index: number, original: string, translation: string, notes?: string) => Promise<void>;
   clearTerms: () => Promise<void>;
   importTerms: (termsText: string) => Promise<void>;
   exportTerms: () => string;
   getRelevantTerms: (text: string, contextBefore?: string, contextAfter?: string) => Term[];
+  formatTermsForPrompt: (terms: Term[]) => string;
 }
 
 type TermsAction =
@@ -68,8 +69,8 @@ export const TermsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // 使用统一错误处理
   const { handleError } = useErrorHandler();
 
-  const addTerm = useCallback(async (original: string, translation: string) => {
-    const newTerm = { original, translation };
+  const addTerm = useCallback(async (original: string, translation: string, notes?: string) => {
+    const newTerm = { original, translation, notes };
     dispatch({ type: 'ADD_TERM', payload: newTerm });
     await dataManager.addTerm(newTerm);
   }, []);
@@ -79,10 +80,10 @@ export const TermsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     await dataManager.removeTerm(index);
   }, []);
 
-  const updateTerm = useCallback(async (index: number, original: string, translation: string) => {
-    const updatedTerm = { original, translation };
+  const updateTerm = useCallback(async (index: number, original: string, translation: string, notes?: string) => {
+    const updatedTerm = { original, translation, notes };
     dispatch({ type: 'UPDATE_TERM', payload: { index, term: updatedTerm } });
-    await dataManager.updateTerm(index, original, translation);
+    await dataManager.updateTerm(index, original, translation, notes);
   }, []);
 
   const clearTerms = useCallback(async () => {
