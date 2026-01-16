@@ -34,6 +34,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   const [editTranslation, setEditTranslation] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'translated' | 'untranslated'>('all');
+  const [retranslatingIds, setRetranslatingIds] = useState<Set<number>>(new Set());
 
   // ✅ entries 来自 Store 订阅，会实时更新
   const fileEntries = useMemo(() => {
