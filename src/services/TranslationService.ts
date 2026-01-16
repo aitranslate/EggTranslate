@@ -184,7 +184,7 @@ class TranslationService {
 
   /**
    * 更新翻译进度
-   * @param newTokens - 新增的 tokens（会累加到现有值）
+   * @param newTokens - 新增的 tokens（此方法只传递给 Store，不自己累加）
    */
   async updateProgress(
     current: number,
@@ -205,9 +205,10 @@ class TranslationService {
           status: phase === 'completed' ? 'completed' : 'translating',
         };
 
-        // 累加 tokens（而不是覆盖）
-        if (newTokens !== undefined && newTokens > 0) {
-          updateObj.tokens = currentTokens + newTokens;
+        // ✅ 只在完成时设置 tokens（中间过程由 Store 管理）
+        if (phase === 'completed') {
+          // Store 已经累加了所有 tokens，这里只是最终确认
+          updateObj.tokens = currentTokens;
         }
 
         dataManager.updateTaskTranslationProgressInMemory(taskId, updateObj);
