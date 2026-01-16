@@ -20,7 +20,7 @@ ${contextBefore}
 ${contextAfter}
 </subsequent_content>
 
-### Terminology (MUST use the specified translation)
+### Terminology (format: original -> translation // notes)
 ${terms}`;
 };
 
