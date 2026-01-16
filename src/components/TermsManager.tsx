@@ -29,8 +29,10 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editOriginal, setEditOriginal] = useState('');
   const [editTranslation, setEditTranslation] = useState('');
+  const [editNotes, setEditNotes] = useState('');
   const [newOriginal, setNewOriginal] = useState('');
   const [newTranslation, setNewTranslation] = useState('');
+  const [newNotes, setNewNotes] = useState('');
   const [importText, setImportText] = useState('');
   const [showImport, setShowImport] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -43,16 +45,17 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
     }
 
     try {
-      await addTerm(newOriginal.trim(), newTranslation.trim());
+      await addTerm(newOriginal.trim(), newTranslation.trim(), newNotes.trim() || undefined);
       setNewOriginal('');
       setNewTranslation('');
+      setNewNotes('');
       toast.success('术语添加成功');
     } catch (error) {
       handleError(error, {
         context: { operation: '添加术语' }
       });
     }
-  }, [newOriginal, newTranslation, addTerm, handleError]);
+  }, [newOriginal, newTranslation, newNotes, addTerm, handleError]);
 
   const onRemoveTerm = useCallback(async (index: number) => {
     try {
@@ -69,6 +72,7 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
     setEditingIndex(index);
     setEditOriginal(terms[index].original);
     setEditTranslation(terms[index].translation);
+    setEditNotes(terms[index].notes || '');
   }, [terms]);
 
   const onSaveEdit = useCallback(async () => {
@@ -80,22 +84,24 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
     }
 
     try {
-      await updateTerm(editingIndex, editOriginal.trim(), editTranslation.trim());
+      await updateTerm(editingIndex, editOriginal.trim(), editTranslation.trim(), editNotes.trim() || undefined);
       setEditingIndex(null);
       setEditOriginal('');
       setEditTranslation('');
+      setEditNotes('');
       toast.success('术语更新成功');
     } catch (error) {
       handleError(error, {
         context: { operation: '更新术语' }
       });
     }
-  }, [editingIndex, editOriginal, editTranslation, updateTerm, handleError]);
+  }, [editingIndex, editOriginal, editTranslation, editNotes, updateTerm, handleError]);
 
   const onCancelEdit = useCallback(() => {
     setEditingIndex(null);
     setEditOriginal('');
     setEditTranslation('');
+    setEditNotes('');
   }, []);
 
   const onImport = useCallback(async () => {
@@ -190,13 +196,13 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
             <h3 className="text-lg font-semibold text-white border-b border-white/20 pb-2">
               添加新术语
             </h3>
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="grid grid-cols-12 gap-3">
               <input
                 type="text"
                 placeholder="原文"
                 value={newOriginal}
                 onChange={(e) => setNewOriginal(e.target.value)}
-                className="flex-1 p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-purple-400 transition-colors"
+                className="col-span-3 p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-purple-400 transition-colors"
                 onKeyPress={(e) => e.key === 'Enter' && onAddTerm()}
               />
               <input
@@ -204,12 +210,20 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
                 placeholder="译文"
                 value={newTranslation}
                 onChange={(e) => setNewTranslation(e.target.value)}
-                className="flex-1 p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-purple-400 transition-colors"
+                className="col-span-3 p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-purple-400 transition-colors"
+                onKeyPress={(e) => e.key === 'Enter' && onAddTerm()}
+              />
+              <input
+                type="text"
+                placeholder="说明（可选）"
+                value={newNotes}
+                onChange={(e) => setNewNotes(e.target.value)}
+                className="col-span-4 p-3 bg-white/10 border border-white/20 rounded-lg text-white/70 placeholder-white/40 focus:outline-none focus:border-purple-400 transition-colors"
                 onKeyPress={(e) => e.key === 'Enter' && onAddTerm()}
               />
               <button
                 onClick={onAddTerm}
-                className="flex items-center space-x-2 px-4 py-3 bg-green-500/20 hover:bg-green-500/30 text-green-200 border border-green-500/30 rounded-lg transition-colors whitespace-nowrap"
+                className="col-span-2 flex items-center justify-center space-x-2 px-4 py-3 bg-green-500/20 hover:bg-green-500/30 text-green-200 border border-green-500/30 rounded-lg transition-colors whitespace-nowrap"
               >
                 <Plus className="h-4 w-4" />
                 <span>添加</span>
@@ -321,7 +335,7 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
                     >
                       {editingIndex === index ? (
                         <div className="space-y-3">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             <input
                               type="text"
                               value={editOriginal}
@@ -335,6 +349,13 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
                               onChange={(e) => setEditTranslation(e.target.value)}
                               className="w-full p-2 bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:border-purple-400 transition-colors"
                               placeholder="译文"
+                            />
+                            <input
+                              type="text"
+                              value={editNotes}
+                              onChange={(e) => setEditNotes(e.target.value)}
+                              className="w-full p-2 bg-white/10 border border-white/20 rounded text-white/80 placeholder-white/40 focus:outline-none focus:border-purple-400 transition-colors"
+                              placeholder="说明（可选）"
                             />
                           </div>
                           <div className="flex items-center space-x-2">
@@ -356,7 +377,7 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
                         </div>
                       ) : (
                         <div className="flex items-center justify-between">
-                          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                               <div className="text-sm text-white/60 mb-1">原文</div>
                               <div className="text-white">{term.original}</div>
@@ -364,6 +385,12 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
                             <div>
                               <div className="text-sm text-white/60 mb-1">译文</div>
                               <div className="text-blue-200">{term.translation}</div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-white/60 mb-1">说明</div>
+                              <div className={term.notes ? 'text-white' : 'text-white/40 italic'}>
+                                {term.notes || '无'}
+                              </div>
                             </div>
                           </div>
                           <div className="flex items-center space-x-1 ml-4">
