@@ -112,8 +112,6 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
 
       await completeTranslation(taskId);
 
-      toast.success('翻译完成！');
-
       // 保存历史记录
       await saveTranslationHistory(taskId, filename, tokensUsed, addHistoryEntry);
     } catch (error) {

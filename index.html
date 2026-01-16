@@ -12,11 +12,7 @@
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
   <!-- 只在生产环境注册 Service Worker -->
-  <script>
-    if (import.meta.env.PROD) {
-      document.write('<script src="/sw-register.js"><\/script>');
-    }
-  </script>
+  <script type="module" src="/src/sw-env-handler.js"></script>
 </body>
 
 </html>
