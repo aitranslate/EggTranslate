@@ -281,6 +281,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
                         <button
                           onClick={() => onStartEdit(entry)}
                           className="p-1 hover:bg-white/20 rounded transition-colors"
+                          title="编辑字幕"
                         >
                           <Edit3 className="h-4 w-4 text-white/60" />
                         </button>
@@ -288,6 +289,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
                           onClick={() => handleRetranslate(entry.id)}
                           disabled={retranslatingIds.has(entry.id)}
                           className="p-1 hover:bg-white/20 rounded transition-colors disabled:opacity-50"
+                          title={retranslatingIds.has(entry.id) ? "正在翻译..." : "重新翻译"}
                         >
                           <RefreshCw className={`h-4 w-4 text-blue-400 ${retranslatingIds.has(entry.id) ? 'animate-spin' : ''}`} />
                         </button>
