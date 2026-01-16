@@ -56,8 +56,8 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
     const entryCount = file.entryCount ?? 0;
     const translatedCount = file.translatedCount ?? 0;
 
-    // ✅ Phase 3: 从 Store 的 transcriptionProgress 读取 tokens（实时更新）
-    const tokens = file.transcriptionProgress?.tokens ?? 0;
+    // ✅ Phase 3: 从 Store 的 tokensUsed 读取 tokens
+    const tokens = file.tokensUsed ?? 0;
 
     return {
       total: entryCount,
@@ -66,7 +66,7 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
       percentage: entryCount > 0 ? Math.round((translatedCount / entryCount) * 100) : 0,
       tokens: tokens
     };
-  }, [file.entryCount, file.translatedCount, file.transcriptionProgress?.tokens]);
+  }, [file.entryCount, file.translatedCount, file.tokensUsed]);
 
   const handleExport = useCallback((format: 'srt' | 'txt' | 'bilingual') => {
     onExport(file, format);
