@@ -57,7 +57,7 @@ export const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative max-w-5xl w-full max-h-[90vh] bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 rounded-xl border border-white/20 shadow-2xl flex overflow-hidden"
+        className="relative max-w-5xl w-full max-h-[90vh] bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 rounded-xl border border-white/20 shadow-2xl flex flex-col md:flex-row overflow-hidden"
       >
         {/* 关闭按钮 */}
         <button
@@ -69,17 +69,17 @@ export const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
         </button>
 
         {/* 左侧目录 */}
-        <div className="w-60 bg-white/5 border-r border-white/10 overflow-y-auto">
+        <div className="w-full md:w-60 bg-white/5 border-r border-white/10 border-b md:border-b-0 overflow-y-auto">
           <div className="p-4">
             <h2 className="text-xl font-bold text-white mb-4">使用指南</h2>
-            <nav className="space-y-1">
+            <nav className="flex md:flex-col md:space-y-1 space-x-2 overflow-x-auto pb-2 md:pb-0">
               {guideSections.map((section) => (
                 <button
                   key={section.id}
                   onClick={() => scrollToSection(section.id)}
-                  className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                  className={`whitespace-nowrap px-4 py-2 rounded-lg transition-colors ${
                     activeSection === section.id
-                      ? 'text-purple-400 bg-purple-500/10 border-l-2 border-purple-400'
+                      ? 'text-purple-400 bg-purple-500/10 border-l-2 border-purple-400 md:border-l-2 border-l-0'
                       : 'text-white/60 hover:text-white hover:bg-white/10'
                   }`}
                 >
@@ -91,7 +91,7 @@ export const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
         </div>
 
         {/* 右侧内容 */}
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8">
           <div className="max-w-3xl">
             {guideSections.map((section) => (
               <section
