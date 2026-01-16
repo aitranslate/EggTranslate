@@ -96,12 +96,17 @@ export const TermsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const lines = termsText.split('\n').filter(line => line.trim());
       const newTerms: Term[] = [];
 
+      // 正则：同时匹配两种格式
+      // "原文: 译文" 或 "原文: 译文 [说明]"
+      const lineRegex = /^(.+?):\s*(.+?)(?:\s*\[(.+)\])?$/;
+
       for (const line of lines) {
-        const parts = line.split(':').map(part => part.trim());
-        if (parts.length >= 2) {
+        const match = line.match(lineRegex);
+        if (match) {
           newTerms.push({
-            original: parts[0],
-            translation: parts[1]
+            original: match[1].trim(),
+            translation: match[2].trim(),
+            notes: match[3]?.trim()  // 可选，有说明才匹配
           });
         }
       }
