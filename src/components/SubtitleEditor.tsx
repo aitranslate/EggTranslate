@@ -92,6 +92,75 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
     setEditTranslation('');
   }, []);
 
+  const handleRetranslate = useCallback(async (entryId: number) => {
+    if (!file?.id) return;
+
+    // 添加到重译集合
+    setRetranslatingIds(prev => new Set(prev).add(entryId));
+
+    try {
+      // 获取翻译配置
+      const { useTranslationConfigStore } = await import('@/stores/translationConfigStore');
+      const config = useTranslationConfigStore.getState().config;
+
+      // 获取当前条目
+      const entry = fileEntries.find(e => e.id === entryId);
+      if (!entry) {
+        throw new Error('条目不存在');
+      }
+
+      // 获取索引
+      const currentIndex = fileEntries.findIndex(e => e.id === entryId);
+
+      // 构造前后文
+      const beforeTexts = fileEntries
+        .slice(Math.max(0, currentIndex - config.contextBefore), currentIndex)
+        .map(e => e.text)
+        .join('\n');
+
+      const afterTexts = fileEntries
+        .slice(currentIndex + 1, Math.min(fileEntries.length, currentIndex + 1 + config.contextAfter))
+        .map(e => e.text)
+        .join('\n');
+
+      // 获取术语
+      const dataManager = await import('@/services/dataManager');
+      const terms = dataManager.default.getTerms();
+      const termsText = terms.map(t => `${t.original} -> ${t.translation}`).join('\n');
+
+      // 调用翻译 API
+      const result = await useTranslationConfigStore.getState().translateBatch(
+        [entry.text],
+        undefined,
+        beforeTexts,
+        afterTexts,
+        termsText
+      );
+
+      // 解析结果
+      const translation = result.translations["1"]?.direct;
+      if (!translation) {
+        throw new Error('翻译返回空结果');
+      }
+
+      // 更新条目
+      await updateEntry(file.id, entryId, entry.text, translation);
+      // 界面自动更新，无需提示
+
+    } catch (error) {
+      handleError(error, {
+        context: { operation: '重译字幕', entryId }
+      });
+    } finally {
+      // 从重译集合中移除
+      setRetranslatingIds(prev => {
+        const next = new Set(prev);
+        next.delete(entryId);
+        return next;
+      });
+    }
+  }, [file, fileEntries, updateEntry, handleError]);
+
 
   const translationStats = useMemo(() => {
     const entriesArray = fileEntries || [];
