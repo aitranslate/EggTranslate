@@ -277,12 +277,21 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
                       <div className="text-sm text-white/60">
                         #{entry.id} | {entry.startTime} {'-->'} {entry.endTime}
                       </div>
-                      <button
-                        onClick={() => onStartEdit(entry)}
-                        className="p-1 hover:bg-white/20 rounded transition-colors"
-                      >
-                        <Edit3 className="h-4 w-4 text-white/60" />
-                      </button>
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onClick={() => onStartEdit(entry)}
+                          className="p-1 hover:bg-white/20 rounded transition-colors"
+                        >
+                          <Edit3 className="h-4 w-4 text-white/60" />
+                        </button>
+                        <button
+                          onClick={() => handleRetranslate(entry.id)}
+                          disabled={retranslatingIds.has(entry.id)}
+                          className="p-1 hover:bg-white/20 rounded transition-colors disabled:opacity-50"
+                        >
+                          <RefreshCw className={`h-4 w-4 text-blue-400 ${retranslatingIds.has(entry.id) ? 'animate-spin' : ''}`} />
+                        </button>
+                      </div>
                     </div>
                     
                     {editingId === entry.id ? (
