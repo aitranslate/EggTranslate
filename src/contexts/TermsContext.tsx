@@ -122,6 +122,20 @@ export const TermsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [state.terms]);
 
   /**
+   * 格式化术语为提示词格式
+   * 有说明时：原文 -> 译文 // 说明
+   * 无说明时：原文 -> 译文
+   */
+  const formatTermsForPrompt = useCallback((terms: Term[]): string => {
+    return terms.map(term => {
+      if (term.notes) {
+        return `${term.original} -> ${term.translation} // ${term.notes}`;
+      }
+      return `${term.original} -> ${term.translation}`;
+    }).join('\n');
+  }, []);
+
+  /**
    * 清洗文本，移除所有空格和符号，转为小写
    * @param text 需要清洗的文本
    * @returns 清洗后的文本
@@ -178,7 +192,8 @@ export const TermsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     clearTerms,
     importTerms,
     exportTerms,
-    getRelevantTerms
+    getRelevantTerms,
+    formatTermsForPrompt
   }), [
     state,
     addTerm,
@@ -187,7 +202,8 @@ export const TermsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     clearTerms,
     importTerms,
     exportTerms,
-    getRelevantTerms
+    getRelevantTerms,
+    formatTermsForPrompt
   ]);
 
   return <TermsContext.Provider value={value}>{children}</TermsContext.Provider>;
