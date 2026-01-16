@@ -90,9 +90,8 @@ interface SubtitleStore {
   /**
    * 从 DataManager 更新文件的统计信息
    * 用于翻译/转录完成后更新缓存的统计数据
-   * @param skipTokensUpdate - 跳过 tokens 更新（避免覆盖已更新的值）
    */
-  updateFileStatistics: (fileId: string, skipTokensUpdate?: boolean) => void;
+  updateFileStatistics: (fileId: string) => void;
 
   // Getters
   getFile: (fileId: string) => SubtitleFileMetadata | undefined;
@@ -363,7 +362,7 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
       get().setTokens(fileId, result.tokensUsed);
 
       // 更新统计信息
-      get().updateFileStatistics(fileId, true);
+      get().updateFileStatistics(fileId);
 
       // ✅ Phase 3: 移除 forcePersist，DataManager 负责持久化
       toast.success(`转录完成！生成 ${result.entries.length} 条字幕`);
@@ -475,7 +474,7 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
       await dataManager.completeTask(file.taskId, translationConfigStore.tokensUsed || 0);
 
       // ✅ 同步 DataManager 中的 tokens（翻译完成后需要同步，因为 TranslationService 也会更新）
-      get().updateFileStatistics(fileId, false);  // 不跳过 tokens 更新
+      get().updateFileStatistics(fileId);
 
       // ✅ Phase 3: 移除 forcePersist，DataManager 负责持久化
       toast.success('翻译完成！');
@@ -611,9 +610,8 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
   /**
    * 从 DataManager 更新文件的统计信息
    * 用于翻译/转录完成后更新缓存的统计数据
-   * @param skipTokensUpdate - 跳过 tokens 更新（避免覆盖已更新的值）
    */
-  updateFileStatistics: (fileId: string, skipTokensUpdate = false) => {
+  updateFileStatistics: (fileId: string) => {
     const file = get().getFile(fileId);
     if (!file) return;
 
@@ -624,16 +622,6 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
     // 重新计算统计信息（从 DataManager 的最新数据）
     const entryCount = task.subtitle_entries?.length || 0;
     const translatedCount = task.subtitle_entries?.filter(e => e.translatedText).length || 0;
-
-    // ✅ 同步 tokens（如果需要）
-    if (!skipTokensUpdate) {
-      const taskTokens = task.translation_progress?.tokens || 0;
-      const currentTokens = get().getTokens(fileId);
-
-      if (taskTokens !== currentTokens) {
-        get().setTokens(fileId, taskTokens);
-      }
-    }
 
     // 更新 Store 中的元数据（不包括 tokens）
     set((state) => ({

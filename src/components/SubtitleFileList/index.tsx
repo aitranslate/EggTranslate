@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { downloadSubtitleFile } from '@/utils/fileExport';
+import { exportTaskSRT, exportTaskTXT, exportTaskBilingual } from '@/services/SubtitleExporter';
 import { useSubtitleStore } from '@/stores/subtitleStore';
 import { useTranslationConfigStore, useTranslationConfig } from '@/stores/translationConfigStore';
 import { useTranscriptionStore, useModelStatus } from '@/stores/transcriptionStore';
@@ -36,34 +37,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
   const getTranslationProgress = useSubtitleStore((state) => state.getTranslationProgress);
   const startTranscription = useSubtitleStore((state) => state.startTranscription);
   const startTranslation = useSubtitleStore((state) => state.startTranslation);
-  const getFileEntries = useSubtitleStore((state) => state.getFileEntries);
-
-  // 导出方法（使用 getFileEntries 延迟加载完整数据）
-  const exportSRT = (fileId: string, useTranslation = true) => {
-    const entries = getFileEntries(fileId);
-    if (!entries || entries.length === 0) return '';
-    const processedEntries = useTranslation ? entries.map(e => ({
-      ...e,
-      text: e.translatedText || e.text
-    })) : entries;
-    return processedEntries.map((e, i) => `${i + 1}\n${e.startTime} --> ${e.endTime}\n${e.text}\n`).join('\n');
-  };
-
-  const exportTXT = (fileId: string, useTranslation = true) => {
-    const entries = getFileEntries(fileId);
-    if (!entries || entries.length === 0) return '';
-    const processedEntries = useTranslation ? entries.map(e => ({
-      ...e,
-      text: e.translatedText || e.text
-    })) : entries;
-    return processedEntries.map(e => e.text).join('\n');
-  };
-
-  const exportBilingual = (fileId: string) => {
-    const entries = getFileEntries(fileId);
-    if (!entries || entries.length === 0) return '';
-    return entries.map(e => `${e.text}\n${e.translatedText || ''}`).join('\n\n');
-  };
+  const getFile = useSubtitleStore((state) => state.getFile);
 
   const config = useTranslationConfig();
   const modelStatus = useModelStatus();
@@ -116,7 +90,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
 
       // 添加历史记录
       const batchTasks = dataManager.getBatchTasks();
-      const completedTask = batchTasks.tasks.find(t => t.taskId === file.currentTaskId);
+      const completedTask = batchTasks.tasks.find(t => t.taskId === file.taskId);
 
       if (completedTask) {
         const finalTokens = completedTask.translation_progress?.tokens || 0;
@@ -126,7 +100,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
 
         if (actualCompleted > 0) {
           await addHistoryEntry({
-            taskId: file.currentTaskId,
+            taskId: file.taskId,
             filename: file.name,
             completedCount: actualCompleted,
             totalTokens: finalTokens,
@@ -230,27 +204,28 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
   }, [fileToDelete, removeFile, handleError]);
 
   const handleExport = useCallback((file: SubtitleFile, format: 'srt' | 'txt' | 'bilingual') => {
+    // 使用基于 taskId 的统一导出服务
     let content = '';
     let extension: 'srt' | 'txt' = 'txt';
 
     switch (format) {
       case 'srt':
-        content = exportSRT(file.id, true);
+        content = exportTaskSRT(file.taskId, true);
         extension = 'srt';
         break;
       case 'txt':
-        content = exportTXT(file.id, true);
+        content = exportTaskTXT(file.taskId, true);
         extension = 'txt';
         break;
       case 'bilingual':
-        content = exportBilingual(file.id);
+        content = exportTaskBilingual(file.taskId);
         extension = 'srt';
         break;
     }
 
     downloadSubtitleFile(content, file.name, extension);
     toast.success('导出成功');
-  }, [exportSRT, exportTXT, exportBilingual]);
+  }, []);
 
   if (files.length === 0) {
     return null;

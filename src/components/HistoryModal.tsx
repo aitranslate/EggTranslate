@@ -13,9 +13,9 @@ import {
   Download
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { exportTaskSRT, exportTaskTXT, exportTaskBilingual } from '@/services/SubtitleExporter';
 import { downloadSubtitleFile } from '@/utils/fileExport';
 import { TranslationHistoryEntry } from '@/types';
-import { toSRT, toTXT, toBilingual } from '@/utils/srtParser';
 import { ConfirmDialog } from './ConfirmDialog';
 import { useErrorHandler } from '@/hooks/useErrorHandler';
 
@@ -102,36 +102,34 @@ export const HistoryModal: React.FC<HistoryModalProps> = ({ isOpen, onClose }) =
     return new Date(timestamp).toLocaleString('zh-CN');
   }, []);
 
-  // 导出历史任务
+  // 导出历史任务（使用基于 taskId 的统一导出服务）
   const onExport = useCallback(async (entry: TranslationHistoryEntry, format: 'srt' | 'txt' | 'bilingual') => {
     try {
       setExportingTaskId(entry.taskId);
-      
-      const subtitleEntries = entry.current_translation_task?.subtitle_entries || [];
-      
-      if (subtitleEntries.length === 0) {
-        toast.error('该历史记录没有可导出的字幕数据');
-        return;
-      }
-      
+
       let content = '';
       let extension: 'srt' | 'txt' = 'txt';
-      
+
       switch (format) {
         case 'srt':
-          content = toSRT(subtitleEntries, true);
+          content = exportTaskSRT(entry.taskId, true);
           extension = 'srt';
           break;
         case 'txt':
-          content = toTXT(subtitleEntries, true);
+          content = exportTaskTXT(entry.taskId, true);
           extension = 'txt';
           break;
         case 'bilingual':
-          content = toBilingual(subtitleEntries);
+          content = exportTaskBilingual(entry.taskId);
           extension = 'srt';
           break;
       }
-      
+
+      if (!content) {
+        toast.error('该历史记录没有可导出的字幕数据');
+        return;
+      }
+
       downloadSubtitleFile(content, entry.filename, extension);
       toast.success('导出成功');
     } catch (error) {

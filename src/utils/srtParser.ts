@@ -63,7 +63,7 @@ export const toBilingual = (entries: SubtitleEntry[]): string => {
     id: entry.id.toString(),
     startTime: entry.startTime,
     endTime: entry.endTime,
-    text: `${entry.text}\n${entry.translatedText || ''}`,
+    text: `${entry.translatedText || ''}\n${entry.text}`,
     startSeconds: 0,
     endSeconds: 0
   }));
