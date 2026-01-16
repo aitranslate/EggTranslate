@@ -15,7 +15,7 @@ export interface BatchInfo {
   textsToTranslate: string[];
   contextBeforeTexts: string;
   contextAfterTexts: string;
-  termsText: string;
+  relevantTerms: any[];  // 改为传递术语数组
 }
 
 export interface TranslationConfig {
@@ -43,6 +43,7 @@ export interface TranslationCallbacks {
     newTokens?: number  // 新增参数：用于传递本次翻译使用的 tokens
   ) => Promise<void>;
   getRelevantTerms: (batchText: string, before: string, after: string) => any[];
+  formatTermsForPrompt: (terms: any[]) => string;  // 新增
 }
 
 export interface TranslationOptions {
@@ -107,9 +108,6 @@ export function createTranslationBatches(
       contextBeforeTexts,
       contextAfterTexts
     );
-    const termsText = relevantTerms
-      .map(term => `${term.original} -> ${term.translation}`)
-      .join('\n');
 
     const textsToTranslate = untranslatedEntries.map(e => e.text);
 
@@ -119,7 +117,7 @@ export function createTranslationBatches(
       textsToTranslate,
       contextBeforeTexts,
       contextAfterTexts,
-      termsText
+      relevantTerms  // 传递术语数组而非格式化字符串
     });
   }
 
@@ -134,15 +132,19 @@ export async function processBatch(
   controller: AbortController,
   callbacks: TranslationCallbacks,
   taskId: string,
+  formatTermsForPrompt: (terms: any[]) => string,  // 新增参数
   updateProgressCallback: (completed: number, tokensUsed?: number) => Promise<void>
 ): Promise<{ batchIndex: number; success: boolean; error?: any }> {
   try {
+    // 使用 formatTermsForPrompt 格式化术语
+    const termsText = formatTermsForPrompt(batch.relevantTerms);
+
     const translationResult = await callbacks.translateBatch(
       batch.textsToTranslate,
       controller.signal,
       batch.contextBeforeTexts,
       batch.contextAfterTexts,
-      batch.termsText
+      termsText  // 使用格式化后的术语
     );
 
     const batchUpdates: { id: number; text: string; translatedText: string }[] = [];
@@ -235,7 +237,14 @@ export async function executeTranslation(
     const currentBatchGroup = batchesToTranslate.slice(i, i + config.threadCount);
 
     const batchPromises = currentBatchGroup.map(batch =>
-      processBatch(batch, controller, callbacks, taskId, updateProgressCallback)
+      processBatch(
+        batch,
+        controller,
+        callbacks,
+        taskId,
+        callbacks.formatTermsForPrompt,  // 传递格式化函数
+        updateProgressCallback
+      )
     );
 
     await Promise.all(batchPromises);
