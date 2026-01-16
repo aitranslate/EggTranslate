@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import { SubtitleFile, SubtitleEntry, TranscriptionStatus, TranscriptionProgressInfo, SubtitleFileMetadata } from '@/types';
+import { SubtitleFile, SubtitleEntry, TranscriptionStatus, TranscriptionProgressInfo, SubtitleFileMetadata, Term } from '@/types';
 import { loadFromFile, removeFile as removeFileData, clearAllData as clearAllFileData, restoreFiles, restoreFilesWithEntries, type SubtitleFile as SubtitleFileType } from '@/services/SubtitleFileManager';
 import { runTranscriptionPipeline } from '@/services/transcriptionPipeline';
 import { executeTranslation } from '@/services/TranslationOrchestrator';
@@ -502,9 +502,33 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
               get().addTokens(fileId, newTokens);
             }
           },
-          getRelevantTerms: (batchText: string, before: string, after: string) => {
-            // 简化版本 - 实际的术语提取应该在需要时实现
-            return [];
+          getRelevantTerms: (batchText: string, before: string, after: string): Term[] => {
+            // 从 dataManager 获取术语
+            const allTerms = dataManager.getTerms();
+            if (allTerms.length === 0) return [];
+
+            // 合并所有文本
+            const fullText = `${before} ${batchText} ${after}`;
+            const cleanedFullText = fullText.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+
+            // 预处理术语
+            const processedTerms = allTerms.map((term: Term) => ({
+              ...term,
+              cleanedOriginal: term.original.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
+            }));
+
+            // 筛选出在清洗后文本中出现的术语
+            return processedTerms
+              .filter(term => term.cleanedOriginal && cleanedFullText.includes(term.cleanedOriginal))
+              .map(({ original, translation, notes }) => ({ original, translation, notes }));
+          },
+          formatTermsForPrompt: (terms: Term[]): string => {
+            return terms.map(term => {
+              if (term.notes) {
+                return `${term.original} -> ${term.translation} // ${term.notes}`;
+              }
+              return `${term.original} -> ${term.translation}`;
+            }).join('\n');
           }
         }
       );
