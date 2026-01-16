@@ -9,9 +9,7 @@ export const formatFileSize = formatFileSizeUtil;
  * 获取状态文本
  */
 export const getStatusText = (file: SubtitleFile): string => {
-  const type = file.type;
-
-  if (type === 'srt') {
+  if (file.fileType === 'srt') {
     return 'SRT 字幕';
   }
 

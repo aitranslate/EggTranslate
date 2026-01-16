@@ -415,22 +415,18 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
             await get().updateEntry(fileId, id, text, translatedText);
           },
           updateProgress: async (current: number, total: number, phase: 'direct' | 'completed', status: string, taskId: string, newTokens?: number) => {
-            // 调用原始的 updateProgress
+            // 调用 TranslationService.updateProgress（它会累加 tokens 并更新 DataManager）
             await translationConfigStore.updateProgress(current, total, phase, status, taskId, newTokens);
 
-            // ✅ 同步更新文件的 transcriptionProgress.tokens（累加翻译 tokens）
+            // ✅ 同步更新 Store 的 transcriptionProgress.tokens（从 DataManager 读取最新值）
             if (newTokens !== undefined) {
-              const currentFile = get().getFile(fileId);
-              const currentTokens = currentFile?.transcriptionProgress?.tokens || 0;
-              const newTotalTokens = currentTokens + newTokens;
+              const task = dataManager.getTaskById(file.taskId);
+              const latestTokens = task?.translation_progress?.tokens || 0;
 
               get().updateTranscriptionProgress(fileId, {
-                ...currentFile?.transcriptionProgress,
-                tokens: newTotalTokens
+                ...get().getFile(fileId)?.transcriptionProgress,
+                tokens: latestTokens
               });
-
-              // 同步到 DataManager
-              dataManager.updateTaskTranslationProgressInMemory(file.taskId, { tokens: newTotalTokens });
             }
           },
           getRelevantTerms: (batchText: string, before: string, after: string) => {
@@ -443,8 +439,8 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
       // 完成翻译
       await dataManager.completeTask(file.taskId, translationConfigStore.tokensUsed || 0);
 
-      // ✅ Phase 3: 更新统计信息（不包括 tokens，因为已经在回调中更新过了）
-      get().updateFileStatistics(fileId, true);  // skipTokensUpdate = true
+      // ✅ 同步 DataManager 中的 tokens（翻译完成后需要同步，因为 TranslationService 也会更新）
+      get().updateFileStatistics(fileId, false);  // 不跳过 tokens 更新
 
       // ✅ Phase 3: 移除 forcePersist，DataManager 负责持久化
       toast.success('翻译完成！');

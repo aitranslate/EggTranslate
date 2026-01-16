@@ -86,12 +86,12 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center space-x-3">
           <div className="flex-shrink-0">
-            <FileIcon type={file.type} />
+            <FileIcon type={file.fileType} />
           </div>
           <div>
             <h4 className="font-medium text-white truncate max-w-xs" title={file.name}>{file.name}</h4>
             <div className="text-xs text-white/60 mt-1">
-              {file.type === 'srt' ? (
+              {file.fileType === 'srt' ? (
                 <>{file.entryCount ?? 0} 条字幕</>
               ) : (
                 <>{formatFileSize(file.fileSize ?? 0)}</>
@@ -101,7 +101,7 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
         </div>
 
         <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-          file.type === 'srt' ? (
+          file.fileType === 'srt' ? (
             translationStats.percentage === 100
               ? 'bg-green-500/30 text-green-200'
               : translationStats.percentage > 0
@@ -121,7 +121,7 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
             )
           )
         }`}>
-          {file.type === 'srt' ? (
+          {file.fileType === 'srt' ? (
             translationStats.percentage === 100 ? '已完成' :
             translationStats.percentage > 0 ? '翻译中' : '等待翻译'
           ) : (

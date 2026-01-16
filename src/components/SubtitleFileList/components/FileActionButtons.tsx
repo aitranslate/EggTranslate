@@ -65,7 +65,7 @@ export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
           isTranscribing
             ? '转录中...'
             : !canRetranscribe(file)
-            ? file.transcriptionStatus === 'completed' && (file.fileType === 'audio-video' || file.type === 'audio' || file.type === 'video')
+            ? file.transcriptionStatus === 'completed' && file.fileType === 'audio-video'
               ? '音频数据未缓存，需重新上传'
               : 'SRT文件无需转录'
             : '转录'
@@ -88,7 +88,7 @@ export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
           isTranslating ||
           translationStats.percentage === 100 ||
           (isTranslatingGlobally && !isTranslating) ||
-          (file.type !== 'srt' && file.transcriptionStatus !== 'completed')
+          (file.fileType !== 'srt' && file.transcriptionStatus !== 'completed')
         }
         className={`
           flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200
@@ -96,13 +96,13 @@ export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
             ? 'bg-green-500/20 text-green-200 border border-green-500/30'
             : isTranslating || currentTranslatingFileId === file.id
             ? 'bg-orange-500/20 text-orange-200 border border-orange-500/30 cursor-not-allowed'
-            : (isTranslatingGlobally && !isTranslating) || (file.type !== 'srt' && file.transcriptionStatus !== 'completed')
+            : (isTranslatingGlobally && !isTranslating) || (file.fileType !== 'srt' && file.transcriptionStatus !== 'completed')
             ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30 cursor-not-allowed'
             : 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 hover:scale-110'
           }
         `}
         title={
-          file.type !== 'srt' && file.transcriptionStatus !== 'completed'
+          file.fileType !== 'srt' && file.transcriptionStatus !== 'completed'
             ? '请先完成转录'
             : translationStats.percentage === 100 ? '已完成'
             : isTranslating || currentTranslatingFileId === file.id ? '翻译中...'

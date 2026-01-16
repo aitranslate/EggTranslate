@@ -30,8 +30,8 @@ export const TranslationProgress: React.FC<TranslationProgressProps> = ({
 
   // SRT 文件或已开始翻译（使用 useMemo 优化性能）
   const isTranslationPhase = useMemo(() =>
-    file.type === 'srt' || (translationStats?.percentage ?? 0) > 0,
-    [file.type, translationStats?.percentage]
+    file.fileType === 'srt' || (translationStats?.percentage ?? 0) > 0,
+    [file.fileType, translationStats?.percentage]
   );
 
   // 计算进度信息（使用 useMemo 避免重复计算）
