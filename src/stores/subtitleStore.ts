@@ -67,8 +67,9 @@ interface SubtitleStore {
   /**
    * 从 DataManager 更新文件的统计信息
    * 用于翻译/转录完成后更新缓存的统计数据
+   * @param skipTokensUpdate - 跳过 tokens 更新（避免覆盖已更新的值）
    */
-  updateFileStatistics: (fileId: string) => void;
+  updateFileStatistics: (fileId: string, skipTokensUpdate?: boolean) => void;
 
   // Getters
   getFile: (fileId: string) => SubtitleFileMetadata | undefined;
@@ -320,8 +321,8 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
         tokens: result.tokensUsed
       });
 
-      // ✅ Phase 3: 更新统计信息，而不是 entries 数组
-      get().updateFileStatistics(fileId);
+      // ✅ Phase 3: 更新统计信息（不包括 tokens，因为上面已经设置过了）
+      get().updateFileStatistics(fileId, true);  // skipTokensUpdate = true
 
       // ✅ Phase 3: 移除 forcePersist，DataManager 负责持久化
       toast.success(`转录完成！生成 ${result.entries.length} 条字幕`);
@@ -413,7 +414,25 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
           updateEntry: async (id: number, text: string, translatedText: string) => {
             await get().updateEntry(fileId, id, text, translatedText);
           },
-          updateProgress: translationConfigStore.updateProgress,
+          updateProgress: async (current: number, total: number, phase: 'direct' | 'completed', status: string, taskId: string, newTokens?: number) => {
+            // 调用原始的 updateProgress
+            await translationConfigStore.updateProgress(current, total, phase, status, taskId, newTokens);
+
+            // ✅ 同步更新文件的 transcriptionProgress.tokens（累加翻译 tokens）
+            if (newTokens !== undefined) {
+              const currentFile = get().getFile(fileId);
+              const currentTokens = currentFile?.transcriptionProgress?.tokens || 0;
+              const newTotalTokens = currentTokens + newTokens;
+
+              get().updateTranscriptionProgress(fileId, {
+                ...currentFile?.transcriptionProgress,
+                tokens: newTotalTokens
+              });
+
+              // 同步到 DataManager
+              dataManager.updateTaskTranslationProgressInMemory(file.taskId, { tokens: newTotalTokens });
+            }
+          },
           getRelevantTerms: (batchText: string, before: string, after: string) => {
             // 简化版本 - 实际的术语提取应该在需要时实现
             return [];
@@ -424,8 +443,8 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
       // 完成翻译
       await dataManager.completeTask(file.taskId, translationConfigStore.tokensUsed || 0);
 
-      // ✅ Phase 3: 更新统计信息
-      get().updateFileStatistics(fileId);
+      // ✅ Phase 3: 更新统计信息（不包括 tokens，因为已经在回调中更新过了）
+      get().updateFileStatistics(fileId, true);  // skipTokensUpdate = true
 
       // ✅ Phase 3: 移除 forcePersist，DataManager 负责持久化
       toast.success('翻译完成！');
@@ -510,8 +529,9 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
   /**
    * 从 DataManager 更新文件的统计信息
    * 用于翻译/转录完成后更新缓存的统计数据
+   * @param skipTokensUpdate - 跳过 tokens 更新（避免覆盖已更新的值）
    */
-  updateFileStatistics: (fileId: string) => {
+  updateFileStatistics: (fileId: string, skipTokensUpdate = false) => {
     const file = get().getFile(fileId);
     if (!file) return;
 
@@ -531,7 +551,7 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
               ...f,
               entryCount,
               translatedCount,
-              transcriptionProgress: task.translation_progress
+              transcriptionProgress: task.translation_progress && !skipTokensUpdate
                 ? {
                     ...f.transcriptionProgress,
                     percent: task.translation_progress.total > 0

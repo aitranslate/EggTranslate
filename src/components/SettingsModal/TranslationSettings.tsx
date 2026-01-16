@@ -118,10 +118,11 @@ export const TranslationSettings: React.FC<TranslationSettingsProps> = ({
             </label>
             <input
               type="number"
-              min="1"
+              min="0"
               max="1000"
-              value={config.rpm}
-              onChange={(e) => onConfigChange('rpm', parseInt(e.target.value))}
+              placeholder="不限制"
+              value={config.rpm || ''}
+              onChange={(e) => onConfigChange('rpm', e.target.value === '' ? 0 : parseInt(e.target.value))}
               className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 transition-colors"
             />
           </div>

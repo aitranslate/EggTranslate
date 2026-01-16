@@ -195,7 +195,7 @@ export const runTranscriptionPipeline = async (
   console.log('[Transcription] 分片计划:', chunks.map(c => `${Math.floor(c.duration)}s`).join(', '));
 
   await new Promise(r => setTimeout(r, API_CONSTANTS.STATE_UPDATE_DELAY_MS));
-  toast(`音频时长: ${Math.floor(duration / 60)}:${(Math.floor(duration % 60)).toString().padStart(2, '0')}，基于静音检测切分成 ${totalChunks} 个片段`);
+  toast(`音频时长: ${Math.floor(duration / 60)}:${(Math.floor(duration % 60)).toString().padStart(2, '0')}，切分成 ${totalChunks} 个片段`);
 
   // 3. 模型转录
   const allWords: TranscriptionWord[] = [];
@@ -257,7 +257,7 @@ export const runTranscriptionPipeline = async (
   const threadCount = llmConfig.threadCount || 4;
   const allReconstructedSentences: Array<Array<{ sentence: string; startIdx: number; endIdx: number }>> = new Array(batches.length);
 
-  // 记录 tokens 使用量
+  // 记录 tokens 使用量（包括所有批次，但只累积 LLM 处理的）
   const tokensMap = new Map<number, number>();
 
   for (let i = 0; i < batches.length; i += threadCount) {
@@ -272,12 +272,22 @@ export const runTranscriptionPipeline = async (
 
         // 只有需要 LLM 处理的批次才更新进度
         if (!batch.skipLLM) {
-          // 计算当前累积的 tokens 总量
-          const cumulativeTokens = Array.from(tokensMap.values()).reduce((sum, tokens) => sum + tokens, 0);
+          // 计算累积 tokens：只包括 LLM 处理的批次
+          const cumulativeTokens = Array.from(tokensMap.entries())
+            .filter(([idx]) => !batches[idx].skipLLM)
+            .reduce((sum, [, tokens]) => sum + tokens, 0);
 
           // 统计已完成 LLM 处理的批次数
           const completedLlmBatches = Array.from(tokensMap.entries())
             .filter(([idx]) => !batches[idx].skipLLM).length;
+
+          // 调试日志
+          console.log(`[LLM组句] 批次 ${completedLlmBatches}/${totalLlmBatches} 完成:`, {
+            batchIdx,
+            batchTokens: tokensUsed,
+            cumulativeTokens,
+            mapEntries: Array.from(tokensMap.entries())
+          });
 
           // 更新进度（传递累积总量）
           const percent = Math.floor(
@@ -305,8 +315,10 @@ export const runTranscriptionPipeline = async (
     await Promise.all(batchPromises);
   }
 
-  // 计算总 tokens 使用量
-  const totalTokensUsed = Array.from(tokensMap.values()).reduce((sum, tokens) => sum + tokens, 0);
+  // 计算总 tokens 使用量（只包括 LLM 处理的批次）
+  const totalTokensUsed = Array.from(tokensMap.entries())
+    .filter(([idx]) => !batches[idx].skipLLM)
+    .reduce((sum, [, tokens]) => sum + tokens, 0);
 
   // 5. 生成字幕条目
   const entries: SubtitleEntry[] = [];

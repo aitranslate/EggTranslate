@@ -36,32 +36,33 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
   const getTranslationProgress = useSubtitleStore((state) => state.getTranslationProgress);
   const startTranscription = useSubtitleStore((state) => state.startTranscription);
   const startTranslation = useSubtitleStore((state) => state.startTranslation);
+  const getFileEntries = useSubtitleStore((state) => state.getFileEntries);
 
-  // 导出方法（需要保留原有逻辑）
+  // 导出方法（使用 getFileEntries 延迟加载完整数据）
   const exportSRT = (fileId: string, useTranslation = true) => {
-    const file = files.find(f => f.id === fileId);
-    if (!file) return '';
-    const entries = useTranslation ? file.entries.map(e => ({
+    const entries = getFileEntries(fileId);
+    if (!entries || entries.length === 0) return '';
+    const processedEntries = useTranslation ? entries.map(e => ({
       ...e,
       text: e.translatedText || e.text
-    })) : file.entries;
-    return entries.map((e, i) => `${i + 1}\n${e.startTime} --> ${e.endTime}\n${e.text}\n`).join('\n');
+    })) : entries;
+    return processedEntries.map((e, i) => `${i + 1}\n${e.startTime} --> ${e.endTime}\n${e.text}\n`).join('\n');
   };
 
   const exportTXT = (fileId: string, useTranslation = true) => {
-    const file = files.find(f => f.id === fileId);
-    if (!file) return '';
-    const entries = useTranslation ? file.entries.map(e => ({
+    const entries = getFileEntries(fileId);
+    if (!entries || entries.length === 0) return '';
+    const processedEntries = useTranslation ? entries.map(e => ({
       ...e,
       text: e.translatedText || e.text
-    })) : file.entries;
-    return entries.map(e => e.text).join('\n');
+    })) : entries;
+    return processedEntries.map(e => e.text).join('\n');
   };
 
   const exportBilingual = (fileId: string) => {
-    const file = files.find(f => f.id === fileId);
-    if (!file) return '';
-    return file.entries.map(e => `${e.text}\n${e.translatedText || ''}`).join('\n\n');
+    const entries = getFileEntries(fileId);
+    if (!entries || entries.length === 0) return '';
+    return entries.map(e => `${e.text}\n${e.translatedText || ''}`).join('\n\n');
   };
 
   const config = useTranslationConfig();

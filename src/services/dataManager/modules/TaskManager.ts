@@ -399,7 +399,8 @@ class TaskManager {
           total: entries.length,
           completed: 0,
           status: 'idle' as const,
-          tokens: (task.translation_progress?.tokens || 0) + (tokensUsed || 0)
+          // ✅ 直接使用传入的 tokensUsed，不再累加（已经在回调中累积过了）
+          tokens: tokensUsed ?? 0
         }
       };
 
