@@ -122,9 +122,6 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
             <div>
               <label className="block text-sm font-medium text-white/80 mb-2">
                 编码器量化
-                {config.backend.startsWith('webgpu') && (
-                  <span className="ml-2 text-xs text-orange-400">WebGPU 需 fp32</span>
-                )}
               </label>
               <select
                 value={config.encoderQuant}
@@ -217,6 +214,7 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
             <div className="flex gap-3">
               <button
                 onClick={onDownloadModel}
+                title="需要代理，从 HuggingFace 下载"
                 className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 rounded-lg transition-colors"
               >
                 <Download className="h-4 w-4" />
@@ -242,6 +240,7 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
             <div className="flex gap-3">
               <button
                 onClick={onDownloadModel}
+                title="需要代理，从 HuggingFace 下载"
                 className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 rounded-lg transition-colors"
               >
                 <Download className="h-4 w-4" />

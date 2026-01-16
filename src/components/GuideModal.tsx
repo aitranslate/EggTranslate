@@ -1,8 +1,8 @@
 // src/components/GuideModal.tsx
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
-import { guideSections, GuideSection } from '@/data/guideContent';
+import { guideSections } from '@/data/guideContent';
 
 interface GuideModalProps {
   isOpen: boolean;
@@ -10,46 +10,6 @@ interface GuideModalProps {
 }
 
 export const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
-  const [activeSection, setActiveSection] = useState<string>(guideSections[0].id);
-  const sectionRefs = useRef<Record<string, HTMLElement>>({});
-
-  // 注册章节引用
-  const registerRef = (id: string) => (ref: HTMLElement | null) => {
-    if (ref) sectionRefs.current[id] = ref;
-  };
-
-  // 点击目录滚动到对应章节
-  const scrollToSection = (id: string) => {
-    const element = sectionRefs.current[id];
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      setActiveSection(id);
-    }
-  };
-
-  // 监听滚动，自动高亮目录
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const id = entry.target.id;
-            setActiveSection(id);
-          }
-        });
-      },
-      { threshold: 0.5, rootMargin: '-80px 0px -80px 0px' }
-    );
-
-    Object.values(sectionRefs.current).forEach((ref) => {
-      if (ref) observer.observe(ref);
-    });
-
-    return () => observer.disconnect();
-  }, [isOpen]);
-
   if (!isOpen) return null;
 
   return (
@@ -57,7 +17,7 @@ export const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative max-w-5xl w-full max-h-[90vh] bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 rounded-xl border border-white/20 shadow-2xl flex flex-col md:flex-row overflow-hidden"
+        className="relative max-w-2xl w-full max-h-[90vh] bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 rounded-xl border border-white/20 shadow-2xl overflow-hidden"
       >
         {/* 关闭按钮 */}
         <button
@@ -68,39 +28,13 @@ export const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
           <X className="h-5 w-5 text-white/80" />
         </button>
 
-        {/* 左侧目录 */}
-        <div className="w-full md:w-60 bg-white/5 border-b md:border-b-0 overflow-y-auto">
-          <div className="p-4">
-            <h2 className="text-xl font-bold text-white mb-4">使用指南</h2>
-            <nav className="flex md:flex-col md:space-y-1 space-x-2 overflow-x-auto pb-2 md:pb-0">
-              {guideSections.map((section) => (
-                <button
-                  key={section.id}
-                  onClick={() => scrollToSection(section.id)}
-                  className={`whitespace-nowrap px-4 py-2 rounded-lg transition-colors ${
-                    activeSection === section.id
-                      ? 'text-purple-400 bg-purple-500/10 md:border-l-2 md:border-purple-400 border-l-0'
-                      : 'text-white/60 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  {section.title}
-                </button>
-              ))}
-            </nav>
-          </div>
-        </div>
-
-        {/* 右侧内容 */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8">
-          <div className="max-w-3xl">
+        {/* 内容区域 */}
+        <div className="overflow-y-auto p-6 md:p-8 max-h-[90vh]">
+          <h2 className="text-2xl font-bold text-white mb-6">使用指南</h2>
+          <div className="space-y-8">
             {guideSections.map((section) => (
-              <section
-                key={section.id}
-                id={section.id}
-                ref={registerRef(section.id)}
-                className="mb-12 scroll-mt-8"
-              >
-                <h2 className="text-2xl font-bold text-white mb-4">{section.title}</h2>
+              <section key={section.id} className="pb-6 border-b border-white/10 last:border-0">
+                <h3 className="text-xl font-bold text-white mb-3">{section.title}</h3>
                 <div className="text-white/80 leading-relaxed whitespace-pre-line">
                   {section.content}
                 </div>

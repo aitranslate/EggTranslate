@@ -12,11 +12,25 @@ export const guideSections: GuideSection[] = [
     title: '快速入门',
     content: `欢迎使用蛋蛋字幕翻译！
 
-4 步开始：
-1️⃣ 配置翻译服务（设置 → 翻译设置）
-2️⃣ 上传 SRT 字幕文件
-3️⃣ 点击"开始翻译"
-4️⃣ 翻译完成后导出`,
+5 步开始（音视频转录）：
+1️⃣ 下载并加载转录模型（设置 → 转录设置）
+2️⃣ 配置翻译服务（设置 → 翻译设置）
+3️⃣ 上传音视频文件，等待转录完成
+4️⃣ 点击"开始翻译"
+5️⃣ 翻译完成后导出
+
+已有 SRT 字幕文件？直接跳到第 2、4 步即可。`,
+  },
+  {
+    id: 'transcribe',
+    title: '音视频转录',
+    content: `1. 设置 → 转录设置 → 下载模型（需代理，约 2.3GB）
+2. 选择模型：
+   • 英语内容 → parakeet-tdt-0.6b-v2-onnx
+   • 其他欧洲语言 → parakeet-tdt-0.6b-v3-onnx
+3. 加载模型到内存
+4. 上传音视频文件
+5. 等待转录完成 → 点击翻译`,
   },
   {
     id: 'configure',
@@ -43,17 +57,6 @@ export const guideSections: GuideSection[] = [
 • 编辑字幕：点击编辑按钮
 • 重译单条：点击刷新按钮
 • 查看进度：实时显示百分比`,
-  },
-  {
-    id: 'transcribe',
-    title: '音视频转录',
-    content: `1. 设置 → 转录设置 → 下载模型（需代理，约 2.3GB）
-2. 选择模型：
-   • 英语内容 → parakeet-tdt-0.6b-v2-onnx
-   • 其他欧洲语言 → parakeet-tdt-0.6b-v3-onnx
-3. 加载模型到内存
-4. 上传音视频文件
-5. 等待转录完成 → 导出 SRT`,
   },
   {
     id: 'terms',
