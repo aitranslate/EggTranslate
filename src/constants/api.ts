@@ -12,9 +12,6 @@ export const API_CONSTANTS = {
   /** 默认温度参数 */
   DEFAULT_TEMPERATURE: 0.3,
 
-  /** 请求延迟（毫秒） */
-  RETRY_DELAY_MS: 1000,
-
   /** 请求超时（毫秒） */
   REQUEST_TIMEOUT_MS: 30000,
 

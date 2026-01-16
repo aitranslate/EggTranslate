@@ -131,7 +131,7 @@ export async function callLLM(
       }
 
       // 指数退避
-      const delay = Math.min(1000 * Math.pow(2, attempt - 1), API_CONSTANTS.RETRY_DELAY_MS);
+      const delay = 1000 * Math.pow(2, attempt - 1);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
