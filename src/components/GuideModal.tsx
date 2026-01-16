@@ -69,7 +69,7 @@ export const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
         </button>
 
         {/* 左侧目录 */}
-        <div className="w-full md:w-60 bg-white/5 border-r border-white/10 border-b md:border-b-0 overflow-y-auto">
+        <div className="w-full md:w-60 bg-white/5 border-b md:border-b-0 overflow-y-auto">
           <div className="p-4">
             <h2 className="text-xl font-bold text-white mb-4">使用指南</h2>
             <nav className="flex md:flex-col md:space-y-1 space-x-2 overflow-x-auto pb-2 md:pb-0">
@@ -79,7 +79,7 @@ export const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
                   onClick={() => scrollToSection(section.id)}
                   className={`whitespace-nowrap px-4 py-2 rounded-lg transition-colors ${
                     activeSection === section.id
-                      ? 'text-purple-400 bg-purple-500/10 border-l-2 border-purple-400 md:border-l-2 border-l-0'
+                      ? 'text-purple-400 bg-purple-500/10 md:border-l-2 md:border-purple-400 border-l-0'
                       : 'text-white/60 hover:text-white hover:bg-white/10'
                   }`}
                 >
