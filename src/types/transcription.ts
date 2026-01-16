@@ -64,7 +64,6 @@ export interface TranscriptionProgressInfo {
   totalChunks?: number;      // 总块数
   llmBatch?: number;         // LLM 合并批次 (2/10)
   totalLlmBatches?: number;  // LLM 总批次数
-  tokens?: number;           // LLM 组句消耗的 tokens
 }
 
 /**
@@ -87,6 +86,9 @@ export interface SubtitleFileMetadata {
   // 转录状态和进度
   transcriptionStatus: TranscriptionStatus;
   transcriptionProgress?: TranscriptionProgressInfo;
+
+  // 全局 tokens（转录 + 翻译）
+  tokensUsed: number;
 }
 
 /**
