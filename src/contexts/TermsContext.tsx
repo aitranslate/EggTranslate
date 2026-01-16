@@ -124,7 +124,12 @@ export const TermsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [handleError]);
 
   const exportTerms = useCallback(() => {
-    return state.terms.map(term => `${term.original}: ${term.translation}`).join('\n');
+    return state.terms.map(term => {
+      if (term.notes) {
+        return `${term.original}: ${term.translation} [${term.notes}]`;
+      }
+      return `${term.original}: ${term.translation}`;
+    }).join('\n');
   }, [state.terms]);
 
   /**
