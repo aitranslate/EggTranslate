@@ -58,7 +58,7 @@ export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
         disabled={!canRetranscribe(file) || isTranscribing}
         className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 ${
           !canRetranscribe(file) || isTranscribing
-            ? 'bg-gray-500/10 text-gray-500/30 border border-gray-500/20 cursor-not-allowed opacity-50'
+            ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30 cursor-not-allowed'
             : 'bg-teal-500/20 hover:bg-teal-500/30 text-teal-200 border border-teal-500/30 hover:scale-110'
         }`}
         title={
@@ -136,7 +136,11 @@ export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
             setIsExporting(!isExporting);
           }}
           disabled={(file.entryCount ?? 0) === 0 || isTranslating}
-          className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 transition-all duration-200 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 ${
+            (file.entryCount ?? 0) === 0 || isTranslating
+              ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30 cursor-not-allowed'
+              : 'bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 hover:scale-110'
+          }`}
           title="导出"
         >
           <Download className="h-4 w-4" />

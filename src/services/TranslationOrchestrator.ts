@@ -191,8 +191,8 @@ export async function executeTranslation(
 ): Promise<void> {
   const { entries, filename, config, controller, taskId } = options;
 
-  // 创建任务
-  await dataManager.createNewTask(filename, entries, 0);
+  // ✅ 任务已在外部创建（上传文件时），不需要重复创建
+  // const oldCode = await dataManager.createNewTask(filename, entries, 0); // ❌ 删除重复创建任务的代码
 
   const initialProgress = calculateActualProgress(entries);
   const startBatchIndex = Math.floor(initialProgress.completed / config.batchSize);
