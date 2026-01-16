@@ -52,7 +52,30 @@ interface SubtitleStore {
 
   // Actions - 翻译
   startTranslation: (fileId: string) => Promise<void>;
-  updateTranslationProgress: (fileId: string, completed: number, total: number, tokens: number) => void;
+  updateTranslationProgress: (fileId: string, completed: number, total: number) => void;
+
+  // ============================================
+  // Tokens 管理（新增）
+  // ============================================
+
+  /**
+   * 添加 tokens（转录或翻译）
+   * @param fileId - 文件 ID
+   * @param tokens - 新增的 tokens（会累加到现有值）
+   */
+  addTokens: (fileId: string, tokens: number) => void;
+
+  /**
+   * 设置 tokens（用于从 DataManager 恢复）
+   * @param fileId - 文件 ID
+   * @param tokens - 总 tokens（覆盖现有值）
+   */
+  setTokens: (fileId: string, tokens: number) => void;
+
+  /**
+   * 获取文件的 tokens
+   */
+  getTokens: (fileId: string) => number;
 
   // ============================================
   // 元数据管理方法（Phase 1-2）
@@ -107,7 +130,17 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
   loadFiles: async () => {
     try {
       const files = await restoreFiles();
-      set({ files });
+
+      // ✅ 从 DataManager 恢复 tokensUsed
+      const filesWithTokens = files.map(file => {
+        const task = dataManager.getTaskById(file.taskId);
+        return {
+          ...file,
+          tokensUsed: task?.translation_progress?.tokens || 0
+        };
+      });
+
+      set({ files: filesWithTokens });
     } catch (error) {
       const appError = toAppError(error, '加载文件失败');
       console.error('[subtitleStore]', appError.message, appError);
@@ -456,7 +489,7 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
   /**
    * 更新翻译进度
    */
-  updateTranslationProgress: (fileId: string, completed: number, total: number, tokens: number) => {
+  updateTranslationProgress: (fileId: string, completed: number, total: number) => {
     // ✅ Phase 3: 不再直接更新 entries 数组
     // 进度通过 DataManager 更新，需要时通过 getFileEntries 获取
     // 这里只更新统计信息的缓存
@@ -471,6 +504,57 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
           : f
       )
     }));
+  },
+
+  // ========================================
+  // Tokens 管理
+  // ========================================
+
+  /**
+   * 添加 tokens（转录或翻译）
+   */
+  addTokens: (fileId: string, tokens: number) => {
+    if (tokens <= 0) return;
+
+    set((state) => ({
+      files: state.files.map(f =>
+        f.id === fileId
+          ? { ...f, tokensUsed: f.tokensUsed + tokens }
+          : f
+      )
+    }));
+
+    // 同步到 DataManager（异步，不阻塞）
+    const file = get().getFile(fileId);
+    if (file) {
+      const newTokens = get().getTokens(fileId);
+      dataManager.updateTaskTranslationProgressInMemory(
+        file.taskId,
+        { tokens: newTokens }
+      ).catch((error) => {
+        console.error('[subtitleStore] 同步 tokens 到 DataManager 失败:', error);
+      });
+    }
+  },
+
+  /**
+   * 设置 tokens（用于从 DataManager 恢复）
+   */
+  setTokens: (fileId: string, tokens: number) => {
+    set((state) => ({
+      files: state.files.map(f =>
+        f.id === fileId
+          ? { ...f, tokensUsed: tokens }
+          : f
+      )
+    }));
+  },
+
+  /**
+   * 获取文件的 tokens
+   */
+  getTokens: (fileId: string) => {
+    return get().getFile(fileId)?.tokensUsed || 0;
   },
 
   // ========================================
