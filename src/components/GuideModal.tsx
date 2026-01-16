@@ -1,6 +1,6 @@
 // src/components/GuideModal.tsx
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { guideSections, GuideSection } from '@/data/guideContent';
 
@@ -57,7 +57,6 @@ export const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
         className="relative max-w-5xl w-full max-h-[90vh] bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 rounded-xl border border-white/20 shadow-2xl flex overflow-hidden"
       >
         {/* 关闭按钮 */}
