@@ -39,7 +39,8 @@ export interface TranslationCallbacks {
     total: number,
     phase: 'direct' | 'completed',
     status: string,
-    taskId: string
+    taskId: string,
+    newTokens?: number  // 新增参数：用于传递本次翻译使用的 tokens
   ) => Promise<void>;
   getRelevantTerms: (batchText: string, before: string, after: string) => any[];
 }
@@ -133,7 +134,7 @@ export async function processBatch(
   controller: AbortController,
   callbacks: TranslationCallbacks,
   taskId: string,
-  updateProgressCallback: (completed: number) => Promise<void>
+  updateProgressCallback: (completed: number, tokensUsed?: number) => Promise<void>
 ): Promise<{ batchIndex: number; success: boolean; error?: any }> {
   try {
     const translationResult = await callbacks.translateBatch(
@@ -166,7 +167,8 @@ export async function processBatch(
         await callbacks.updateEntry(update.id, update.text, update.translatedText);
       }
 
-      await updateProgressCallback(batchUpdates.length);
+      // 传递本次翻译使用的 tokens
+      await updateProgressCallback(batchUpdates.length, translationResult.tokensUsed);
     }
 
     return { batchIndex: batch.batchIndex, success: true };
@@ -214,7 +216,7 @@ export async function executeTranslation(
   );
 
   // 更新进度的回调
-  const updateProgressCallback = async (completedEntries: number) => {
+  const updateProgressCallback = async (completedEntries: number, tokensUsed?: number) => {
     currentCompletedCount += completedEntries;
     const percentage = Math.round((currentCompletedCount / entries.length) * 100);
     const statusText = `翻译中... (${currentCompletedCount}/${entries.length}) ${percentage}%`;
@@ -223,7 +225,8 @@ export async function executeTranslation(
       entries.length,
       'direct',
       statusText,
-      taskId
+      taskId,
+      tokensUsed  // 传递本次翻译使用的 tokens
     );
   };
 
