@@ -516,6 +516,18 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
   addTokens: (fileId: string, tokens: number) => {
     if (tokens <= 0) return;
 
+    // 先获取当前 file（此时是旧值）
+    const file = get().getFile(fileId);
+
+    // 同步到 DataManager（使用旧值计算）
+    if (file) {
+      dataManager.updateTaskTranslationProgressInMemory(
+        file.taskId,
+        { tokens: file.tokensUsed + tokens }
+      );
+    }
+
+    // 再更新 Store
     set((state) => ({
       files: state.files.map(f =>
         f.id === fileId
@@ -523,15 +535,6 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
           : f
       )
     }));
-
-    // 同步到 DataManager
-    const file = get().getFile(fileId);
-    if (file) {
-      dataManager.updateTaskTranslationProgressInMemory(
-        file.taskId,
-        { tokens: file.tokensUsed + tokens }
-      );
-    }
   },
 
   /**
