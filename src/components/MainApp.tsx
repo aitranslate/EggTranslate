@@ -14,6 +14,8 @@ import { ProgressDisplay } from './ProgressDisplay';
 import { SettingsModal } from './SettingsModal';
 import { TermsManager } from './TermsManager';
 import { HistoryModal } from './HistoryModal';
+import { HelpButton } from './HelpButton';
+import { GuideModal } from './GuideModal';
 import { useFiles } from '@/stores/subtitleStore';
 import { useIsTranslationConfigured } from '@/stores/translationConfigStore';
 import { useHistory } from '@/contexts/HistoryContext';
@@ -26,6 +28,7 @@ export const MainApp: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [editingFileId, setEditingFileId] = useState<string | null>(null);  // ✅ 改为保存 ID
   const [isEditingModalOpen, setIsEditingModalOpen] = useState(false);
   const files = useFiles();
@@ -156,11 +159,16 @@ export const MainApp: React.FC = () => {
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
       />
+      <GuideModal
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+      />
       <SubtitleEditor
         isOpen={isEditingModalOpen}
         onClose={handleCloseEditModal}
         fileId={editingFileId || ''}
       />
+      <HelpButton onClick={() => setIsGuideOpen(true)} />
     </div>
   );
 };
