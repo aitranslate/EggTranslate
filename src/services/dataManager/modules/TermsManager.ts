@@ -79,9 +79,9 @@ class TermsManager {
   /**
    * 更新术语并持久化
    */
-  async updateTerm(index: number, original: string, translation: string): Promise<void> {
+  async updateTerm(index: number, original: string, translation: string, notes?: string): Promise<void> {
     try {
-      const updatedTerm = { original, translation };
+      const updatedTerm = { original, translation, notes };
 
       // 更新内存中的数据
       const updatedTerms = [...this.memoryStore.terms_list];
