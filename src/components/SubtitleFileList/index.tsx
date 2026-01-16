@@ -88,30 +88,35 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
       // 调用 Store 的翻译方法（包含重试机制和错误处理）
       await startTranslationFromStore(file.id);
 
-      // 添加历史记录
+      // 检查文件是否已被删除（翻译中止时文件会被删除）
       const batchTasks = dataManager.getBatchTasks();
       const completedTask = batchTasks.tasks.find(t => t.taskId === file.taskId);
 
-      if (completedTask) {
-        const finalTokens = completedTask.translation_progress?.tokens || 0;
-        const actualCompleted = completedTask.subtitle_entries?.filter((entry) =>
-          entry.translatedText && entry.translatedText.trim() !== ''
-        ).length || 0;
+      // 如果任务不存在了（被删除），不显示完成提示
+      if (!completedTask) {
+        console.log('[SubtitleFileList] 文件已删除，跳过完成提示');
+        return;
+      }
 
-        if (actualCompleted > 0) {
-          await addHistoryEntry({
-            taskId: file.taskId,
-            filename: file.name,
-            completedCount: actualCompleted,
-            totalTokens: finalTokens,
-            current_translation_task: {
-              taskId: completedTask.taskId,
-              subtitle_entries: completedTask.subtitle_entries,
-              subtitle_filename: completedTask.subtitle_filename,
-              translation_progress: completedTask.translation_progress
-            }
-          });
-        }
+      // 添加历史记录
+      const finalTokens = completedTask.translation_progress?.tokens || 0;
+      const actualCompleted = completedTask.subtitle_entries?.filter((entry) =>
+        entry.translatedText && entry.translatedText.trim() !== ''
+      ).length || 0;
+
+      if (actualCompleted > 0) {
+        await addHistoryEntry({
+          taskId: file.taskId,
+          filename: file.name,
+          completedCount: actualCompleted,
+          totalTokens: finalTokens,
+          current_translation_task: {
+            taskId: completedTask.taskId,
+            subtitle_entries: completedTask.subtitle_entries,
+            subtitle_filename: completedTask.subtitle_filename,
+            translation_progress: completedTask.translation_progress
+          }
+        });
       }
 
       setTimeout(async () => {

@@ -103,11 +103,44 @@ interface SubtitleStore {
 // Phase 3: 持久化由 DataManager 统一管理
 // ============================================
 
-// 页面关闭前强制持久化所有数据（委托给 DataManager）
+// 页面关闭前强制持久化所有数据并检查是否有进行中的任务
 if (typeof window !== 'undefined') {
-  window.addEventListener('beforeunload', () => {
+  window.addEventListener('beforeunload', (event) => {
+    // 检查是否有进行中的任务
+    const hasOngoingTasks = checkOngoingTasks();
+
+    if (hasOngoingTasks) {
+      // 触发浏览器确认对话框
+      event.preventDefault();
+      // Chrome 需要设置 returnValue
+      event.returnValue = '';
+    }
+
+    // 无论如何都强制持久化数据
     dataManager.forcePersistAllData().catch(console.error);
   });
+}
+
+/**
+ * 检查是否有进行中的任务（转录或翻译）
+ */
+function checkOngoingTasks(): boolean {
+  // 检查是否有翻译正在进行
+  const isTranslating = useTranslationConfigStore.getState().isTranslating;
+
+  // 检查是否有转录正在进行
+  const files = useSubtitleStore.getState().files;
+  const isTranscribing = files.some(file =>
+    file.transcriptionStatus && (
+      file.transcriptionStatus === 'loading_model' ||
+      file.transcriptionStatus === 'decoding' ||
+      file.transcriptionStatus === 'chunking' ||
+      file.transcriptionStatus === 'transcribing' ||
+      file.transcriptionStatus === 'llm_merging'
+    )
+  );
+
+  return isTranslating || isTranscribing;
 }
 
 // ============================================
@@ -173,6 +206,12 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
   removeFile: async (fileId: string) => {
     const file = get().getFile(fileId);
     if (!file) return;
+
+    // 检查是否正在翻译此文件，如果是则停止翻译
+    const translationStore = useTranslationConfigStore.getState();
+    if (translationStore.isTranslating && translationStore.currentTaskId === file.taskId) {
+      translationStore.stopTranslation();
+    }
 
     try {
       set((state) => ({
@@ -429,7 +468,7 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
     }
 
     // 设置全局翻译状态
-    const controller = await translationConfigStore.startTranslation();
+    const controller = await translationConfigStore.startTranslation(file.taskId);
 
     try {
       // ✅ Phase 3: 从 DataManager 获取完整 entries
@@ -469,6 +508,12 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
           }
         }
       );
+
+      // 检查是否被中止（删除文件时）
+      if (controller.signal.aborted) {
+        console.log('[subtitleStore] 翻译已中止（文件已删除）');
+        return;
+      }
 
       // 完成翻译
       await dataManager.completeTask(file.taskId, translationConfigStore.tokensUsed || 0);

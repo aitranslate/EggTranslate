@@ -76,7 +76,7 @@ export async function callLLM(
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     if (signal?.aborted) {
-      throw new Error('请求被取消');
+      throw new DOMException('请求被取消', 'AbortError');
     }
 
     try {
@@ -84,7 +84,7 @@ export async function callLLM(
       await rateLimiter.waitForAvailability();
 
       if (signal?.aborted) {
-        throw new Error('请求被取消');
+        throw new DOMException('请求被取消', 'AbortError');
       }
 
       // 多 key 轮询：获取下一个可用的 API key

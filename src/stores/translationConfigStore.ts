@@ -27,7 +27,7 @@ interface TranslationConfigStore {
   // Actions
   updateConfig: (updates: Partial<TranslationConfig>) => Promise<void>;
   testConnection: () => Promise<boolean>;
-  startTranslation: () => Promise<AbortController>;
+  startTranslation: (taskId?: string) => Promise<AbortController>;
   stopTranslation: () => void;
   resetProgress: () => Promise<void>;
 
@@ -138,11 +138,12 @@ export const useTranslationConfigStore = create<TranslationConfigStore>()(
       /**
        * 开始翻译
        */
-      startTranslation: async () => {
+      startTranslation: async (taskId?: string) => {
         const controller = new AbortController();
         set({
           abortController: controller,
           isTranslating: true,
+          currentTaskId: taskId || '',
           progress: { ...DEFAULT_PROGRESS, status: '翻译中...' }
         });
         return controller;
@@ -158,6 +159,7 @@ export const useTranslationConfigStore = create<TranslationConfigStore>()(
         }
         set({
           isTranslating: false,
+          currentTaskId: '',
           progress: DEFAULT_PROGRESS,
           abortController: null
         });
@@ -240,7 +242,8 @@ export const useTranslationConfigStore = create<TranslationConfigStore>()(
       completeTranslation: async (taskId: string) => {
         await translationService.completeTranslation(taskId);
         set({
-          isTranslating: false
+          isTranslating: false,
+          currentTaskId: ''
         });
       }
     }),
