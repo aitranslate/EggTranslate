@@ -1,10 +1,14 @@
+// 翻译状态类型
+export type TranslationStatus = 'pending' | 'completed';
+
 // 字幕条目类型
 export interface SubtitleEntry {
   id: number;
   startTime: string;
   endTime: string;
   text: string;
-  translatedText?: string;
+  translatedText: string;
+  translationStatus: TranslationStatus;
 }
 
 // LLM API 基础配置类型
