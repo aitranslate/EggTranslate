@@ -335,7 +335,8 @@ export const runTranscriptionPipeline = async (
         startTime: formatSRTTime(allWords[startIdx].start_time),
         endTime: formatSRTTime(allWords[endIdx].end_time),
         text: sentence,
-        translatedText: ''
+        translatedText: '',
+        translationStatus: 'pending'
       });
     }
   }

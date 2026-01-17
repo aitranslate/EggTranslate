@@ -30,7 +30,8 @@ export const parseSRT = (srtContent: string): SubtitleEntry[] => {
       startTime: item.startTime,
       endTime: item.endTime,
       text: item.text.trim(),
-      translatedText: undefined
+      translatedText: undefined,
+      translationStatus: 'pending' as const
     }));
   } catch (error) {
     const appError = toAppError(error, 'SRT解析失败');
