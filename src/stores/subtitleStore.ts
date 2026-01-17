@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import { SubtitleFile, SubtitleEntry, TranscriptionStatus, TranscriptionProgressInfo, SubtitleFileMetadata, Term } from '@/types';
+import { SubtitleFile, SubtitleEntry, TranscriptionStatus, TranscriptionProgressInfo, SubtitleFileMetadata, Term, TranslationStatus } from '@/types';
 import { loadFromFile, removeFile as removeFileData, clearAllData as clearAllFileData, restoreFiles, restoreFilesWithEntries, type SubtitleFile as SubtitleFileType } from '@/services/SubtitleFileManager';
 import { runTranscriptionPipeline } from '@/services/transcriptionPipeline';
 import { executeTranslation } from '@/services/TranslationOrchestrator';
@@ -42,7 +42,7 @@ interface SubtitleStore {
   clearAll: () => Promise<void>;
 
   // Actions - 字幕操作
-  updateEntry: (fileId: string, entryId: number, text: string, translatedText?: string) => Promise<void>;
+  updateEntry: (fileId: string, entryId: number, text: string, translatedText?: string, status?: TranslationStatus) => Promise<void>;
   batchUpdateEntries: (fileId: string, updates: Array<{id: number, text: string, translatedText?: string}>) => Promise<void>;
 
   // Actions - 转录
@@ -259,12 +259,12 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
   /**
    * 更新单条字幕
    */
-  updateEntry: async (fileId: string, entryId: number, text: string, translatedText?: string) => {
+  updateEntry: async (fileId: string, entryId: number, text: string, translatedText?: string, status?: TranslationStatus) => {
     const file = get().getFile(fileId);
     if (!file) return;
 
-    // 更新 DataManager 内存
-    dataManager.updateTaskSubtitleEntryInMemory(file.taskId, entryId, text, translatedText);
+    // 更新 DataManager 内存（传递 status）
+    dataManager.updateTaskSubtitleEntryInMemory(file.taskId, entryId, text, translatedText, status);
 
     // ✅ Phase 3: 更新统计信息，而不是 entries 数组
     get().updateFileStatistics(fileId);
