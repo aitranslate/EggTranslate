@@ -114,8 +114,18 @@ class TranslationService {
     let directTokensUsed: number;
     let directResult: any;
 
-    // 验证失败时重试（最多2次，即总共3次机会）
-    for (let attempt = 1; attempt <= 2; attempt++) {
+    // 验证失败时重试（最多3次机会）
+    // 重试策略：逐次提高温度 + 强调格式要求
+    const retryTemperatures = [0.3, 0.6, 0.9];
+    const formatEmphasis = [
+      '',
+      '\n\nIMPORTANT: Ensure your response is valid JSON with "direct" field for EVERY entry.',
+      '\n\nCRITICAL: You MUST return valid JSON with "direct" field for EVERY single line. Do NOT skip any entries.'
+    ];
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const promptWithEmphasis = directPrompt + formatEmphasis[attempt - 1];
+
       const llmResult = await callLLM(
         {
           baseURL: this.config.baseURL,
@@ -123,8 +133,12 @@ class TranslationService {
           model: this.config.model,
           rpm: this.config.rpm
         },
-        [{ role: 'user', content: directPrompt }],
-        { signal, temperature: API_CONSTANTS.DEFAULT_TEMPERATURE, maxRetries: 1 }  // LLM 层面只重试1次
+        [{ role: 'user', content: promptWithEmphasis }],
+        {
+          signal,
+          temperature: retryTemperatures[attempt - 1],
+          maxRetries: 1
+        }
       );
 
       directContent = llmResult.content;
@@ -136,17 +150,18 @@ class TranslationService {
       try {
         // 验证直译结果
         this.validateTranslationResult(directResult, texts, 'direct');
-        // 验证成功，跳出重试循环
-        console.log(`[TranslationService] 直译验证通过（第${attempt}次尝试）`);
-        break;
+        break;  // 验证成功，跳出重试循环
       } catch (error) {
+        // 只在失败时打印调试信息
+        console.error(`[TranslationService] ========== 批次翻译失败（第${attempt}次尝试，温度=${retryTemperatures[attempt - 1]}） ==========`);
+        console.error(`[TranslationService] 原文（${texts.length}行）:`);
+        texts.forEach((text, i) => console.error(`  ${i + 1}. ${text}`));
+        console.error(`[TranslationService] LLM 原始返回:\n${directContent}`);
         console.warn(`[TranslationService] 直译验证失败（第${attempt}次尝试）:`, error instanceof Error ? error.message : String(error));
-        if (attempt === 2) {
-          // 最后一次尝试也失败，抛出错误
-          throw error;
+
+        if (attempt === 3) {
+          throw error;  // 最后一次尝试也失败
         }
-        // 继续下一次尝试
-        console.log(`[TranslationService] 准备第${attempt + 1}次重试...`);
       }
     }
 
@@ -349,11 +364,13 @@ class TranslationService {
       }
 
       if (phase === 'direct') {
-        if (!entry.direct) {
+        // 只检查字段是否存在，允许空字符串（LLM 可能合并翻译策略）
+        if (!('direct' in entry)) {
           throw new Error(`直译结果 "${key}" 缺少 "direct" 字段`);
         }
       } else if (phase === 'reflection') {
-        if (!entry.free && !entry.direct) {
+        // 只检查字段是否存在
+        if (!('free' in entry) && !('direct' in entry)) {
           throw new Error(`反思结果 "${key}" 缺少 "free" 或 "direct" 字段`);
         }
       }

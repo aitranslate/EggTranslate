@@ -210,12 +210,7 @@ export async function executeTranslation(
 ): Promise<void> {
   const { entries, filename, config, controller, taskId } = options;
 
-  // ✅ 任务已在外部创建（上传文件时），不需要重复创建
-  // const oldCode = await dataManager.createNewTask(filename, entries, 0); // ❌ 删除重复创建任务的代码
-
   const initialProgress = calculateActualProgress(entries);
-  const startBatchIndex = Math.floor(initialProgress.completed / config.batchSize);
-
   let currentCompletedCount = initialProgress.completed;
 
   await callbacks.updateProgress(
@@ -226,13 +221,8 @@ export async function executeTranslation(
     taskId
   );
 
-  // 创建批次
-  const allBatches = createTranslationBatches(entries, config, callbacks);
-
-  // 过滤出需要翻译的批次
-  const batchesToTranslate = allBatches.filter(
-    batch => batch.batchIndex >= startBatchIndex
-  );
+  // 创建批次（createTranslationBatches 已经只返回有未翻译条目的批次）
+  const batchesToTranslate = createTranslationBatches(entries, config, callbacks);
 
   // 更新进度的回调
   const updateProgressCallback = async (completedEntries: number, tokensUsed?: number) => {
