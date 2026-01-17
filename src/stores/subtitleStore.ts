@@ -43,6 +43,7 @@ interface SubtitleStore {
 
   // Actions - 字幕操作
   updateEntry: (fileId: string, entryId: number, text: string, translatedText?: string, status?: TranslationStatus) => Promise<void>;
+  deleteEntry: (fileId: string, entryId: number) => Promise<void>;
   batchUpdateEntries: (fileId: string, updates: Array<{id: number, text: string, translatedText?: string}>) => Promise<void>;
 
   // Actions - 转录
@@ -270,6 +271,17 @@ export const useSubtitleStore = create<SubtitleStore>((set, get) => ({
     get().updateFileStatistics(fileId);
 
     // ✅ Phase 3: 移除 schedulePersist，DataManager 负责持久化
+  },
+
+  /**
+   * 删除单条字幕
+   */
+  deleteEntry: async (fileId: string, entryId: number) => {
+    const file = get().getFile(fileId);
+    if (!file) return;
+
+    dataManager.deleteTaskSubtitleEntryInMemory(file.taskId, entryId);
+    get().updateFileStatistics(fileId);
   },
 
   /**

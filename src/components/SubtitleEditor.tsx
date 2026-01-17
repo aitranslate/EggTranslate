@@ -1,10 +1,11 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Edit3, Save, X, Search, Filter, FileText, RefreshCw } from 'lucide-react';
+import { Edit3, Save, X, Search, Filter, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { SubtitleFile, SubtitleEntry, Term } from '@/types';
+import { SubtitleFile, SubtitleEntry } from '@/types';
 import { useErrorHandler } from '@/hooks/useErrorHandler';
 import { useSubtitleStore } from '@/stores/subtitleStore';
+import dataManager from '@/services/dataManager';
 
 interface SubtitleEditorProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   const entries = getFileEntries(fileId);
 
   const updateEntry = useSubtitleStore((state) => state.updateEntry);
+  const deleteEntry = useSubtitleStore((state) => state.deleteEntry);
 
   // 使用统一错误处理
   const { handleError } = useErrorHandler();
@@ -34,7 +36,6 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   const [editTranslation, setEditTranslation] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'translated' | 'untranslated'>('all');
-  const [retranslatingIds, setRetranslatingIds] = useState<Set<number>>(new Set());
 
   // ✅ entries 来自 Store 订阅，会实时更新
   const fileEntries = useMemo(() => {
@@ -92,97 +93,35 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
     setEditTranslation('');
   }, []);
 
-  const handleRetranslate = useCallback(async (entryId: number) => {
-    if (!file?.id) return;
+  const handleMerge = useCallback(() => {
+    if (!file?.id || !fileEntries.length) return;
 
-    // 添加到重译集合
-    setRetranslatingIds(prev => new Set(prev).add(entryId));
+    const toMerge: Array<{current: SubtitleEntry, next: SubtitleEntry}> = [];
 
-    try {
-      // 获取翻译配置
-      const { useTranslationConfigStore } = await import('@/stores/translationConfigStore');
-      const config = useTranslationConfigStore.getState().config;
+    // 收集需要合并的对
+    for (let i = 0; i < fileEntries.length - 1; i++) {
+      const current = fileEntries[i];
+      const next = fileEntries[i + 1];
 
-      // 获取当前条目
-      const entry = fileEntries.find(e => e.id === entryId);
-      if (!entry) {
-        throw new Error('条目不存在');
+      // 上条有翻译，下条无翻译（不管状态如何）
+      if (current.translatedText && !next.translatedText) {
+        toMerge.push({ current, next });
       }
-
-      // 获取索引
-      const currentIndex = fileEntries.findIndex(e => e.id === entryId);
-
-      // 构造前后文
-      const beforeTexts = fileEntries
-        .slice(Math.max(0, currentIndex - config.contextBefore), currentIndex)
-        .map(e => e.text)
-        .join('\n');
-
-      const afterTexts = fileEntries
-        .slice(currentIndex + 1, Math.min(fileEntries.length, currentIndex + 1 + config.contextAfter))
-        .map(e => e.text)
-        .join('\n');
-
-      // 获取相关术语（使用 getRelevantTerms 逻辑）
-      const { default: dataManager } = await import('@/services/dataManager');
-      const allTerms = dataManager.getTerms();
-
-      // 合并所有文本
-      const fullText = `${beforeTexts} ${entry.text} ${afterTexts}`;
-      const cleanedFullText = fullText.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
-
-      // 预处理术语
-      const processedTerms = allTerms.map((term: Term) => ({
-        ...term,
-        cleanedOriginal: term.original.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
-      }));
-
-      // 筛选出在清洗后文本中出现的术语
-      const relevantTerms = processedTerms
-        .filter(term => term.cleanedOriginal && cleanedFullText.includes(term.cleanedOriginal))
-        .map(({ original, translation, notes }) => ({ original, translation, notes }));
-
-      // 格式化为提示词格式
-      const termsText = relevantTerms.map(term => {
-        if (term.notes) {
-          return `${term.original} -> ${term.translation} // ${term.notes}`;
-        }
-        return `${term.original} -> ${term.translation}`;
-      }).join('\n');
-
-      // 调用翻译 API
-      const result = await useTranslationConfigStore.getState().translateBatch(
-        [entry.text],
-        undefined,
-        beforeTexts,
-        afterTexts,
-        termsText
-      );
-
-      // 解析结果
-      const translation = result.translations["1"]?.direct;
-      if (!translation) {
-        throw new Error('翻译返回空结果');
-      }
-
-      // 更新条目
-      await updateEntry(file.id, entryId, entry.text, translation);
-      // 界面自动更新，无需提示
-
-    } catch (error) {
-      handleError(error, {
-        context: { operation: '重译字幕', entryId }
-      });
-    } finally {
-      // 从重译集合中移除
-      setRetranslatingIds(prev => {
-        const next = new Set(prev);
-        next.delete(entryId);
-        return next;
-      });
     }
-  }, [file, fileEntries, updateEntry, handleError]);
 
+    // 执行合并（注意：forEach 中不能使用 async，改用 for...of）
+    for (const { current, next } of toMerge) {
+      const mergedText = `${current.text} ${next.text}`;
+      await updateEntry(file.id, current.id, mergedText, current.translatedText, 'completed');
+      await deleteEntry(file.id, next.id);
+    }
+
+    // 更新统计
+    if (toMerge.length > 0) {
+      const updateFileStatistics = useSubtitleStore.getState().updateFileStatistics;
+      updateFileStatistics(file.id);
+    }
+  }, [file, fileEntries, updateEntry]);
 
   const translationStats = useMemo(() => {
     const entriesArray = fileEntries || [];
@@ -234,9 +173,18 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
           <div className="space-y-4">
             {/* 头部控制 */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-              <h3 className="text-lg font-semibold text-white">
-                字幕编辑器
-              </h3>
+              <div className="flex items-center space-x-2">
+                <h3 className="text-lg font-semibold text-white">
+                  字幕编辑器
+                </h3>
+                <button
+                  onClick={handleMerge}
+                  className="px-3 py-1 text-sm bg-white/10 hover:bg-white/20 rounded transition-colors text-white/80"
+                  title="合并空字幕"
+                >
+                  合并
+                </button>
+              </div>
               
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
                 {/* 搜索框 */}
@@ -306,14 +254,6 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
                           title="编辑"
                         >
                           <Edit3 className="h-4 w-4 text-white/60" />
-                        </button>
-                        <button
-                          onClick={() => handleRetranslate(entry.id)}
-                          disabled={retranslatingIds.has(entry.id)}
-                          className="p-1 hover:bg-white/20 rounded transition-colors disabled:opacity-50"
-                          title={retranslatingIds.has(entry.id) ? "翻译中" : "重译"}
-                        >
-                          <RefreshCw className={`h-4 w-4 text-blue-400 ${retranslatingIds.has(entry.id) ? 'animate-spin' : ''}`} />
                         </button>
                       </div>
                     </div>

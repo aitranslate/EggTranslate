@@ -155,6 +155,10 @@ class DataManager {
     return this.taskManager.updateTaskSubtitleEntryInMemory(taskId, entryId, text, translatedText, status);
   }
 
+  deleteTaskSubtitleEntryInMemory(taskId: string, entryId: number): void {
+    return this.taskManager.deleteTaskSubtitleEntryInMemory(taskId, entryId);
+  }
+
   async batchUpdateTaskSubtitleEntries(taskId: string, updates: {id: number, text: string, translatedText?: string, status?: 'pending' | 'completed'}[]): Promise<void> {
     return this.taskManager.batchUpdateTaskSubtitleEntries(taskId, updates);
   }

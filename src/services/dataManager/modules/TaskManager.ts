@@ -187,6 +187,34 @@ class TaskManager {
   }
 
   /**
+   * 删除指定任务的字幕条目（仅在内存中更新，不持久化）
+   */
+  deleteTaskSubtitleEntryInMemory(taskId: string, entryId: number): void {
+    try {
+      const task = this.memoryStore.batch_tasks.tasks.find(t => t.taskId === taskId);
+      if (!task) return;
+
+      // 从内存中删除指定条目
+      task.subtitle_entries = task.subtitle_entries.filter(entry => entry.id !== entryId);
+
+      // 重新计算完成数量
+      const completed = task.subtitle_entries.filter(entry =>
+        entry.translatedText && entry.translatedText.trim() !== ''
+      ).length;
+
+      // 更新翻译进度
+      task.translation_progress = {
+        ...task.translation_progress,
+        completed,
+        total: task.subtitle_entries.length
+      };
+    } catch (error) {
+      const appError = toAppError(error, '删除内存中的字幕条目失败');
+      console.error('[TaskManager]', appError.message, appError);
+    }
+  }
+
+  /**
    * 批量更新指定任务的字幕条目
    */
   async batchUpdateTaskSubtitleEntries(

@@ -155,16 +155,32 @@ export async function processBatch(
 
     const batchUpdates: { id: number; text: string; translatedText: string; status: TranslationStatus }[] = [];
 
+    // 记录 LLM 返回的条目 ID
+    const returnedEntryIds = new Set<number>();
+
     for (const [key, value] of Object.entries(translationResult.translations)) {
       const resultIndex = parseInt(key) - 1;
       const untranslatedEntry = batch.untranslatedEntries[resultIndex];
 
       if (untranslatedEntry && typeof value === 'object' && value.direct) {
+        returnedEntryIds.add(untranslatedEntry.id);
         batchUpdates.push({
           id: untranslatedEntry.id,
           text: untranslatedEntry.text,
           translatedText: value.direct,
-          status: 'completed'  // 标记为已完成
+          status: 'completed'
+        });
+      }
+    }
+
+    // 对于批次中 LLM 未返回的条目（合并翻译策略），也标记为 completed
+    for (const entry of batch.untranslatedEntries) {
+      if (!returnedEntryIds.has(entry.id)) {
+        batchUpdates.push({
+          id: entry.id,
+          text: entry.text,
+          translatedText: '',  // LLM 采用合并策略，本条无独立翻译
+          status: 'completed'
         });
       }
     }
