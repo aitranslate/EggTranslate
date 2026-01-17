@@ -93,7 +93,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
     setEditTranslation('');
   }, []);
 
-  const handleMerge = useCallback(() => {
+  const handleMerge = useCallback(async () => {
     if (!file?.id || !fileEntries.length) return;
 
     const toMerge: Array<{current: SubtitleEntry, next: SubtitleEntry}> = [];
