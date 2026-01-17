@@ -140,6 +140,7 @@ export async function processBatch(
   formatTermsForPrompt: (terms: any[]) => string,  // 新增参数
   updateProgressCallback: (completed: number, tokensUsed?: number) => Promise<void>
 ): Promise<{ batchIndex: number; success: boolean }> {
+  console.log(`[TranslationOrchestrator] 开始处理批次 ${batch.batchIndex + 1}，包含 ${batch.untranslatedEntries.length} 个未翻译条目`);
   try {
     // 使用 formatTermsForPrompt 格式化术语
     const termsText = formatTermsForPrompt(batch.relevantTerms);
@@ -182,6 +183,8 @@ export async function processBatch(
 
       // 传递本次翻译使用的 tokens
       await updateProgressCallback(batchUpdates.length, translationResult.tokensUsed);
+
+      console.log(`[TranslationOrchestrator] 批次 ${batch.batchIndex + 1} 翻译成功，更新了 ${batchUpdates.length} 个条目，消耗 ${translationResult.tokensUsed} tokens`);
     }
 
     return { batchIndex: batch.batchIndex, success: true };
