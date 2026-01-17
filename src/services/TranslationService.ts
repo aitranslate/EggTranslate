@@ -123,6 +123,10 @@ class TranslationService {
 
     const repairedDirectJson = jsonrepair(directContent);
     const directResult = JSON.parse(repairedDirectJson);
+
+    // 验证直译结果
+    this.validateTranslationResult(directResult, texts, 'direct');
+
     let totalTokensUsed = directTokensUsed;
 
     // 第二步：反思翻译（如果启用）
@@ -151,6 +155,9 @@ class TranslationService {
 
         const repairedReflectionJson = jsonrepair(reflectionContent);
         const reflectionResult = JSON.parse(repairedReflectionJson);
+
+        // 验证反思结果
+        this.validateTranslationResult(reflectionResult, texts, 'reflection');
 
         // 转换为直译格式
         const formattedResult: Record<string, any> = {};
@@ -286,6 +293,47 @@ class TranslationService {
       const appError = toAppError(error, '清空任务失败');
       console.error('[TranslationService]', appError.message, appError);
       throw appError;
+    }
+  }
+
+  /**
+   * 验证翻译结果
+   * @param result LLM 返回的翻译结果
+   * @param originalTexts 原文数组
+   * @param phase 'direct' | 'reflection'
+   * @throws Error 验证失败时抛出错误
+   */
+  private validateTranslationResult(
+    result: Record<string, any>,
+    originalTexts: string[],
+    phase: 'direct' | 'reflection'
+  ): void {
+    // 1. 行数匹配验证
+    const expectedKeys = originalTexts.map((_, i) => String(i + 1));
+    const actualKeys = Object.keys(result);
+
+    for (const key of expectedKeys) {
+      if (!actualKeys.includes(key)) {
+        throw new Error(`翻译结果缺少键 "${key}"，期望 ${expectedKeys.length} 行，实际 ${actualKeys.length} 行`);
+      }
+    }
+
+    // 2. JSON 结构验证
+    for (const key of expectedKeys) {
+      const entry = result[key];
+      if (!entry || typeof entry !== 'object') {
+        throw new Error(`翻译结果 "${key}" 不是有效对象`);
+      }
+
+      if (phase === 'direct') {
+        if (!entry.direct) {
+          throw new Error(`直译结果 "${key}" 缺少 "direct" 字段`);
+        }
+      } else if (phase === 'reflection') {
+        if (!entry.free && !entry.direct) {
+          throw new Error(`反思结果 "${key}" 缺少 "free" 或 "direct" 字段`);
+        }
+      }
     }
   }
 }
