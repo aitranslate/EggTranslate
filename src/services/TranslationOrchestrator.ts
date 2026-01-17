@@ -152,7 +152,7 @@ export async function processBatch(
       termsText  // 使用格式化后的术语
     );
 
-    const batchUpdates: { id: number; text: string; translatedText: string }[] = [];
+    const batchUpdates: { id: number; text: string; translatedText: string; status: TranslationStatus }[] = [];
 
     for (const [key, value] of Object.entries(translationResult.translations)) {
       const resultIndex = parseInt(key) - 1;
@@ -162,7 +162,8 @@ export async function processBatch(
         batchUpdates.push({
           id: untranslatedEntry.id,
           text: untranslatedEntry.text,
-          translatedText: value.direct
+          translatedText: value.direct,
+          status: 'completed'  // 标记为已完成
         });
       }
     }
@@ -171,12 +172,11 @@ export async function processBatch(
       await dataManager.batchUpdateTaskSubtitleEntries(taskId, batchUpdates);
 
       for (const update of batchUpdates) {
-        // 添加 'completed' 状态参数
         await callbacks.updateEntry(
           update.id,
           update.text,
           update.translatedText,
-          'completed'  // 新增：标记翻译完成
+          update.status  // 传递状态
         );
       }
 
