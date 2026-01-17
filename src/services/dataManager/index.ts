@@ -147,15 +147,15 @@ class DataManager {
     return this.taskManager.createNewTask(filename, entries, index, () => this.generateTaskId(), options);
   }
 
-  async updateTaskSubtitleEntry(taskId: string, entryId: number, text: string, translatedText?: string): Promise<void> {
-    return this.taskManager.updateTaskSubtitleEntry(taskId, entryId, text, translatedText);
+  async updateTaskSubtitleEntry(taskId: string, entryId: number, text: string, translatedText?: string, status?: 'pending' | 'completed'): Promise<void> {
+    return this.taskManager.updateTaskSubtitleEntry(taskId, entryId, text, translatedText, status);
   }
 
-  updateTaskSubtitleEntryInMemory(taskId: string, entryId: number, text: string, translatedText?: string): void {
-    return this.taskManager.updateTaskSubtitleEntryInMemory(taskId, entryId, text, translatedText);
+  updateTaskSubtitleEntryInMemory(taskId: string, entryId: number, text: string, translatedText?: string, status?: 'pending' | 'completed'): void {
+    return this.taskManager.updateTaskSubtitleEntryInMemory(taskId, entryId, text, translatedText, status);
   }
 
-  async batchUpdateTaskSubtitleEntries(taskId: string, updates: {id: number, text: string, translatedText?: string}[]): Promise<void> {
+  async batchUpdateTaskSubtitleEntries(taskId: string, updates: {id: number, text: string, translatedText?: string, status?: 'pending' | 'completed'}[]): Promise<void> {
     return this.taskManager.batchUpdateTaskSubtitleEntries(taskId, updates);
   }
 

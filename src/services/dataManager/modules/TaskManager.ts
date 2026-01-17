@@ -1,5 +1,5 @@
 import localforage from 'localforage';
-import { SubtitleEntry, SingleTask, BatchTasks } from '@/types';
+import { SubtitleEntry, SingleTask, BatchTasks, TranslationStatus } from '@/types';
 import { toAppError } from '@/utils/errors';
 
 /**
@@ -83,7 +83,8 @@ class TaskManager {
     taskId: string,
     entryId: number,
     text: string,
-    translatedText?: string
+    translatedText?: string,
+    status?: TranslationStatus
   ): Promise<void> {
     try {
       const task = this.memoryStore.batch_tasks.tasks.find(t => t.taskId === taskId);
@@ -92,7 +93,12 @@ class TaskManager {
       // 更新内存中的数据
       const updatedEntries = task.subtitle_entries.map(entry =>
         entry.id === entryId
-          ? { ...entry, text, translatedText: translatedText ?? entry.translatedText }
+          ? {
+              ...entry,
+              text,
+              translatedText: translatedText ?? entry.translatedText,
+              ...(status !== undefined && { translationStatus: status })
+            }
           : entry
       );
 
@@ -134,7 +140,8 @@ class TaskManager {
     taskId: string,
     entryId: number,
     text: string,
-    translatedText?: string
+    translatedText?: string,
+    status?: TranslationStatus
   ): void {
     try {
       const task = this.memoryStore.batch_tasks.tasks.find(t => t.taskId === taskId);
@@ -143,7 +150,12 @@ class TaskManager {
       // 更新内存中的数据
       const updatedEntries = task.subtitle_entries.map(entry =>
         entry.id === entryId
-          ? { ...entry, text, translatedText: translatedText ?? entry.translatedText }
+          ? {
+              ...entry,
+              text,
+              translatedText: translatedText ?? entry.translatedText,
+              ...(status !== undefined && { translationStatus: status })
+            }
           : entry
       );
 
@@ -179,7 +191,7 @@ class TaskManager {
    */
   async batchUpdateTaskSubtitleEntries(
     taskId: string,
-    updates: { id: number; text: string; translatedText?: string }[]
+    updates: { id: number; text: string; translatedText?: string; status?: TranslationStatus }[]
   ): Promise<void> {
     try {
       const task = this.memoryStore.batch_tasks.tasks.find(t => t.taskId === taskId);
@@ -191,7 +203,8 @@ class TaskManager {
         return update ? {
           ...entry,
           text: update.text,
-          translatedText: update.translatedText ?? entry.translatedText
+          translatedText: update.translatedText ?? entry.translatedText,
+          ...(update.status !== undefined && { translationStatus: update.status })
         } : entry;
       });
 
