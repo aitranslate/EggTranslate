@@ -1,0 +1,53 @@
+# Reachable Files - Initial list from entry points
+# Generated: 2026-01-17
+
+# Entry points (tier 0)
+src/main.tsx
+src/App.tsx
+src/components/MainApp.tsx
+
+# Tier 0 - Entry Points
+✅ These files are the application entry points and are actively used.
+
+=== src/main.tsx ===
+Purpose: Application bootstrap and initialization
+Direct imports:
+  - src/components/ErrorBoundary.tsx
+  - src/services/dataManager
+  - src/App.tsx
+  - src/utils/errors.ts
+  - src/index.css
+
+=== src/App.tsx ===
+Purpose: Root component with context providers
+Direct imports:
+  - src/contexts/TermsContext.tsx
+  - src/contexts/HistoryContext.tsx
+  - src/components/MainApp.tsx
+  - src/components/ErrorBoundary.tsx
+  - src/stores/subtitleStore.ts
+  - src/index.css
+
+=== src/components/MainApp.tsx ===
+Purpose: Main application UI component
+Direct imports (Components):
+  - src/components/FileUpload.tsx
+  - src/components/BatchFileUpload.tsx
+  - src/components/SubtitleFileList.tsx
+  - src/components/TranslationControls.tsx
+  - src/components/SubtitleEditor.tsx
+  - src/components/ProgressDisplay.tsx
+  - src/components/SettingsModal.tsx
+  - src/components/TermsManager.tsx
+  - src/components/HistoryModal.tsx
+  - src/components/HelpButton.tsx
+  - src/components/GuideModal.tsx
+Direct imports (Stores/Contexts):
+  - src/stores/subtitleStore.ts
+  - src/stores/translationConfigStore.ts
+  - src/contexts/HistoryContext.tsx
+  - src/contexts/TermsContext.tsx
+Direct imports (Utils/Services):
+  - src/types/index.ts
+  - src/services/dataManager
+  - src/hooks/useErrorHandler.ts
