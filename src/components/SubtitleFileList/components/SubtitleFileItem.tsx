@@ -104,15 +104,19 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
           file.fileType === 'srt' ? (
             translationStats.percentage === 100
               ? 'bg-green-500/30 text-green-200'
-              : translationStats.percentage > 0
+              : isTranslating && translationStats.percentage > 0
               ? 'bg-blue-500/30 text-blue-200'
+              : translationStats.percentage > 0
+              ? 'bg-red-500/30 text-red-200'
               : 'bg-gray-500/30 text-gray-200'
           ) : (
             file.transcriptionStatus === 'completed' ? (
               translationStats.percentage === 100
                 ? 'bg-green-500/30 text-green-200'
-                : translationStats.percentage > 0
+                : isTranslating && translationStats.percentage > 0
                 ? 'bg-blue-500/30 text-blue-200'
+                : translationStats.percentage > 0
+                ? 'bg-red-500/30 text-red-200'
                 : 'bg-green-500/30 text-green-200'
             ) : (
               file.transcriptionStatus === 'failed'
@@ -123,11 +127,13 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
         }`}>
           {file.fileType === 'srt' ? (
             translationStats.percentage === 100 ? '已完成' :
-            translationStats.percentage > 0 ? '翻译中' : '等待翻译'
+            isTranslating && translationStats.percentage > 0 ? '翻译中' :
+            translationStats.percentage > 0 ? '翻译失败' : '等待翻译'
           ) : (
             file.transcriptionStatus === 'completed' ? (
               translationStats.percentage === 100 ? '已完成' :
-              translationStats.percentage > 0 ? '翻译中' : '转录完成'
+              isTranslating && translationStats.percentage > 0 ? '翻译中' :
+              translationStats.percentage > 0 ? '翻译失败' : '转录完成'
             ) :
             file.transcriptionStatus === 'transcribing' || file.transcriptionStatus === 'llm_merging' || file.transcriptionStatus === 'loading_model' || file.transcriptionStatus === 'decoding' || file.transcriptionStatus === 'chunking' ? '转录中' :
             file.transcriptionStatus === 'failed' ? '转录失败' :
