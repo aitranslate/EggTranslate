@@ -62,7 +62,7 @@ export function calculateActualProgress(entries: SubtitleEntry[]): {
   total: number;
 } {
   const completed = entries.filter(
-    entry => entry.translatedText && entry.translatedText.trim() !== ''
+    entry => entry.translationStatus === 'completed'
   ).length;
   return { completed, total: entries.length };
 }
@@ -85,7 +85,7 @@ export function createTranslationBatches(
     const batchEntries = entries.slice(startIdx, endIdx);
 
     const untranslatedEntries = batchEntries.filter(
-      entry => !entry.translatedText || !entry.translatedText.trim()
+      entry => entry.translationStatus !== 'completed'
     );
 
     if (untranslatedEntries.length === 0) {
@@ -283,8 +283,7 @@ export async function saveTranslationHistory(
       const finalTokens = currentTask.translation_progress?.tokens || tokensUsed || 0;
       const actualCompleted =
         currentTask.subtitle_entries?.filter(
-          (entry: SubtitleEntry) =>
-            entry.translatedText && entry.translatedText.trim() !== ''
+          (entry: SubtitleEntry) => entry.translationStatus === 'completed'
         ).length || 0;
 
       if (actualCompleted > 0) {
