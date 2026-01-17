@@ -3,7 +3,7 @@
  * 负责协调整个翻译流程，包括批处理、进度更新、历史记录保存
  */
 
-import type { SubtitleEntry } from '@/types';
+import type { SubtitleEntry, TranslationStatus } from '@/types';
 import dataManager from '@/services/dataManager';
 import toast from 'react-hot-toast';
 import { API_CONSTANTS } from '@/constants/api';
@@ -33,7 +33,12 @@ export interface TranslationCallbacks {
     contextAfter?: string,
     terms?: string
   ) => Promise<{ translations: Record<string, any>; tokensUsed: number }>;
-  updateEntry: (id: number, text: string, translatedText: string) => Promise<void>;
+  updateEntry: (
+    id: number,
+    text: string,
+    translatedText: string,
+    status?: TranslationStatus  // 新增可选参数
+  ) => Promise<void>;
   updateProgress: (
     current: number,
     total: number,
@@ -134,7 +139,7 @@ export async function processBatch(
   taskId: string,
   formatTermsForPrompt: (terms: any[]) => string,  // 新增参数
   updateProgressCallback: (completed: number, tokensUsed?: number) => Promise<void>
-): Promise<{ batchIndex: number; success: boolean; error?: any }> {
+): Promise<{ batchIndex: number; success: boolean }> {
   try {
     // 使用 formatTermsForPrompt 格式化术语
     const termsText = formatTermsForPrompt(batch.relevantTerms);
@@ -166,7 +171,13 @@ export async function processBatch(
       await dataManager.batchUpdateTaskSubtitleEntries(taskId, batchUpdates);
 
       for (const update of batchUpdates) {
-        await callbacks.updateEntry(update.id, update.text, update.translatedText);
+        // 添加 'completed' 状态参数
+        await callbacks.updateEntry(
+          update.id,
+          update.text,
+          update.translatedText,
+          'completed'  // 新增：标记翻译完成
+        );
       }
 
       // 传递本次翻译使用的 tokens
@@ -179,8 +190,11 @@ export async function processBatch(
       const appError = toAppError(error);
       console.error(`[TranslationOrchestrator] 批次 ${batch.batchIndex + 1} 翻译失败:`, appError.message);
       toast.error(`批次 ${batch.batchIndex + 1} 翻译失败`);
+      // 抛出错误以触发快速失败
+      throw error;
     }
-    return { batchIndex: batch.batchIndex, success: false, error };
+    // AbortError 时不抛出，正常返回
+    return { batchIndex: batch.batchIndex, success: false };
   }
 }
 
@@ -247,7 +261,13 @@ export async function executeTranslation(
       )
     );
 
-    await Promise.all(batchPromises);
+    // 新增：批次失败立即中断
+    try {
+      await Promise.all(batchPromises);
+    } catch (error) {
+      // 任何批次失败 → 抛出错误中断整个翻译
+      throw new Error(`批次翻译失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   // 完成翻译

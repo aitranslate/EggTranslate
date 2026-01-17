@@ -14,7 +14,7 @@ import {
 import { exportSRT, exportTXT, exportBilingual } from '@/services/SubtitleExporter';
 import { API_CONSTANTS } from '@/constants/api';
 import { useErrorHandler } from '@/hooks/useErrorHandler';
-import type { SubtitleEntry } from '@/types';
+import type { SubtitleEntry, TranslationStatus } from '@/types';
 import { useTranslationConfigStore, useSubtitleStore } from '@/stores';
 
 interface TranslationControlsProps {
@@ -47,7 +47,7 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
 
   const { updateEntry: updateEntryInStore } = useSubtitleStore();
 
-  const { getRelevantTerms } = useTerms();
+  const { getRelevantTerms, formatTermsForPrompt } = useTerms();
   const { addHistoryEntry } = useHistory();
 
   // 使用统一错误处理
@@ -56,8 +56,8 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
   const [isExporting, setIsExporting] = useState(false);
 
   // Local wrapper for updateEntry to match the expected signature
-  const updateEntry = useCallback(async (id: number, text: string, translatedText: string) => {
-    await updateEntryInStore(fileId, id, text, translatedText);
+  const updateEntry = useCallback(async (id: number, text: string, translatedText: string, status?: TranslationStatus) => {
+    await updateEntryInStore(fileId, id, text, translatedText, status);
   }, [fileId, updateEntryInStore]);
 
   const onStartTranslation = useCallback(async () => {
@@ -92,7 +92,8 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
         translateBatch,
         updateEntry,
         updateProgress,
-        getRelevantTerms
+        getRelevantTerms,
+        formatTermsForPrompt
       };
 
       // 执行翻译流程
@@ -134,6 +135,7 @@ export const TranslationControls: React.FC<TranslationControlsProps> = ({
     stopTranslation,
     completeTranslation,
     getRelevantTerms,
+    formatTermsForPrompt,
     onOpenSettings,
     addHistoryEntry,
     handleError
