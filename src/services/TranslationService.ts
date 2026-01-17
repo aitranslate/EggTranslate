@@ -109,23 +109,46 @@ class TranslationService {
       this.config.targetLanguage
     );
 
-    // 第一步：直译
-    const { content: directContent, tokensUsed: directTokensUsed } = await callLLM(
-      {
-        baseURL: this.config.baseURL,
-        apiKey: this.config.apiKey,
-        model: this.config.model,
-        rpm: this.config.rpm
-      },
-      [{ role: 'user', content: directPrompt }],
-      { signal, temperature: API_CONSTANTS.DEFAULT_TEMPERATURE, maxRetries: API_CONSTANTS.MAX_RETRIES }
-    );
+    // 第一步：直译（带验证重试）
+    let directContent: string;
+    let directTokensUsed: number;
+    let directResult: any;
 
-    const repairedDirectJson = jsonrepair(directContent);
-    const directResult = JSON.parse(repairedDirectJson);
+    // 验证失败时重试（最多2次，即总共3次机会）
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const llmResult = await callLLM(
+        {
+          baseURL: this.config.baseURL,
+          apiKey: this.config.apiKey,
+          model: this.config.model,
+          rpm: this.config.rpm
+        },
+        [{ role: 'user', content: directPrompt }],
+        { signal, temperature: API_CONSTANTS.DEFAULT_TEMPERATURE, maxRetries: 1 }  // LLM 层面只重试1次
+      );
 
-    // 验证直译结果
-    this.validateTranslationResult(directResult, texts, 'direct');
+      directContent = llmResult.content;
+      directTokensUsed = llmResult.tokensUsed;
+
+      const repairedDirectJson = jsonrepair(directContent);
+      directResult = JSON.parse(repairedDirectJson);
+
+      try {
+        // 验证直译结果
+        this.validateTranslationResult(directResult, texts, 'direct');
+        // 验证成功，跳出重试循环
+        console.log(`[TranslationService] 直译验证通过（第${attempt}次尝试）`);
+        break;
+      } catch (error) {
+        console.warn(`[TranslationService] 直译验证失败（第${attempt}次尝试）:`, error instanceof Error ? error.message : String(error));
+        if (attempt === 2) {
+          // 最后一次尝试也失败，抛出错误
+          throw error;
+        }
+        // 继续下一次尝试
+        console.log(`[TranslationService] 准备第${attempt + 1}次重试...`);
+      }
+    }
 
     let totalTokensUsed = directTokensUsed;
 
