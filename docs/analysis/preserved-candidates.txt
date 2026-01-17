@@ -1,0 +1,5 @@
+# No preserved candidates
+# All 3 identified dead code files were removed:
+# - src/hooks/use-mobile.tsx
+# - src/lib/utils.ts
+# - src/utils/dataSync.ts
