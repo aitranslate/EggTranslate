@@ -1,4 +1,0 @@
-stores/index.ts
-stores/subtitleStore.ts
-stores/transcriptionStore.ts
-stores/translationConfigStore.ts

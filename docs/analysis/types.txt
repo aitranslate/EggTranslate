@@ -1,2 +1,0 @@
-types/index.ts
-types/transcription.ts

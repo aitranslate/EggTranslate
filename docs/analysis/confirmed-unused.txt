@@ -1,3 +1,0 @@
-src/hooks/use-mobile.tsx
-src/lib/utils.ts
-src/utils/dataSync.ts

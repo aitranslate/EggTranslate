@@ -1,2 +1,0 @@
-contexts/HistoryContext.tsx
-contexts/TermsContext.tsx
