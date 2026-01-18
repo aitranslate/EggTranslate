@@ -38,16 +38,19 @@ export const guideSections: GuideSection[] = [
     content: `1. 打开「设置 → 翻译设置」
 
 2. 获取 API Key：
+   • 推荐DeepSeek：https://platform.deepseek.com/
+     极高性价比：输入 0.2-2 元/百万tokens，输出 3 元/百万tokens
+
    • 推荐火山引擎：https://console.volcengine.com/
-     每天上千万免费 Tokens，支持 DeepSeek、GLM、豆包最新模型
+     每天上千万免费 Tokens，支持 DeepSeek、GLM、豆包等模型
 
-3. 填写配置（以火山引擎为例）：
+3. 填写配置（以 DeepSeek 为例）：
    • API Key：sk-xxxxx
-   • Base URL：https://ark.cn-beijing.volces.com/api/v3
+   • Base URL：https://api.deepseek.com
+   • 模型：deepseek-chat
 
-4. 选择模型
-5. 开启「反思翻译」优化质量（可选，耗时更长）
-6. 调整批次大小和并发数（可选）`,
+4. 开启「反思翻译」优化质量（可选，耗时更长）
+5. 调整批次大小和并发数（可选）`,
   },
   {
     id: 'translate',
