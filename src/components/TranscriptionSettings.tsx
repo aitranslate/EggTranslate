@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Download, RefreshCw, CheckCircle, Circle, Database, Trash2 } from 'lucide-react';
+import { Download, RefreshCw, CheckCircle, Circle, Database, Trash2, HelpCircle } from 'lucide-react';
 import { TranscriptionConfig, ModelStatus } from '@/types';
+import toast from 'react-hot-toast';
 
 interface TranscriptionSettingsProps {
   config: TranscriptionConfig;
@@ -67,6 +68,36 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
     return `约 ${minutes} 分钟`;
   };
 
+  // 检测 WebGPU 支持
+  const checkWebGPUSupport = async () => {
+    toast.loading('正在检测 WebGPU 支持...', { id: 'webgpu-check' });
+
+    try {
+      if (!('gpu' in navigator)) {
+        toast.dismiss('webgpu-check');
+        toast.error('浏览器不支持 WebGPU API', { id: 'webgpu-check' });
+        return;
+      }
+
+      const adapter = await (navigator as any).gpu.requestAdapter();
+      if (!adapter) {
+        toast.dismiss('webgpu-check');
+        toast.error('未找到可用的 GPU 适配器', { id: 'webgpu-check' });
+        return;
+      }
+
+      // 进一步验证：尝试获取设备
+      const device = await adapter.requestDevice();
+      device.destroy();
+
+      toast.dismiss('webgpu-check');
+      toast.success('当前浏览器支持 WebGPU', { id: 'webgpu-check' });
+    } catch (err) {
+      toast.dismiss('webgpu-check');
+      toast.error(`检测失败: ${(err as Error).message}`, { id: 'webgpu-check' });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* 模型选择 */}
@@ -94,17 +125,7 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
             <label className="block text-sm font-medium text-white/80 mb-2">
               计算后端
             </label>
-            <div className="flex gap-4">
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="backend"
-                  checked={config.backend === 'webgpu-hybrid'}
-                  onChange={() => onConfigChange({ backend: 'webgpu-hybrid' })}
-                  className="w-4 h-4 text-purple-500 bg-white/10 border-white/30 focus:ring-purple-500 focus:ring-2"
-                />
-                <span className="text-white/80">WebGPU (推荐，GPU加速)</span>
-              </label>
+            <div className="flex gap-4 items-center">
               <label className="flex items-center space-x-2 cursor-pointer">
                 <input
                   type="radio"
@@ -113,8 +134,25 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
                   onChange={() => onConfigChange({ backend: 'wasm' })}
                   className="w-4 h-4 text-purple-500 bg-white/10 border-white/30 focus:ring-purple-500 focus:ring-2"
                 />
-                <span className="text-white/80">WASM CPU</span>
+                <span className="text-white/80">WASM CPU (推荐)</span>
               </label>
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="backend"
+                  checked={config.backend === 'webgpu-hybrid'}
+                  onChange={() => onConfigChange({ backend: 'webgpu-hybrid' })}
+                  className="w-4 h-4 text-purple-500 bg-white/10 border-white/30 focus:ring-purple-500 focus:ring-2"
+                />
+                <span className="text-white/80">WebGPU (需浏览器支持)</span>
+              </label>
+              <button
+                onClick={checkWebGPUSupport}
+                className="ml-2 p-1.5 text-white/50 hover:text-white/80 transition-colors"
+                title="检测当前浏览器是否支持 WebGPU"
+              >
+                <HelpCircle className="h-4 w-4" />
+              </button>
             </div>
           </div>
 

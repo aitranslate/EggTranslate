@@ -66,8 +66,8 @@ const PARAKEET_CACHE_STORE = 'file-store';
 
 const DEFAULT_CONFIG: TranscriptionConfig = {
   repoId: 'istupakov/parakeet-tdt-0.6b-v2-onnx',
-  backend: 'webgpu-hybrid',
-  encoderQuant: 'fp32',
+  backend: 'wasm',
+  encoderQuant: 'int8',
   decoderQuant: 'int8',
 };
 
