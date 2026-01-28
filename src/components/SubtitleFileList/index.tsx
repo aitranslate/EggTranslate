@@ -29,7 +29,6 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
   onEditFile,
   onCloseEditModal
 }) => {
-  // 从 Store 获取数据和方法
   const files = useSubtitleStore((state) => state.files);
   const updateEntry = useSubtitleStore((state) => state.updateEntry);
   const removeFile = useSubtitleStore((state) => state.removeFile);
@@ -55,7 +54,6 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
   const [pendingTranscribeFileId, setPendingTranscribeFileId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // 处理转录点击
   const handleTranscribe = useCallback(async (fileId: string) => {
     if (modelStatus !== 'loaded') {
       setPendingTranscribeFileId(fileId);
@@ -80,25 +78,20 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
     setPendingTranscribeFileId(null);
   }, []);
 
-  // 单个文件翻译处理
   const handleStartTranslation = useCallback(async (file: SubtitleFile) => {
     setCurrentTranslatingFileId(file.id);
 
     try {
-      // 调用 Store 的翻译方法（包含重试机制和错误处理）
       await startTranslationFromStore(file.id);
 
-      // 检查文件是否已被删除（翻译中止时文件会被删除）
       const batchTasks = dataManager.getBatchTasks();
       const completedTask = batchTasks.tasks.find(t => t.taskId === file.taskId);
 
-      // 如果任务不存在了（被删除），不显示完成提示
       if (!completedTask) {
         console.log('[SubtitleFileList] 文件已删除，跳过完成提示');
         return;
       }
 
-      // 添加历史记录
       const finalTokens = completedTask.translation_progress?.tokens || 0;
       const actualCompleted = completedTask.subtitle_entries?.filter((entry) =>
         entry.translatedText && entry.translatedText.trim() !== ''
@@ -140,7 +133,6 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
     }
   }, [startTranslationFromStore, addHistoryEntry, handleError]);
 
-  // 批量翻译处理
   const handleStartAllTranslation = useCallback(async () => {
     if (files.length === 0 || isTranslatingGloballyState) return;
 
@@ -209,7 +201,6 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
   }, [fileToDelete, removeFile, handleError]);
 
   const handleExport = useCallback((file: SubtitleFile, format: 'srt' | 'txt' | 'bilingual') => {
-    // 使用基于 taskId 的统一导出服务
     let content = '';
     let extension: 'srt' | 'txt' = 'txt';
 
@@ -244,24 +235,24 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
       >
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-white">
+            <h3 className="apple-heading-medium">
               文件列表
             </h3>
-            <div className="flex items-center space-x-3">
-              <div className="text-sm text-white/70">
+            <div className="flex items-center gap-4">
+              <div className="text-sm text-gray-600">
                 共 {files.length} 个文件
               </div>
               <button
                 onClick={handleStartAllTranslation}
                 disabled={files.length === 0 || isTranslatingGloballyState}
-                className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-200 border border-green-500/30 transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="apple-button px-5 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span>全部开始</span>
               </button>
               <button
                 onClick={handleClearAll}
                 disabled={files.length === 0}
-                className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="apple-button apple-button-secondary px-5 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Trash2 className="h-4 w-4" />
                 <span>清空</span>
@@ -297,7 +288,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
         title="确认清空"
         message={`确定要清空所有 ${files.length} 个文件吗？此操作不可恢复。`}
         confirmText="确认清空"
-        confirmButtonClass="bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30"
+        confirmButtonClass="bg-red-500 hover:bg-red-600 text-white"
       />
 
       <ConfirmDialog
@@ -310,7 +301,7 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
         title="确认删除"
         message={fileToDelete ? `确定要删除文件 "${fileToDelete.name}" 吗？此操作不可恢复。` : ''}
         confirmText="确认删除"
-        confirmButtonClass="bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30"
+        confirmButtonClass="bg-red-500 hover:bg-red-600 text-white"
       />
 
       <TranscriptionPromptModal
@@ -329,7 +320,6 @@ export const SubtitleFileList: React.FC<SubtitleFileListProps> = ({
   );
 };
 
-// 辅助函数
 function formatTime(ms: number): string {
   const date = new Date(ms);
   const hours = String(Math.floor(ms / 3600000)).padStart(2, '0');

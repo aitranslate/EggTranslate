@@ -1,5 +1,4 @@
-import React, { useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Settings,
   BookOpen,
@@ -24,29 +23,53 @@ import { useTerms } from '@/contexts/TermsContext';
 import dataManager from '@/services/dataManager';
 import { useErrorHandler } from '@/hooks/useErrorHandler';
 
+// 滚动动画观察器 Hook
+const useScrollAnimation = () => {
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('animated');
+          }
+        });
+      },
+      {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+      }
+    );
+
+    document.querySelectorAll('.apple-animate-on-scroll').forEach((el) => {
+      observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, []);
+};
+
 export const MainApp: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
-  const [editingFileId, setEditingFileId] = useState<string | null>(null);  // ✅ 改为保存 ID
+  const [editingFileId, setEditingFileId] = useState<string | null>(null);
   const [isEditingModalOpen, setIsEditingModalOpen] = useState(false);
   const files = useFiles();
   const isConfigured = useIsTranslationConfigured();
   const { history } = useHistory();
   const { terms } = useTerms();
 
-  // 使用统一错误处理
   const { handleError } = useErrorHandler();
+  useScrollAnimation();
 
   const handleEditFile = useCallback((file: SubtitleFile) => {
-    setEditingFileId(file.id);  // ✅ 只保存 ID，让 SubtitleEditor 从 Store 实时订阅
+    setEditingFileId(file.id);
     setIsEditingModalOpen(true);
   }, []);
 
   const handleCloseEditModal = useCallback(async () => {
     try {
-      // 在关闭前强制持久化所有数据
       await dataManager.forcePersistAllData();
       console.log('数据已持久化到localforage');
     } catch (error) {
@@ -56,95 +79,100 @@ export const MainApp: React.FC = () => {
       });
     } finally {
       setIsEditingModalOpen(false);
-      setEditingFileId(null);  // ✅ 改为 setEditingFileId
+      setEditingFileId(null);
     }
   }, [handleError]);
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 overflow-x-hidden">
-      {/* 背景装饰 */}
-      <div className="absolute inset-0 opacity-20 overflow-hidden">
-        <div className="absolute top-0 left-0 w-72 h-72 bg-purple-500 rounded-full blur-3xl transform -translate-x-1/2 -translate-y-1/2"></div>
-        <div className="absolute top-1/2 right-0 w-96 h-96 bg-blue-500 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
-        <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-indigo-500 rounded-full blur-3xl transform translate-y-1/2"></div>
-      </div>
+    <div className="apple-style min-h-screen w-full">
+      {/* Apple 风格导航栏 */}
+      <nav className="apple-navbar">
+        <div className="apple-navbar-content">
+          <h1 className="apple-heading-small">蛋蛋字幕翻译</h1>
 
-      <div className="relative z-10 w-full">
-        {/* Header */}
-        <div className="bg-white/10 backdrop-blur-lg border-b border-white/20 shadow-lg">
-          <div className="max-w-6xl mx-auto px-4 py-4">
-            <div className="flex justify-between items-center">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                蛋蛋字幕翻译
-              </h1>
-              
-              {/* Navigation buttons - evenly spaced */}
-              <div className="flex items-center space-x-8">
-                <button
-                  onClick={() => setIsTermsOpen(true)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg transition-colors"
-                >
-                  <BookOpen className="h-4 w-4" />
-                  <span>术语</span>
-                  {terms.length > 0 && (
-                    <span className="px-1 py-0.5 text-xs bg-blue-400 text-blue-900 rounded">{terms.length}</span>
-                  )}
-                </button>
-                
-                <button
-                  onClick={() => setIsHistoryOpen(true)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg transition-colors"
-                >
-                  <History className="h-4 w-4" />
-                  <span>历史</span>
-                  {history.length > 0 && (
-                    <span className="px-1 py-0.5 text-xs bg-purple-400 text-purple-900 rounded">{history.length}</span>
-                  )}
-                </button>
-                
-                <button
-                  onClick={() => setIsSettingsOpen(true)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                    isConfigured
-                      ? 'bg-green-500/20 text-green-200 border border-green-500/30'
-                      : 'bg-orange-500/20 text-orange-200 border border-orange-500/30'
-                  }`}
-                >
-                  <Settings className="h-4 w-4" />
-                  <span>设置</span>
-                  {!isConfigured && (
-                    <span className="px-1 py-0.5 text-xs bg-orange-400 text-orange-900 rounded">必须</span>
-                  )}
-                </button>
-              </div>
-            </div>
+          <div className="flex items-center gap-6">
+            <button
+              onClick={() => setIsTermsOpen(true)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <BookOpen className="h-4 w-4" />
+              <span className="text-sm">术语</span>
+              {terms.length > 0 && (
+                <span className="px-1.5 py-0.5 text-xs bg-blue-500 text-white rounded-full">
+                  {terms.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setIsHistoryOpen(true)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <History className="h-4 w-4" />
+              <span className="text-sm">历史</span>
+              {history.length > 0 && (
+                <span className="px-1.5 py-0.5 text-xs bg-blue-500 text-white rounded-full">
+                  {history.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors ${
+                isConfigured
+                  ? 'text-gray-600 hover:bg-gray-100'
+                  : 'text-orange-600 bg-orange-50 hover:bg-orange-100'
+              }`}
+            >
+              <Settings className="h-4 w-4" />
+              <span className="text-sm">设置</span>
+              {!isConfigured && (
+                <span className="px-1.5 py-0.5 text-xs bg-orange-500 text-white rounded-full">
+                  必须
+                </span>
+              )}
+            </button>
           </div>
         </div>
+      </nav>
 
-        {/* 主内容区域 */}
-        <div className="w-full px-4 pb-8">
-          <div className="max-w-6xl mx-auto space-y-6 py-6">
-            {/* 批量文件上传 */}
+      {/* 主内容区域 */}
+      <main className="apple-container apple-section">
+        {/* Hero 区域 - 欢迎标题 */}
+        <div className="apple-animate-on-scroll text-center mb-16 pt-8">
+          <h2 className="apple-heading-hero mb-4">
+            字幕翻译，重新定义
+          </h2>
+          <p className="apple-body-large max-w-2xl mx-auto mb-8">
+            支持音视频转录、SRT 翻译、术语管理。本地处理，隐私安全。
+          </p>
+        </div>
+
+        {/* 上传区域 - 突出显示 */}
+        <div className="apple-animate-on-scroll apple-delay-100 mb-16">
+          <div className="apple-card-large p-12">
             <BatchFileUpload />
-
-            {/* 文件列表 */}
-            {files.length > 0 && (
-              <SubtitleFileList 
-                onEditFile={handleEditFile}
-                onCloseEditModal={handleCloseEditModal}
-              />
-            )}
-
-            </div>
+          </div>
         </div>
 
-        {/* 底部信息 */}
-        <footer className="w-full px-4 py-8">
-          <div className="text-center text-white/60 space-y-1">
-            <p className="text-sm">SRT 字幕翻译 • 音视频转录 • 本地处理 • 隐私安全</p>
+        {/* 文件列表 */}
+        {files.length > 0 && (
+          <div className="apple-animate-on-scroll apple-delay-200">
+            <SubtitleFileList
+              onEditFile={handleEditFile}
+              onCloseEditModal={handleCloseEditModal}
+            />
           </div>
-        </footer>
-      </div>
+        )}
+      </main>
+
+      {/* 底部信息 */}
+      <footer className="apple-container apple-section">
+        <div className="apple-body-small text-center text-gray-500">
+          <p>SRT 字幕翻译 • 音视频转录 • 本地处理 • 隐私安全</p>
+        </div>
+      </footer>
 
       {/* 模态框 */}
       <SettingsModal

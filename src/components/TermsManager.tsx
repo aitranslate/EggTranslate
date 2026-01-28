@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { useTerms } from '@/contexts/TermsContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, Edit3, Save, X, Upload, Download, BookOpen, Search } from 'lucide-react';
+import { Plus, Trash2, Edit3, Save, X, Upload, Download, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ConfirmDialog } from './ConfirmDialog';
 import { downloadTextFile } from '@/utils/fileExport';
@@ -23,7 +23,6 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
     exportTerms
   } = useTerms();
 
-  // 使用统一错误处理
   const { handleError } = useErrorHandler();
 
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -133,12 +132,11 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
     toast.success('术语导出成功');
   }, [exportTerms]);
 
-  // 搜索和筛选术语
   const filteredTerms = useMemo(() => {
     if (!searchTerm.trim()) return terms;
-    
+
     const searchLower = searchTerm.toLowerCase();
-    return terms.filter((term) => 
+    return terms.filter((term) =>
       term.original.toLowerCase().includes(searchLower) ||
       term.translation.toLowerCase().includes(searchLower)
     );
@@ -146,8 +144,6 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
 
   const onClearAll = useCallback(async () => {
     if (terms.length === 0) return;
-    
-    // 显示自定义确认对话框
     setShowClearConfirm(true);
   }, [terms.length]);
 
@@ -167,42 +163,39 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
+        initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.9 }}
-        className="bg-white/10 backdrop-blur-md rounded-xl p-6 w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
       >
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-2">
-            <BookOpen className="h-6 w-6 text-white" />
-            <h2 className="text-2xl font-bold text-white">术语管理</h2>
-            <span className="px-2 py-1 bg-purple-500/30 text-purple-200 text-sm rounded-full">
+          <div className="flex items-center gap-3">
+            <h2 className="apple-heading-medium">术语管理</h2>
+            <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-sm rounded-full font-medium">
               {terms.length} 个术语
             </span>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
-            <X className="h-5 w-5 text-white" />
+            <X className="h-5 w-5 text-gray-500" />
           </button>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-6 flex-1 overflow-y-auto">
           {/* 添加术语 */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-white border-b border-white/20 pb-2">
-              添加新术语
-            </h3>
+            <h3 className="apple-heading-small">添加新术语</h3>
             <div className="grid grid-cols-12 gap-3">
               <input
                 type="text"
                 placeholder="原文"
                 value={newOriginal}
                 onChange={(e) => setNewOriginal(e.target.value)}
-                className="col-span-3 p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-purple-400 transition-colors"
+                className="col-span-3 p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                 onKeyPress={(e) => e.key === 'Enter' && onAddTerm()}
               />
               <input
@@ -210,7 +203,7 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
                 placeholder="译文"
                 value={newTranslation}
                 onChange={(e) => setNewTranslation(e.target.value)}
-                className="col-span-3 p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-purple-400 transition-colors"
+                className="col-span-3 p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                 onKeyPress={(e) => e.key === 'Enter' && onAddTerm()}
               />
               <input
@@ -218,12 +211,12 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
                 placeholder="说明（可选）"
                 value={newNotes}
                 onChange={(e) => setNewNotes(e.target.value)}
-                className="col-span-4 p-3 bg-white/10 border border-white/20 rounded-lg text-white/70 placeholder-white/40 focus:outline-none focus:border-purple-400 transition-colors"
+                className="col-span-4 p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                 onKeyPress={(e) => e.key === 'Enter' && onAddTerm()}
               />
               <button
                 onClick={onAddTerm}
-                className="col-span-2 flex items-center justify-center space-x-2 px-4 py-3 bg-green-500/20 hover:bg-green-500/30 text-green-200 border border-green-500/30 rounded-lg transition-colors whitespace-nowrap"
+                className="col-span-2 apple-button bg-emerald-500 hover:bg-emerald-600"
               >
                 <Plus className="h-4 w-4" />
                 <span>添加</span>
@@ -233,13 +226,11 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
 
           {/* 导入/导出 */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-white border-b border-white/20 pb-2">
-              导入/导出
-            </h3>
-            <div className="flex flex-wrap items-center space-x-3">
+            <h3 className="apple-heading-small">导入/导出</h3>
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={() => setShowImport(!showImport)}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 rounded-lg transition-colors"
+                className="apple-button apple-button-secondary"
               >
                 <Upload className="h-4 w-4" />
                 <span>导入术语</span>
@@ -247,7 +238,7 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
               <button
                 onClick={onExport}
                 disabled={terms.length === 0}
-                className="flex items-center space-x-2 px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="apple-button apple-button-secondary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Download className="h-4 w-4" />
                 <span>导出术语</span>
@@ -255,7 +246,7 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
               <button
                 onClick={onClearAll}
                 disabled={terms.length === 0}
-                className="flex items-center space-x-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="apple-button apple-button-ghost text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Trash2 className="h-4 w-4" />
                 <span>清空全部</span>
@@ -276,18 +267,18 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
                     value={importText}
                     onChange={(e) => setImportText(e.target.value)}
                     rows={6}
-                    className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:border-purple-400 transition-colors resize-none"
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all resize-none"
                   />
-                  <div className="flex space-x-3">
+                  <div className="flex gap-3">
                     <button
                       onClick={onImport}
-                      className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 rounded-lg transition-colors"
+                      className="apple-button apple-button-secondary"
                     >
                       确认导入
                     </button>
                     <button
                       onClick={() => setShowImport(false)}
-                      className="px-4 py-2 bg-gray-500/20 hover:bg-gray-500/30 text-gray-200 border border-gray-500/30 rounded-lg transition-colors"
+                      className="apple-button apple-button-ghost"
                     >
                       取消
                     </button>
@@ -300,28 +291,26 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
           {/* 术语列表 */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-white border-b border-white/20 pb-2">
-                术语列表
-              </h3>
-              <div className="flex items-center space-x-3">
+              <h3 className="apple-heading-small">术语列表</h3>
+              <div className="flex items-center gap-3">
                 {/* 搜索框 */}
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/60" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <input
                     type="text"
                     placeholder="搜索..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-3 py-1.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/60 focus:outline-none focus:border-purple-400 transition-colors w-32"
+                    className="pl-10 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all w-40"
                   />
                 </div>
               </div>
             </div>
-            
-            <div className="space-y-2 h-96 overflow-y-auto">
+
+            <div className="space-y-2 h-80 overflow-y-auto">
               <AnimatePresence>
                 {filteredTerms.length === 0 ? (
-                  <div className="text-center py-8 text-white/60">
+                  <div className="text-center py-8 text-gray-500">
                     {searchTerm ? '没有找到匹配的术语' : '暂无术语，请添加术语或导入术语列表'}
                   </div>
                 ) : (
@@ -331,7 +320,7 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className="border border-white/20 rounded-lg p-4 bg-white/5 hover:bg-white/10 transition-colors"
+                      className="border border-gray-200 rounded-xl p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
                     >
                       {editingIndex === index ? (
                         <div className="space-y-3">
@@ -340,35 +329,35 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
                               type="text"
                               value={editOriginal}
                               onChange={(e) => setEditOriginal(e.target.value)}
-                              className="w-full p-2 bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:border-purple-400 transition-colors"
+                              className="w-full p-2 bg-white border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:border-blue-500 transition-colors"
                               placeholder="原文"
                             />
                             <input
                               type="text"
                               value={editTranslation}
                               onChange={(e) => setEditTranslation(e.target.value)}
-                              className="w-full p-2 bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:border-purple-400 transition-colors"
+                              className="w-full p-2 bg-white border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:border-blue-500 transition-colors"
                               placeholder="译文"
                             />
                             <input
                               type="text"
                               value={editNotes}
                               onChange={(e) => setEditNotes(e.target.value)}
-                              className="w-full p-2 bg-white/10 border border-white/20 rounded text-white/80 placeholder-white/40 focus:outline-none focus:border-purple-400 transition-colors"
+                              className="w-full p-2 bg-white border border-gray-200 rounded-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:border-blue-500 transition-colors"
                               placeholder="说明（可选）"
                             />
                           </div>
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center gap-2">
                             <button
                               onClick={onSaveEdit}
-                              className="flex items-center space-x-1 px-3 py-1 bg-green-500/20 hover:bg-green-500/30 text-green-200 border border-green-500/30 rounded transition-colors"
+                              className="apple-button bg-emerald-500 hover:bg-emerald-600 px-4 py-2 text-sm"
                             >
                               <Save className="h-3 w-3" />
                               <span>保存</span>
                             </button>
                             <button
                               onClick={onCancelEdit}
-                              className="flex items-center space-x-1 px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 rounded transition-colors"
+                              className="apple-button apple-button-ghost text-red-600 hover:bg-red-50 px-4 py-2 text-sm"
                             >
                               <X className="h-3 w-3" />
                               <span>取消</span>
@@ -379,32 +368,32 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
                         <div className="flex items-center justify-between">
                           <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                              <div className="text-sm text-white/60 mb-1">原文</div>
-                              <div className="text-white">{term.original}</div>
+                              <div className="text-sm text-gray-500 mb-1">原文</div>
+                              <div className="text-gray-900 font-medium">{term.original}</div>
                             </div>
                             <div>
-                              <div className="text-sm text-white/60 mb-1">译文</div>
-                              <div className="text-blue-200">{term.translation}</div>
+                              <div className="text-sm text-gray-500 mb-1">译文</div>
+                              <div className="text-blue-600 font-medium">{term.translation}</div>
                             </div>
                             <div>
-                              <div className="text-sm text-white/60 mb-1">说明</div>
-                              <div className={term.notes ? 'text-white' : 'text-white/40 italic'}>
+                              <div className="text-sm text-gray-500 mb-1">说明</div>
+                              <div className={term.notes ? 'text-gray-700' : 'text-gray-400 italic'}>
                                 {term.notes || '无'}
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-1 ml-4">
+                          <div className="flex items-center gap-1 ml-4">
                             <button
                               onClick={() => onStartEdit(index)}
-                              className="p-2 hover:bg-white/20 rounded transition-colors"
+                              className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
                             >
-                              <Edit3 className="h-4 w-4 text-white/60" />
+                              <Edit3 className="h-4 w-4 text-gray-500" />
                             </button>
                             <button
                               onClick={() => onRemoveTerm(index)}
-                              className="p-2 hover:bg-red-500/20 rounded transition-colors"
+                              className="p-2 hover:bg-red-100 rounded-lg transition-colors"
                             >
-                              <Trash2 className="h-4 w-4 text-red-400" />
+                              <Trash2 className="h-4 w-4 text-red-500" />
                             </button>
                           </div>
                         </div>
@@ -426,7 +415,7 @@ export const TermsManager: React.FC<TermsManagerProps> = ({ isOpen, onClose }) =
         title="确认清空"
         message={`确定要清空所有 ${terms.length} 个术语吗？此操作不可恢复。`}
         confirmText="确认清空"
-        confirmButtonClass="bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30"
+        confirmButtonClass="bg-red-500 hover:bg-red-600 text-white"
       />
     </div>
   );

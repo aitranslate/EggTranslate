@@ -4,7 +4,7 @@ import { useTranscriptionStore, useTranscriptionConfig, useModelStatus, useIsDow
 import { TranslationSettings } from './SettingsModal/TranslationSettings';
 import { TranscriptionSettings } from './TranscriptionSettings';
 import { motion } from 'framer-motion';
-import { X, Save, TestTube } from 'lucide-react';
+import { X, Save, TestTube, Settings as SettingsIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useErrorHandler } from '@/hooks/useErrorHandler';
 
@@ -57,7 +57,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     if (isOpen) {
       setFormData(config);
       setActiveTab('transcription');
-      setTestResult(null); // 重置测试结果
+      setTestResult(null);
     }
   }, [isOpen, config]);
 
@@ -134,41 +134,41 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
+        initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.9 }}
-        className="bg-white/10 backdrop-blur-md rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
       >
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-white">设置</h2>
+          <h2 className="apple-heading-medium">设置</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
-            <X className="h-5 w-5 text-white" />
+            <X className="h-5 w-5 text-gray-500" />
           </button>
         </div>
 
         {/* 标签页切换 */}
-        <div className="flex space-x-2 mb-6">
+        <div className="flex gap-2 mb-6 bg-gray-100 p-1 rounded-xl">
           <button
             onClick={() => setActiveTab('transcription')}
-            className={`px-6 py-2 rounded-lg transition-colors ${
+            className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
               activeTab === 'transcription'
-                ? 'bg-purple-500/30 text-purple-200 border border-purple-500/30'
-                : 'bg-white/5 text-white/60 hover:bg-white/10'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
             }`}
           >
             转录设置
           </button>
           <button
             onClick={() => setActiveTab('translation')}
-            className={`px-6 py-2 rounded-lg transition-colors ${
+            className={`flex-1 px-6 py-2.5 rounded-lg text-sm font-medium transition-all ${
               activeTab === 'translation'
-                ? 'bg-purple-500/30 text-purple-200 border border-purple-500/30'
-                : 'bg-white/5 text-white/60 hover:bg-white/10'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
             }`}
           >
             翻译设置
@@ -185,28 +185,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               />
 
               {/* 操作按钮 */}
-              <div className="flex justify-between items-center pt-4 border-t border-white/20">
+              <div className="flex justify-between items-center pt-4 border-t border-gray-200">
                 {/* 左侧：测试连接按钮 */}
                 <button
                   onClick={onTestConnection}
                   disabled={isTesting || !formData.apiKey}
-                  className="flex items-center space-x-2 px-6 py-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="apple-button apple-button-secondary px-6 py-2.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <TestTube className={`h-4 w-4 ${isTesting ? 'animate-spin' : ''}`} />
                   <span>{isTesting ? '测试中...' : '测试连接'}</span>
                 </button>
 
                 {/* 右侧：取消和保存按钮 */}
-                <div className="flex space-x-3">
+                <div className="flex gap-3">
                   <button
                     onClick={onClose}
-                    className="px-6 py-3 bg-gray-500/20 hover:bg-gray-500/30 text-gray-200 border border-gray-500/30 rounded-lg transition-colors"
+                    className="apple-button apple-button-ghost px-6 py-2.5 text-sm"
                   >
                     取消
                   </button>
                   <button
                     onClick={onSave}
-                    className="flex items-center space-x-2 px-6 py-3 bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 rounded-lg transition-colors"
+                    className="apple-button px-6 py-2.5 text-sm"
                   >
                     <Save className="h-4 w-4" />
                     <span>保存设置</span>

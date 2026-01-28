@@ -10,7 +10,7 @@ import dataManager from '@/services/dataManager';
 interface SubtitleEditorProps {
   isOpen: boolean;
   onClose: () => void;
-  fileId: string;  // 改为传递 ID，从 Store 实时订阅
+  fileId: string;
 }
 
 export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
@@ -18,17 +18,12 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   onClose,
   fileId
 }) => {
-  // ✅ 从 Store 获取文件元数据
   const file = useSubtitleStore((state) => state.getFile(fileId));
-
-  // ✅ 使用 getFileEntries 从 DataManager 延迟加载完整字幕条目
   const getFileEntries = useSubtitleStore((state) => state.getFileEntries);
   const entries = getFileEntries(fileId);
-
   const updateEntry = useSubtitleStore((state) => state.updateEntry);
   const deleteEntry = useSubtitleStore((state) => state.deleteEntry);
 
-  // 使用统一错误处理
   const { handleError } = useErrorHandler();
 
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -37,23 +32,19 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'translated' | 'untranslated'>('all');
 
-  // ✅ entries 来自 Store 订阅，会实时更新
   const fileEntries = useMemo(() => {
     return entries || [];
   }, [entries]);
 
-  // 筛选和搜索
   const filteredEntries = useMemo(() => {
     let filtered = fileEntries || [];
-    
-    // 按状态筛选
+
     if (filterType === 'translated') {
       filtered = filtered.filter((entry) => entry.translatedText);
     } else if (filterType === 'untranslated') {
       filtered = filtered.filter((entry) => !entry.translatedText);
     }
-    
-    // 按关键词搜索
+
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter((entry) =>
@@ -61,7 +52,7 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
         (entry.translatedText && entry.translatedText.toLowerCase().includes(term))
       );
     }
-    
+
     return filtered;
   }, [fileEntries, filterType, searchTerm]);
 
@@ -98,30 +89,26 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
 
     const toMerge: Array<{current: SubtitleEntry, next: SubtitleEntry}> = [];
 
-    // 收集需要合并的对
     for (let i = 0; i < fileEntries.length - 1; i++) {
       const current = fileEntries[i];
       const next = fileEntries[i + 1];
 
-      // 上条有翻译，下条无翻译（不管状态如何）
       if (current.translatedText && !next.translatedText) {
         toMerge.push({ current, next });
       }
     }
 
-    // 执行合并（注意：forEach 中不能使用 async，改用 for...of）
     for (const { current, next } of toMerge) {
       const mergedText = `${current.text} ${next.text}`;
       await updateEntry(file.id, current.id, mergedText, current.translatedText, 'completed');
       await deleteEntry(file.id, next.id);
     }
 
-    // 更新统计
     if (toMerge.length > 0) {
       const updateFileStatistics = useSubtitleStore.getState().updateFileStatistics;
       updateFileStatistics(file.id);
     }
-  }, [file, fileEntries, updateEntry]);
+  }, [file, fileEntries, updateEntry, deleteEntry]);
 
   const translationStats = useMemo(() => {
     const entriesArray = fileEntries || [];
@@ -139,100 +126,99 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="relative max-w-4xl w-full max-h-[90vh] bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 rounded-xl border border-white/20 shadow-2xl"
+        className="relative max-w-4xl w-full max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden"
       >
-        {/* 模态框头部 */}
-        <div className="flex items-center justify-between p-6 border-b border-white/20">
-          <div className="flex items-center space-x-3">
-            <FileText className="h-6 w-6 text-purple-400" />
-            <div>
-              <h3 className="text-xl font-semibold text-white">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center flex-shrink-0">
+              <FileText className="h-5 w-5 text-white" />
+            </div>
+            <div className="min-w-0 max-w-[calc(100%-100px)]">
+              <h3 className="apple-heading-small truncate" title={file?.name || '未知文件'}>
                 字幕编辑器 - {file?.name || '未知文件'}
               </h3>
-              <div className="text-sm text-white/60">
+              <div className="text-sm text-gray-500">
                 {translationStats.total} 条字幕
               </div>
             </div>
           </div>
-          
+
           <button
             onClick={onClose}
-            className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
           >
-            <X className="h-5 w-5 text-white/80" />
+            <X className="h-5 w-5 text-gray-500" />
           </button>
         </div>
 
-        {/* 模态框内容 */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-8rem)]">
+        {/* Content */}
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-88px)]">
           <div className="space-y-4">
-            {/* 头部控制 */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-              <div className="flex items-center space-x-2">
-                <h3 className="text-lg font-semibold text-white">
-                  字幕编辑器
-                </h3>
+            {/* Control Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={handleMerge}
-                  className="px-3 py-1 text-sm bg-white/10 hover:bg-white/20 rounded transition-colors text-white/80"
+                  className="apple-button apple-button-secondary text-sm"
                   title="合并空字幕"
                 >
-                  合并
+                  合并空字幕
                 </button>
               </div>
-              
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
-                {/* 搜索框 */}
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                {/* Search */}
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/60" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <input
                     type="text"
                     placeholder="搜索字幕..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/60 focus:outline-none focus:border-purple-400 transition-colors"
+                    className="pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                   />
                 </div>
-                
-                {/* 筛选器 */}
+
+                {/* Filter */}
                 <select
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value as 'all' | 'translated' | 'untranslated')}
-                  className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-purple-400 transition-colors"
+                  className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2 text-gray-700 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                 >
-                  <option value="all" className="bg-gray-800">全部</option>
-                  <option value="translated" className="bg-gray-800">已翻译</option>
-                  <option value="untranslated" className="bg-gray-800">未翻译</option>
+                  <option value="all">全部</option>
+                  <option value="translated">已翻译</option>
+                  <option value="untranslated">未翻译</option>
                 </select>
               </div>
             </div>
-            
-            {/* 统计信息 */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-white/5 rounded-lg">
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-xl">
               <div className="text-center">
-                <div className="text-xl font-bold text-white">{translationStats.total}</div>
-                <div className="text-xs text-white/60">总数</div>
+                <div className="text-xl font-bold text-gray-900">{translationStats.total}</div>
+                <div className="text-xs text-gray-600">总数</div>
               </div>
               <div className="text-center">
-                <div className="text-xl font-bold text-green-400">{translationStats.translated}</div>
-                <div className="text-xs text-white/60">已翻译</div>
+                <div className="text-xl font-bold text-emerald-600">{translationStats.translated}</div>
+                <div className="text-xs text-gray-600">已翻译</div>
               </div>
               <div className="text-center">
-                <div className="text-xl font-bold text-orange-400">{translationStats.untranslated}</div>
-                <div className="text-xs text-white/60">未翻译</div>
+                <div className="text-xl font-bold text-orange-600">{translationStats.untranslated}</div>
+                <div className="text-xs text-gray-600">未翻译</div>
               </div>
               <div className="text-center">
-                <div className="text-xl font-bold text-blue-400">{translationStats.percentage}%</div>
-                <div className="text-xs text-white/60">完成率</div>
+                <div className="text-xl font-bold text-blue-600">{translationStats.percentage}%</div>
+                <div className="text-xs text-gray-600">完成率</div>
               </div>
             </div>
 
-            {/* 字幕列表 */}
+            {/* Subtitle List */}
             <div className="space-y-3">
               <AnimatePresence>
                 {filteredEntries.map((entry) => (
@@ -241,60 +227,60 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="border border-white/20 rounded-lg p-4 bg-white/5 hover:bg-white/10 transition-colors"
+                    className="border border-gray-200 rounded-xl p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
                   >
                     <div className="flex items-start justify-between mb-2">
-                      <div className="text-sm text-white/60">
+                      <div className="text-sm text-gray-500">
                         #{entry.id} | {entry.startTime} {'-->'} {entry.endTime}
                       </div>
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center gap-1">
                         <button
                           onClick={() => onStartEdit(entry)}
-                          className="p-1 hover:bg-white/20 rounded transition-colors"
+                          className="p-1 hover:bg-gray-200 rounded-lg transition-colors"
                           title="编辑"
                         >
-                          <Edit3 className="h-4 w-4 text-white/60" />
+                          <Edit3 className="h-4 w-4 text-gray-500" />
                         </button>
                       </div>
                     </div>
-                    
+
                     {editingId === entry.id ? (
                       <div className="space-y-3">
-                        {/* 原文编辑 */}
+                        {/* Original Text */}
                         <div>
-                          <label className="block text-sm text-white/80 mb-1">原文</label>
+                          <label className="block text-sm text-gray-700 mb-1">原文</label>
                           <textarea
                             value={editText}
                             onChange={(e) => setEditText(e.target.value)}
-                            className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white resize-none focus:outline-none focus:border-purple-400 transition-colors"
+                            className="w-full p-3 bg-white border border-gray-200 rounded-lg text-gray-900 resize-none focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                             rows={2}
                           />
                         </div>
-                        
-                        {/* 译文编辑 */}
+
+                        {/* Translation */}
                         <div>
-                          <label className="block text-sm text-white/80 mb-1">译文</label>
+                          <label className="block text-sm text-gray-700 mb-1">译文</label>
                           <textarea
                             value={editTranslation}
                             onChange={(e) => setEditTranslation(e.target.value)}
                             placeholder="请输入翻译..."
-                            className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white resize-none focus:outline-none focus:border-purple-400 transition-colors"
+                            className="w-full p-3 bg-white border border-gray-200 rounded-lg text-gray-900 resize-none focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
                             rows={2}
                           />
                         </div>
-                        
-                        {/* 操作按钮 */}
-                        <div className="flex items-center space-x-2">
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2">
                           <button
                             onClick={onSaveEdit}
-                            className="flex items-center space-x-1 px-3 py-1 bg-green-500/20 hover:bg-green-500/30 text-green-200 border border-green-500/30 rounded transition-colors"
+                            className="apple-button bg-emerald-500 hover:bg-emerald-600 text-sm"
                           >
                             <Save className="h-3 w-3" />
                             <span>保存</span>
                           </button>
                           <button
                             onClick={onCancelEdit}
-                            className="flex items-center space-x-1 px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 rounded transition-colors"
+                            className="apple-button apple-button-ghost text-red-600 hover:bg-red-50 text-sm"
                           >
                             <X className="h-3 w-3" />
                             <span>取消</span>
@@ -303,8 +289,8 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        <div className="text-white">{entry.text}</div>
-                        <div className={`${entry.translatedText ? 'text-blue-200' : 'text-white/40 italic'}`}>
+                        <div className="text-gray-900">{entry.text}</div>
+                        <div className={`${entry.translatedText ? 'text-blue-600' : 'text-gray-400 italic'}`}>
                           {entry.translatedText || '未翻译'}
                         </div>
                       </div>
@@ -312,9 +298,9 @@ export const SubtitleEditor: React.FC<SubtitleEditorProps> = ({
                   </motion.div>
                 ))}
               </AnimatePresence>
-              
+
               {filteredEntries.length === 0 && (
-                <div className="text-center py-8 text-white/60">
+                <div className="text-center py-8 text-gray-500">
                   {searchTerm || filterType !== 'all' ? '没有找到匹配的字幕' : '没有字幕数据'}
                 </div>
               )}

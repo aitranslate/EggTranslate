@@ -32,7 +32,6 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
   isTranslatingGlobally,
   currentTranslatingFileId
 }) => {
-  // ✅ 派生状态：从 file.transcriptionStatus 计算，不单独存储
   const isTranscribing = useMemo(() =>
     file.transcriptionStatus === 'transcribing' ||
     file.transcriptionStatus === 'llm_merging' ||
@@ -42,21 +41,16 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
     [file.transcriptionStatus]
   );
 
-  // ✅ 派生状态：当前文件是否正在翻译
   const isTranslating = useMemo(() =>
     currentTranslatingFileId === file.id,
     [currentTranslatingFileId, file.id]
   );
 
-  // 使用统一错误处理
   const { handleError } = useErrorHandler();
 
   const translationStats = useMemo(() => {
-    // ✅ Phase 3: 直接使用缓存的统计信息
     const entryCount = file.entryCount ?? 0;
     const translatedCount = file.translatedCount ?? 0;
-
-    // ✅ Phase 3: 从 Store 的 tokensUsed 读取 tokens
     const tokens = file.tokensUsed ?? 0;
 
     return {
@@ -80,17 +74,17 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="border border-white/20 rounded-xl p-6 bg-white/5 hover:bg-white/10 transition-colors"
+      className="apple-card p-6"
     >
       {/* 文件头部信息 */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center space-x-3">
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div className="flex items-center gap-4 min-w-0 flex-1">
           <div className="flex-shrink-0">
             <FileIcon type={file.fileType} />
           </div>
-          <div>
-            <h4 className="font-medium text-white truncate max-w-xs" title={file.name}>{file.name}</h4>
-            <div className="text-xs text-white/60 mt-1">
+          <div className="min-w-0 flex-1">
+            <h4 className="font-medium text-gray-900 truncate" title={file.name}>{file.name}</h4>
+            <div className="text-sm text-gray-500 mt-1">
               {file.fileType === 'srt' ? (
                 <>{file.entryCount ?? 0} 条字幕</>
               ) : (
@@ -100,28 +94,28 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
           </div>
         </div>
 
-        <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+        <div className={`px-3 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
           file.fileType === 'srt' ? (
             translationStats.percentage === 100
-              ? 'bg-green-500/30 text-green-200'
+              ? 'bg-green-100 text-green-700'
               : isTranslating && translationStats.percentage > 0
-              ? 'bg-blue-500/30 text-blue-200'
+              ? 'bg-blue-100 text-blue-700'
               : translationStats.percentage > 0
-              ? 'bg-red-500/30 text-red-200'
-              : 'bg-gray-500/30 text-gray-200'
+              ? 'bg-orange-100 text-orange-700'
+              : 'bg-gray-100 text-gray-600'
           ) : (
             file.transcriptionStatus === 'completed' ? (
               translationStats.percentage === 100
-                ? 'bg-green-500/30 text-green-200'
+                ? 'bg-green-100 text-green-700'
                 : isTranslating && translationStats.percentage > 0
-                ? 'bg-blue-500/30 text-blue-200'
+                ? 'bg-blue-100 text-blue-700'
                 : translationStats.percentage > 0
-                ? 'bg-red-500/30 text-red-200'
-                : 'bg-green-500/30 text-green-200'
+                ? 'bg-orange-100 text-orange-700'
+                : 'bg-green-100 text-green-700'
             ) : (
               file.transcriptionStatus === 'failed'
-                ? 'bg-red-500/30 text-red-200'
-                : 'bg-gray-500/30 text-gray-200'
+                ? 'bg-red-100 text-red-700'
+                : 'bg-gray-100 text-gray-600'
             )
           )
         }`}>
@@ -144,7 +138,7 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
 
       {/* 进度条和操作按钮 */}
       <div className="mb-4">
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center gap-4">
           {/* 进度显示 */}
           <TranslationProgress file={file} translationStats={translationStats} />
 
@@ -167,12 +161,7 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
   );
 };
 
-/**
- * 记忆化的 SubtitleFileItem 组件
- * 使用自定义比较函数来避免不必要的重渲染
- */
 export const SubtitleFileItemMemo = memo(SubtitleFileItem, (prevProps, nextProps) => {
-  // 比较 file 对象的关键属性
   const fileKeys: (keyof SubtitleFile)[] = [
     'id',
     'name',
@@ -182,14 +171,12 @@ export const SubtitleFileItemMemo = memo(SubtitleFileItem, (prevProps, nextProps
     'taskId'
   ];
 
-  // 检查 file 对象的关键属性是否变化
   for (const key of fileKeys) {
     if (prevProps.file[key] !== nextProps.file[key]) {
-      return false; // 有变化，需要重渲染
+      return false;
     }
   }
 
-  // 检查 transcriptionProgress 是否变化（转录进度、tokens）
   const prevProgress = prevProps.file.transcriptionProgress;
   const nextProgress = nextProps.file.transcriptionProgress;
   if (prevProgress?.percent !== nextProgress?.percent ||
@@ -198,23 +185,18 @@ export const SubtitleFileItemMemo = memo(SubtitleFileItem, (prevProps, nextProps
     return false;
   }
 
-  // 检查 entries 数量是否变化（快速检查）
-  // ✅ Phase 3: 直接使用 entryCount
   const prevEntryCount = prevProps.file.entryCount ?? 0;
   const nextEntryCount = nextProps.file.entryCount ?? 0;
   if (prevEntryCount !== nextEntryCount) {
     return false;
   }
 
-  // 检查已翻译数量是否变化（影响进度显示）
-  // ✅ Phase 3: 直接使用 translatedCount
   const prevTranslated = prevProps.file.translatedCount ?? 0;
   const nextTranslated = nextProps.file.translatedCount ?? 0;
   if (prevTranslated !== nextTranslated) {
     return false;
   }
 
-  // 检查全局状态是否变化
   if (prevProps.isTranslatingGlobally !== nextProps.isTranslatingGlobally) {
     return false;
   }
@@ -223,9 +205,7 @@ export const SubtitleFileItemMemo = memo(SubtitleFileItem, (prevProps, nextProps
     return false;
   }
 
-  // 所有关键属性都未变化，可以跳过重渲染
   return true;
 });
 
-// 默认导出记忆化版本，保持向后兼容
 export default SubtitleFileItemMemo;

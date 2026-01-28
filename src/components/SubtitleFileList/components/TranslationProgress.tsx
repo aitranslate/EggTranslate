@@ -18,7 +18,6 @@ export const TranslationProgress: React.FC<TranslationProgressProps> = ({
   file,
   translationStats = { total: 0, translated: 0, untranslated: 0, percentage: 0, tokens: 0 }
 }) => {
-  // 判断当前状态（使用 useMemo 优化性能）
   const isTranscribing = useMemo(() =>
     file.transcriptionStatus === 'transcribing' ||
     file.transcriptionStatus === 'llm_merging' ||
@@ -28,15 +27,12 @@ export const TranslationProgress: React.FC<TranslationProgressProps> = ({
     [file.transcriptionStatus]
   );
 
-  // SRT 文件或已开始翻译（使用 useMemo 优化性能）
   const isTranslationPhase = useMemo(() =>
     file.fileType === 'srt' || (translationStats?.percentage ?? 0) > 0,
     [file.fileType, translationStats?.percentage]
   );
 
-  // 计算进度信息（使用 useMemo 避免重复计算）
   const progressInfo = useMemo(() => {
-    // 计算进度标题
     let progressTitle: string;
     if (isTranscribing) {
       progressTitle = '转录进度';
@@ -48,29 +44,25 @@ export const TranslationProgress: React.FC<TranslationProgressProps> = ({
       progressTitle = '转录进度';
     }
 
-    // 计算进度百分比
     let progressPercent: number;
     if (isTranscribing) {
       progressPercent = file.transcriptionProgress?.percent ?? 0;
     } else if (isTranslationPhase) {
       progressPercent = translationStats?.percentage ?? 0;
     } else if (file.transcriptionStatus === 'completed') {
-      progressPercent = 100; // 转录完成
+      progressPercent = 100;
     } else {
-      progressPercent = 0; // 未开始
+      progressPercent = 0;
     }
 
-    // 进度条颜色
     const progressColor = progressPercent === 100
-      ? 'from-green-400 to-emerald-400'
+      ? 'from-emerald-500 to-green-500'
       : isTranscribing
-      ? 'from-teal-400 to-cyan-400'
-      : 'from-purple-400 to-blue-400';
+      ? 'from-teal-500 to-cyan-500'
+      : 'from-blue-500 to-purple-500';
 
-    // 左下角进度详情
     let progressDetail: string;
     if (isTranscribing) {
-      // 转录中
       if (file.transcriptionStatus === 'transcribing') {
         progressDetail = `转录 ${file.transcriptionProgress?.currentChunk || 0} / ${file.transcriptionProgress?.totalChunks || 0}`;
       } else if (file.transcriptionStatus === 'llm_merging') {
@@ -81,20 +73,16 @@ export const TranslationProgress: React.FC<TranslationProgressProps> = ({
         progressDetail = '处理中...';
       }
     } else if (isTranslationPhase) {
-      // 翻译阶段
       progressDetail = `${translationStats?.translated ?? 0} / ${translationStats?.total ?? 0} 已翻译`;
     } else if (file.transcriptionStatus === 'completed') {
-      // 转录完成但未翻译
       progressDetail = `字幕 ${translationStats?.total ?? 0} 条`;
     } else {
-      // 未开始
       progressDetail = '等待转录';
     }
 
     return { progressTitle, progressPercent, progressColor, progressDetail };
   }, [isTranscribing, isTranslationPhase, file.transcriptionStatus, file.transcriptionProgress, translationStats]);
 
-  // 右下角 tokens（统一从 translationStats 读取，由 dataManager 实时更新）
   const tokensDisplay = useMemo(() => {
     const tokens = translationStats?.tokens ?? 0;
     return `${tokens.toLocaleString()} tokens`;
@@ -104,12 +92,12 @@ export const TranslationProgress: React.FC<TranslationProgressProps> = ({
     <div className="flex-grow relative">
       {/* 左上方：进度标题 | 右上角：百分比 */}
       <div className="flex justify-between items-center mb-2">
-        <span className="text-sm text-white/70">{progressInfo.progressTitle}</span>
-        <span className="text-sm text-white/70">{progressInfo.progressPercent}%</span>
+        <span className="text-sm text-gray-600">{progressInfo.progressTitle}</span>
+        <span className="text-sm font-medium text-gray-900">{progressInfo.progressPercent}%</span>
       </div>
 
       {/* 进度条 */}
-      <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+      <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
         <motion.div
           className={`h-full rounded-full bg-gradient-to-r ${progressInfo.progressColor}`}
           initial={{ width: '0%' }}
@@ -119,9 +107,9 @@ export const TranslationProgress: React.FC<TranslationProgressProps> = ({
       </div>
 
       {/* 左下角：进度详情 | 右下角：tokens */}
-      <div className="flex justify-between text-xs text-white/60 mt-1">
+      <div className="flex justify-between text-xs text-gray-500 mt-1">
         <span>{progressInfo.progressDetail}</span>
-        <span className="flex items-center space-x-1">
+        <span className="flex items-center gap-1">
           <Zap className="h-3 w-3" />
           <span>{tokensDisplay}</span>
         </span>

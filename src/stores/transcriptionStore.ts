@@ -228,6 +228,7 @@ export const useTranscriptionStore = create<TranscriptionStore>()(
           };
 
           await getParakeetModel(config.repoId, {
+            backend: config.backend,
             encoderQuant: config.encoderQuant,
             decoderQuant: config.decoderQuant,
             preprocessor: 'nemo128',

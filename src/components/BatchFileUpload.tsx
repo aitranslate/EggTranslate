@@ -15,13 +15,11 @@ export const BatchFileUpload: React.FC<BatchFileUploadProps> = ({ className }) =
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 使用统一错误处理
   const { handleError } = useErrorHandler();
 
   const handleFile = useCallback(async (file: File) => {
     const ext = file.name.toLowerCase().split('.').pop();
 
-    // 支持的文件类型
     const supportedTypes = ['srt', 'mp3', 'wav', 'm4a', 'ogg', 'flac', 'mp4', 'webm', 'mkv', 'avi', 'mov'];
 
     if (!ext || !supportedTypes.includes(ext)) {
@@ -32,9 +30,6 @@ export const BatchFileUpload: React.FC<BatchFileUploadProps> = ({ className }) =
     try {
       setIsUploading(true);
       await addFile(file);
-
-      // 文件由Store管理，不需要本地状态
-
       toast.success(`成功加载 ${file.name}`);
     } catch (err) {
       handleError(err, {
@@ -65,14 +60,13 @@ export const BatchFileUpload: React.FC<BatchFileUploadProps> = ({ className }) =
   const onFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     files.forEach(file => handleFile(file));
-    
-    // 重置文件输入框的值，确保可以再次选择同一个文件
+
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   }, [handleFile]);
 
-  
+
   return (
     <div className={className}>
       <motion.div
@@ -80,14 +74,13 @@ export const BatchFileUpload: React.FC<BatchFileUploadProps> = ({ className }) =
         animate={{ opacity: 1, y: 0 }}
         className="w-full"
       >
-        {/* 批量上传区域 */}
+        {/* 批量上传区域 - Apple 风格 */}
         <div
           className={`
-            relative w-full p-8 border-2 border-dashed rounded-xl transition-all duration-300
-            backdrop-blur-sm bg-white/10 hover:bg-white/20
-            ${isDragging 
-              ? 'border-purple-400 bg-purple-500/20 scale-105' 
-              : 'border-white/30 hover:border-white/50'
+            relative w-full p-12 border-2 border-dashed rounded-2xl transition-all duration-300
+            ${isDragging
+              ? 'border-blue-500 bg-blue-50 scale-[1.02]'
+              : 'border-gray-300 hover:border-blue-400 bg-gray-50/50'
             }
             ${isUploading ? 'pointer-events-none opacity-50' : ''}
           `}
@@ -104,34 +97,36 @@ export const BatchFileUpload: React.FC<BatchFileUploadProps> = ({ className }) =
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             disabled={isUploading}
           />
-          
-          <div className="flex flex-col items-center justify-center space-y-4">
+
+          <div className="flex flex-col items-center justify-center space-y-6">
             {isUploading ? (
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+              <div className="animate-spin rounded-full h-16 w-16 border-2 border-blue-500 border-t-transparent"></div>
             ) : (
-              <Upload className="h-12 w-12 text-white/80" />
+              <div className="w-16 h-16 rounded-full bg-blue-500 flex items-center justify-center">
+                <Upload className="h-8 w-8 text-white" />
+              </div>
             )}
-            
+
             <div className="text-center">
-              <h3 className="text-xl font-semibold text-white mb-2">
+              <h3 className="text-2xl font-semibold text-gray-900 mb-3">
                 {isDragging ? '放开文件即可上传' : '拖拽上传 SRT 字幕或音视频文件'}
               </h3>
-              <p className="text-white/70">
+              <p className="text-gray-600 text-lg mb-2">
                 {isUploading ? '正在加载...' : '拖拽多个文件到此处或点击选择文件'}
               </p>
-              <p className="text-sm text-white/60 mt-1">
+              <p className="text-sm text-gray-500">
                 支持 .srt .mp3 .wav .m4a .mp4 .webm .ogg 等格式
               </p>
             </div>
-            
-            <div className="flex items-center space-x-2 text-sm text-white/60">
+
+            <div className="flex items-center gap-2 text-sm text-gray-500">
               <FileText className="h-4 w-4" />
               <span>支持多文件上传</span>
             </div>
           </div>
         </div>
 
-        </motion.div>
+      </motion.div>
     </div>
   );
 };

@@ -18,9 +18,7 @@ export const TranslationSettings: React.FC<TranslationSettingsProps> = ({
     <>
       {/* API 配置 */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-white border-b border-white/20 pb-2">
-          API 配置
-        </h3>
+        <h3 className="apple-heading-small">API 配置</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <ApiTestForm config={config} onConfigChange={onConfigChange} testResult={testResult} />
@@ -29,9 +27,7 @@ export const TranslationSettings: React.FC<TranslationSettingsProps> = ({
 
       {/* 语言配置 */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-white border-b border-white/20 pb-2">
-          语言配置
-        </h3>
+        <h3 className="apple-heading-small">语言配置</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <LanguageSelector
@@ -49,13 +45,11 @@ export const TranslationSettings: React.FC<TranslationSettingsProps> = ({
 
       {/* 翻译参数 */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-white border-b border-white/20 pb-2">
-          翻译参数
-        </h3>
+        <h3 className="apple-heading-small">翻译参数</h3>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium text-white/80 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               前置上下文
             </label>
             <input
@@ -64,12 +58,12 @@ export const TranslationSettings: React.FC<TranslationSettingsProps> = ({
               max="10"
               value={config.contextBefore}
               onChange={(e) => onConfigChange('contextBefore', parseInt(e.target.value))}
-              className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 transition-colors"
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-white/80 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               后置上下文
             </label>
             <input
@@ -78,12 +72,12 @@ export const TranslationSettings: React.FC<TranslationSettingsProps> = ({
               max="10"
               value={config.contextAfter}
               onChange={(e) => onConfigChange('contextAfter', parseInt(e.target.value))}
-              className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 transition-colors"
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-white/80 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               批次大小
             </label>
             <input
@@ -92,12 +86,12 @@ export const TranslationSettings: React.FC<TranslationSettingsProps> = ({
               max="50"
               value={config.batchSize}
               onChange={(e) => onConfigChange('batchSize', parseInt(e.target.value))}
-              className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 transition-colors"
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-white/80 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               线程数
             </label>
             <input
@@ -106,14 +100,14 @@ export const TranslationSettings: React.FC<TranslationSettingsProps> = ({
               max="10"
               value={config.threadCount}
               onChange={(e) => onConfigChange('threadCount', parseInt(e.target.value))}
-              className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 transition-colors"
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
             />
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-white/80 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               RPM 限制 (每分钟请求数)
             </label>
             <input
@@ -123,7 +117,7 @@ export const TranslationSettings: React.FC<TranslationSettingsProps> = ({
               placeholder="不限制"
               value={config.rpm || ''}
               onChange={(e) => onConfigChange('rpm', e.target.value === '' ? 0 : parseInt(e.target.value))}
-              className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-purple-400 transition-colors"
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
             />
           </div>
 
@@ -141,18 +135,18 @@ export const TranslationSettings: React.FC<TranslationSettingsProps> = ({
                 />
                 <div
                   className={`block w-14 h-8 rounded-full transition-colors ${
-                    config.enableReflection ? 'bg-purple-500' : 'bg-white/10'
+                    config.enableReflection ? 'bg-blue-500' : 'bg-gray-300'
                   }`}
                 ></div>
                 <div
-                  className={`absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${
+                  className={`absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform shadow-sm ${
                     config.enableReflection ? 'transform translate-x-6' : ''
                   }`}
                 ></div>
               </div>
-              <div className="ml-3 text-white/80">
-                反思翻译
-                <p className="text-xs text-white/60 mt-1">
+              <div className="ml-3 text-gray-700">
+                <div className="font-medium">反思翻译</div>
+                <p className="text-xs text-gray-500 mt-1">
                   提高翻译质量，但会消耗更多tokens
                 </p>
               </div>

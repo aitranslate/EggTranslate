@@ -32,7 +32,6 @@ export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
 }) => {
   const [isExporting, setIsExporting] = useState(false);
 
-  // ✅ 派生状态：从 file.transcriptionStatus 计算
   const isTranscribing = useMemo(() =>
     file.transcriptionStatus === 'transcribing' ||
     file.transcriptionStatus === 'llm_merging' ||
@@ -48,18 +47,18 @@ export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
   };
 
   return (
-    <div className="flex items-center space-x-2">
-      {/* 转录按钮 - SRT文件禁用, 已完成的音视频文件禁用 */}
+    <div className="flex items-center gap-2">
+      {/* 转录按钮 */}
       <button
         onClick={(e) => {
           e.stopPropagation();
           onTranscribe();
         }}
         disabled={!canRetranscribe(file) || isTranscribing}
-        className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 ${
+        className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 ${
           !canRetranscribe(file) || isTranscribing
-            ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30 cursor-not-allowed'
-            : 'bg-teal-500/20 hover:bg-teal-500/30 text-teal-200 border border-teal-500/30 hover:scale-110'
+            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm hover:shadow-md active:scale-95'
         }`}
         title={
           isTranscribing
@@ -72,7 +71,7 @@ export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
         }
       >
         {isTranscribing ? (
-          <div className="animate-spin h-4 w-4 border-2 border-teal-300 border-t-transparent rounded-full" />
+          <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
         ) : (
           <Mic className="h-4 w-4" />
         )}
@@ -91,14 +90,14 @@ export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
           (file.fileType !== 'srt' && file.transcriptionStatus !== 'completed')
         }
         className={`
-          flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200
+          flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200
           ${translationStats.percentage === 100
-            ? 'bg-green-500/20 text-green-200 border border-green-500/30'
+            ? 'bg-green-500 text-white shadow-sm'
             : isTranslating || currentTranslatingFileId === file.id
-            ? 'bg-orange-500/20 text-orange-200 border border-orange-500/30 cursor-not-allowed'
+            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
             : (isTranslatingGlobally && !isTranslating) || (file.fileType !== 'srt' && file.transcriptionStatus !== 'completed')
-            ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30 cursor-not-allowed'
-            : 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/30 hover:scale-110'
+            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            : 'bg-blue-500 hover:bg-blue-600 text-white shadow-sm hover:shadow-md active:scale-95'
           }
         `}
         title={
@@ -110,7 +109,7 @@ export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
         }
       >
         {isTranslating || currentTranslatingFileId === file.id ? (
-          <div className="animate-spin h-4 w-4 border-2 border-orange-300 border-t-transparent rounded-full" />
+          <div className="animate-spin h-4 w-4 border-2 border-gray-400 border-t-transparent rounded-full" />
         ) : (
           <Languages className="h-4 w-4" />
         )}
@@ -122,7 +121,7 @@ export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
           e.stopPropagation();
           onEdit();
         }}
-        className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 border border-blue-500/30 transition-all duration-200 hover:scale-110"
+        className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 transition-all duration-200 active:scale-95"
         title="编辑"
       >
         <Edit3 className="h-4 w-4" />
@@ -136,10 +135,10 @@ export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
             setIsExporting(!isExporting);
           }}
           disabled={(file.entryCount ?? 0) === 0 || isTranslating}
-          className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 ${
+          className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-200 ${
             (file.entryCount ?? 0) === 0 || isTranslating
-              ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30 cursor-not-allowed'
-              : 'bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 hover:scale-110'
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : 'bg-gray-100 hover:bg-gray-200 text-gray-700 active:scale-95'
           }`}
           title="导出"
         >
@@ -147,39 +146,38 @@ export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
         </button>
 
         {isExporting && (
-          <div className="absolute bottom-full mb-2 right-0 z-50">
-            <div className="bg-black/90 backdrop-blur-sm rounded-lg p-1 space-y-1 min-w-[140px] shadow-2xl border border-white/20">
-              <button
-                onClick={() => handleExport('srt')}
-                className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/20 rounded-md transition-colors duration-150 flex items-center space-x-2"
-              >
-                <span>📄</span>
-                <span>SRT 格式</span>
-              </button>
-              <button
-                onClick={() => handleExport('txt')}
-                className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/20 rounded-md transition-colors duration-150 flex items-center space-x-2"
-              >
-                <span>📝</span>
-                <span>TXT 格式</span>
-              </button>
-              <button
-                onClick={() => handleExport('bilingual')}
-                className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/20 rounded-md transition-colors duration-150 flex items-center space-x-2"
-              >
-                <span>🔄</span>
-                <span>双语对照</span>
-              </button>
+          <>
+            <div className="absolute bottom-full mb-2 right-0 z-50">
+              <div className="bg-white rounded-xl shadow-xl border border-gray-200 p-1 min-w-[160px]">
+                <button
+                  onClick={() => handleExport('srt')}
+                  className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-3"
+                >
+                  <span>📄</span>
+                  <span>SRT 格式</span>
+                </button>
+                <button
+                  onClick={() => handleExport('txt')}
+                  className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-3"
+                >
+                  <span>📝</span>
+                  <span>TXT 格式</span>
+                </button>
+                <button
+                  onClick={() => handleExport('bilingual')}
+                  className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-3"
+                >
+                  <span>🔄</span>
+                  <span>双语对照</span>
+                </button>
+              </div>
             </div>
-          </div>
-        )}
 
-        {/* 点击外部区域关闭菜单的遮罩层 */}
-        {isExporting && (
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setIsExporting(false)}
-          />
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setIsExporting(false)}
+            />
+          </>
         )}
       </div>
 
@@ -189,7 +187,7 @@ export const FileActionButtons: React.FC<FileActionButtonsProps> = ({
           e.stopPropagation();
           onDelete();
         }}
-        className="flex items-center justify-center w-8 h-8 rounded-full bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 transition-all duration-200 hover:scale-110"
+        className="flex items-center justify-center w-10 h-10 rounded-full bg-red-50 hover:bg-red-100 text-red-600 transition-all duration-200 active:scale-95"
         title="删除"
       >
         <Trash2 className="h-4 w-4" />

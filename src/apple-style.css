@@ -1,0 +1,292 @@
+/**
+ * Apple Design System - Light Theme
+ * 基于 Apple.com 官方设计规范
+ */
+
+/* ===== CSS 变量 ===== */
+:root {
+  /* 色彩系统 */
+  --apple-bg-primary: #ffffff;
+  --apple-bg-secondary: #f5f5f7;
+  --apple-bg-tertiary: #e8e8ed;
+
+  --apple-text-primary: #1d1d1f;
+  --apple-text-secondary: #86868b;
+  --apple-text-tertiary: #a1a1a6;
+
+  --apple-blue: #0071e3;
+  --apple-blue-hover: #0077ed;
+  --apple-blue-active: #0062cc;
+
+  --apple-border-light: #d2d2d7;
+  --apple-border-lighter: #e8e8ed;
+
+  /* 字体系统 */
+  --apple-font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "SF Pro Text", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+
+  /* 间距系统 */
+  --apple-section-spacing: 120px;
+  --apple-section-spacing-mobile: 80px;
+  --apple-content-max-width: 980px;
+  --apple-content-padding: 24px;
+
+  /* 圆角系统 */
+  --apple-radius-button: 980px; /* 药丸形状 */
+  --apple-radius-card: 18px;
+  --apple-radius-card-large: 28px;
+
+  /* 动画 */
+  --apple-transition-fast: 0.3s ease;
+  --apple-transition-smooth: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* 阴影系统 */
+  --apple-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --apple-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --apple-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+/* ===== 基础重置 ===== */
+.apple-style {
+  font-family: var(--apple-font-stack);
+  background-color: var(--apple-bg-primary);
+  color: var(--apple-text-primary);
+  line-height: 1.47059;
+  font-weight: 400;
+  letter-spacing: -0.022em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===== 容器系统 ===== */
+.apple-container {
+  max-width: var(--apple-content-max-width);
+  margin: 0 auto;
+  padding: 0 var(--apple-content-padding);
+}
+
+.apple-section {
+  padding: var(--apple-section-spacing) 0;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --apple-section-spacing: var(--apple-section-spacing-mobile);
+    --apple-content-padding: 20px;
+  }
+}
+
+/* ===== 排版系统 ===== */
+.apple-heading-hero {
+  font-size: clamp(40px, 5vw, 56px);
+  line-height: 1.07143;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--apple-text-primary);
+}
+
+.apple-heading-large {
+  font-size: clamp(32px, 4vw, 48px);
+  line-height: 1.08349;
+  font-weight: 600;
+  letter-spacing: 0.007em;
+  color: var(--apple-text-primary);
+}
+
+.apple-heading-medium {
+  font-size: clamp(24px, 3vw, 32px);
+  line-height: 1.1;
+  font-weight: 600;
+  color: var(--apple-text-primary);
+}
+
+.apple-heading-small {
+  font-size: 21px;
+  line-height: 1.23536;
+  font-weight: 600;
+  letter-spacing: 0.011em;
+  color: var(--apple-text-primary);
+}
+
+.apple-body-large {
+  font-size: 21px;
+  line-height: 1.381;
+  font-weight: 400;
+  letter-spacing: -0.031em;
+  color: var(--apple-text-secondary);
+}
+
+.apple-body {
+  font-size: 17px;
+  line-height: 1.47059;
+  font-weight: 400;
+  letter-spacing: -0.022em;
+  color: var(--apple-text-secondary);
+}
+
+.apple-body-small {
+  font-size: 14px;
+  line-height: 1.42859;
+  font-weight: 400;
+  letter-spacing: -0.016em;
+  color: var(--apple-text-secondary);
+}
+
+/* ===== 按钮系统 ===== */
+.apple-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.17648;
+  letter-spacing: -0.022em;
+  text-align: center;
+  text-decoration: none;
+  border-radius: var(--apple-radius-button);
+  border: none;
+  cursor: pointer;
+  transition: all var(--apple-transition-fast);
+  background-color: var(--apple-blue);
+  color: #ffffff;
+  min-height: 44px;
+}
+
+.apple-button:hover {
+  background-color: var(--apple-blue-hover);
+  transform: scale(1.02);
+}
+
+.apple-button:active {
+  background-color: var(--apple-blue-active);
+  transform: scale(0.98);
+}
+
+.apple-button-secondary {
+  background-color: transparent;
+  color: var(--apple-blue);
+  border: 1px solid var(--apple-blue);
+}
+
+.apple-button-secondary:hover {
+  background-color: rgba(0, 113, 227, 0.08);
+}
+
+.apple-button-ghost {
+  background-color: transparent;
+  color: var(--apple-text-primary);
+  border: none;
+}
+
+.apple-button-ghost:hover {
+  background-color: var(--apple-bg-secondary);
+}
+
+/* ===== 卡片系统 ===== */
+.apple-card {
+  background-color: var(--apple-bg-primary);
+  border-radius: var(--apple-radius-card);
+  box-shadow: var(--apple-shadow-sm);
+  transition: box-shadow var(--apple-transition-fast);
+  overflow: hidden;
+}
+
+.apple-card:hover {
+  box-shadow: var(--apple-shadow-md);
+}
+
+.apple-card-large {
+  border-radius: var(--apple-radius-card-large);
+  box-shadow: var(--apple-shadow-md);
+}
+
+.apple-card-large:hover {
+  box-shadow: var(--apple-shadow-lg);
+}
+
+/* ===== 导航栏 ===== */
+.apple-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background-color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--apple-border-lighter);
+}
+
+.apple-navbar-content {
+  max-width: var(--apple-content-max-width);
+  margin: 0 auto;
+  padding: 0 var(--apple-content-padding);
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ===== 动画系统 ===== */
+
+/* 滚动淡入上浮动画 */
+@keyframes apple-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.apple-animate-on-scroll {
+  opacity: 0;
+  animation: apple-fade-in-up 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.apple-animate-on-scroll.animated {
+  opacity: 1;
+}
+
+/* 延迟类 */
+.apple-delay-100 { animation-delay: 0.1s; }
+.apple-delay-200 { animation-delay: 0.2s; }
+.apple-delay-300 { animation-delay: 0.3s; }
+.apple-delay-400 { animation-delay: 0.4s; }
+.apple-delay-500 { animation-delay: 0.5s; }
+
+/* 尊重用户的减少动画偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .apple-animate-on-scroll {
+    opacity: 1;
+    animation: none;
+  }
+
+  .apple-button:hover {
+    transform: none;
+  }
+
+  .apple-button:active {
+    transform: scale(0.98);
+  }
+}
+
+/* ===== 辅助类 ===== */
+.apple-text-center { text-align: center; }
+.apple-text-gradient {
+  background: linear-gradient(90deg, #1d1d1f 0%, #424245 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.apple-flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.apple-w-full { width: 100%; }
+.apple-h-full { height: 100%; }
