@@ -1,7 +1,7 @@
 // src/components/GuideModal.tsx
 import React from 'react';
 import { motion } from 'framer-motion';
-import { X, BookOpen } from 'lucide-react';
+import { X } from 'lucide-react';
 import { guideSections } from '@/data/guideContent';
 
 interface GuideModalProps {
@@ -22,12 +22,7 @@ export const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
-              <BookOpen className="h-5 w-5 text-white" />
-            </div>
-            <h2 className="apple-heading-medium">使用指南</h2>
-          </div>
+          <h2 className="apple-heading-medium">使用指南</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
