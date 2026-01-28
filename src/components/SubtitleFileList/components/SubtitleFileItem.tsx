@@ -74,7 +74,7 @@ export const SubtitleFileItem: React.FC<SubtitleFileItemProps> = ({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="apple-card p-6"
+      className="apple-card p-6 overflow-visible"
     >
       {/* 文件头部信息 */}
       <div className="flex items-start justify-between gap-4 mb-4">
